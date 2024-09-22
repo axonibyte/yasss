@@ -27,6 +27,23 @@ public enum ParamEnum {
   API_ALLOWED_ORIGINS(new Param("api.allowedOrigins", "*")),
 
   /**
+   * Require a CAPTCHA when a CAPTCHA would normally be required (e.g. when
+   * creating a new event or signing up for an event.
+   */
+  AUTH_REQUIRE_CAPTCHA(new Param("auth.requireCAPTCHA")),
+
+  /**
+   * Require a password when a password would normally be required (e.g. when
+   * editing an event or volunteer response.
+   */
+  AUTH_REQUIRE_PASSWORD(new Param("auth.requirePassword")),
+
+  /**
+   * Require payment when an event is published or re-published.
+   */
+  AUTH_REQUIRE_PAYMENT(new Param("auth.requirePayment")),
+
+  /**
    * The location of the database (location:port/name).
    */
   DB_LOCATION(new Param("db.location", null)),
