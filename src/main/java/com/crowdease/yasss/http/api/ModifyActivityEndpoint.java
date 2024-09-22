@@ -7,9 +7,16 @@
  */
 package com.crowdease.yasss.http.api;
 
+import java.sql.SQLException;
+import java.util.UUID;
+
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.model.Activity;
+import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 
 import org.json.JSONObject;
 
@@ -18,11 +25,91 @@ import spark.Response;
 
 public class ModifyActivityEndpoint extends APIEndpoint {
 
-  protected ModifyActivityEndpoint(String resource, APIVersion version, HTTPMethod[] methods) {
-    super(null, APIVersion.VERSION_1, null);
+  protected ModifyActivityEndpoint() {
+    super("/events/:event/activities/:activity", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
-    return null;
+    try {
+
+      Event event = null;
+      Activity activity = null;
+      try {
+        event = Event.getEvent(
+            UUID.fromString(
+                req.params("event")));
+        activity = Activity.getActivity(
+            UUID.fromString(
+                req.params("activity")));
+      } catch(IllegalArgumentException e) { }
+
+      if(null == event || null == activity || 0 != event.getID().compareTo(activity.getEvent()))
+        throw new EndpointException(req, "activity not found", 404);
+
+      JSONDeserializer deserializer = new JSONDeserializer(req.body())
+          .tokenize("shortDescription", false)
+          .tokenize("longDescription", false)
+          .tokenize("maxActivityVolunteers", false)
+          .tokenize("maxSlotVolunteersDefault", false)
+          .tokenize("priority", false)
+          .check();
+
+      if(deserializer.has("shortDescription"))
+        activity.setShortDescription(
+            deserializer.getString("shortDescription").strip());
+
+      if(deserializer.has("longDescription"))
+        activity.setLongDescription(
+            deserializer.getString("longDescription").strip());
+
+      if(deserializer.has("maxActivityVolunteers"))
+        activity.setMaxActivityVolunteers(
+            deserializer.getInt("maxActivityVolunteers"));
+
+      if(deserializer.has("maxSlotVolunteersDefault"))
+        activity.setMaxSlotVolunteersDefault(
+            deserializer.getInt("maxSlotVolunteersDefault"));
+
+      if(deserializer.has("priority"))
+        activity.setPriority(
+            deserializer.getInt("priority"));
+
+      if(activity.getShortDescription().isBlank())
+        throw new EndpointException(
+            req,
+            "malformed argument (string: shortDescription)",
+            400);
+
+      if(0 > activity.getMaxActivityVolunteers())
+        throw new EndpointException(
+            req,
+            "malformed argument (int: maxActivityVolunteers)",
+            400);
+
+      if(0 > activity.getMaxSlotVolunteersDefault())
+        throw new EndpointException(
+            req,
+            "malformed argument (int: maxSlotVolunteerDefault)",
+            400);
+
+      activity.commit();
+
+      res.status(200);
+      return new JSONObject()
+          .put("status", "ok")
+          .put("info", "successfully updated activity")
+          .put("activity", new JSONObject()
+              .put("id", activity.getID())
+              .put("shortDescription", activity.getShortDescription())
+              .put("longDescription", activity.getLongDescription())
+              .put("maxActivityVolunteers", activity.getMaxActivityVolunteers())
+              .put("maxSlotVolunteersDefault", activity.getMaxSlotVolunteersDefault())
+              .put("priority", activity.getPriority()));
+
+    } catch(DeserializationException e) {
+      throw new EndpointException(req, e.getMessage(), 400, e);
+    } catch(SQLException e) {
+      throw new EndpointException(req, "database malfunction", 500, e);
+    }
   }
 }

@@ -22,9 +22,21 @@ public class Event {
   private String shortDescription = null;
   private String longDescription = null;
   private long firstDraftTimestamp = -1L;
-  private boolean isPublished = false;
   private boolean emailOnSubmission = false;
   private boolean allowMultiUserSignups = false;
+  private boolean isPublished = false;
+
+  public Event(UUID id, UUID admin, String shortDescription, String longDescription,
+               long firstDraftTimestamp, boolean emailOnSubmission,
+               boolean allowMultiUserSignups, boolean isPublished) {
+    this.id = id;
+    this.admin = admin;
+    this.shortDescription = shortDescription;
+    this.longDescription = longDescription;
+    this.firstDraftTimestamp = firstDraftTimestamp;
+    this.emailOnSubmission = emailOnSubmission;
+    this.allowMultiUserSignups = allowMultiUserSignups;
+  }
 
   public UUID getID() {
     return id;
@@ -66,15 +78,6 @@ public class Event {
     return this;
   }
 
-  public boolean isPublished() {
-    return isPublished;
-  }
-
-  public Event setPublished(boolean published) {
-    this.isPublished = published;
-    return this;
-  }
-
   public boolean emailOnSubmissionEnabled() {
     return emailOnSubmission;
   }
@@ -91,6 +94,19 @@ public class Event {
   public Event allowMultiUserSignups(boolean allow) {
     this.allowMultiUserSignups = allow;
     return this;
+  }
+
+  public boolean isPublished() {
+    return isPublished;
+  }
+
+  public Event publish(boolean publish) {
+    this.isPublished = publish;
+    return this;
+  }
+
+  public List<Detail> getDetails() throws SQLException {
+    return null;
   }
 
   public List<Activity> getActivities() throws SQLException {

@@ -13,44 +13,61 @@ import java.util.UUID;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Event;
-import com.crowdease.yasss.model.Window;
+import com.crowdease.yasss.model.RSVP;
+import com.crowdease.yasss.model.Slot;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public class RemoveWindowEndpoint extends APIEndpoint {
+public class UnsetRSVPEndpoint extends APIEndpoint {
 
-  protected RemoveWindowEndpoint() {
-    super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.DELETE);
+  protected UnsetRSVPEndpoint() {
+    super(
+        "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
+        APIVersion.VERSION_1,
+        HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 
       Event event = null;
-      Window window = null;
-      
+      Activity activity = null;
+      Slot slot = null;
+      RSVP rsvp = null;
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        window = Window.getWindow(
+        activity = Activity.getActivity(
             UUID.fromString(
-                req.params("window")));
+                req.params("activity")));
+        slot = null == activity
+            ? null
+            : activity.getSlot(
+                UUID.fromString(
+                    req.params("window")));
+        rsvp = null == slot
+            ? null
+            : slot.getRSVP(
+                UUID.fromString(
+                    req.params("volunteer")));
       } catch(IllegalArgumentException e) { }
       
-      if(null == event || null == window || 0 != event.getID().compareTo(window.getEvent()))
-        throw new EndpointException(req, "window not found", 404);
+      if(null == event || null == activity || null == slot || null == rsvp
+          || 0 != event.getID().compareTo(activity.getEvent()))
+        throw new EndpointException(req, "rsvp not found", 404);
 
-      window.delete();
+      rsvp.delete();
 
       res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully deleted window");
+          .put("info", "successfully unset rsvp");
       
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);

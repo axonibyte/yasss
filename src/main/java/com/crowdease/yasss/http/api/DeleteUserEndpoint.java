@@ -16,9 +16,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class SetVolunteerEndpoint extends APIEndpoint {
+public class DeleteUserEndpoint extends APIEndpoint {
 
-  protected SetVolunteerEndpoint(String resource, APIVersion version, HTTPMethod[] methods) {
+  protected DeleteUserEndpoint() {
     super(null, APIVersion.VERSION_1, null);
   }
 

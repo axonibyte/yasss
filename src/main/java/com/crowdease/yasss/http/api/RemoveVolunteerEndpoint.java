@@ -14,43 +14,43 @@ import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
-import com.crowdease.yasss.model.Window;
+import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public class RemoveWindowEndpoint extends APIEndpoint {
+public class RemoveVolunteerEndpoint extends APIEndpoint {
 
-  protected RemoveWindowEndpoint() {
-    super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.DELETE);
+  protected RemoveVolunteerEndpoint() {
+    super("/events/:event/volunteers/:volunteer", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 
       Event event = null;
-      Window window = null;
+      Volunteer volunteer = null;
       
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        window = Window.getWindow(
+        volunteer = Volunteer.getVolunteer(
             UUID.fromString(
-                req.params("window")));
+                req.params("volunteer")));
       } catch(IllegalArgumentException e) { }
       
-      if(null == event || null == window || 0 != event.getID().compareTo(window.getEvent()))
-        throw new EndpointException(req, "window not found", 404);
-
-      window.delete();
-
+      if(null == event || null == volunteer || 0 != event.getID().compareTo(volunteer.getEvent()))
+        throw new EndpointException(req, "volunteer not found", 404);
+      
+      volunteer.delete();
+      
       res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully deleted window");
+          .put("info", "successfully deleted volunteer");
       
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);

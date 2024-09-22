@@ -15,20 +15,22 @@ import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
+import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public class UnsetSlotEndpoint extends APIEndpoint {
+public class SetRSVPEndpoint extends APIEndpoint {
 
-  protected UnsetSlotEndpoint() {
+  protected SetRSVPEndpoint() {
     super(
-        "/events/:event/activities/:activity/windows/:window",
+        "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
         APIVersion.VERSION_1,
-        HTTPMethod.DELETE);
+        HTTPMethod.PUT);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
@@ -37,6 +39,7 @@ public class UnsetSlotEndpoint extends APIEndpoint {
       Event event = null;
       Activity activity = null;
       Slot slot = null;
+      Volunteer volunteer = null;
       try {
         event = Event.getEvent(
             UUID.fromString(
@@ -45,22 +48,35 @@ public class UnsetSlotEndpoint extends APIEndpoint {
             UUID.fromString(
                 req.params("activity")));
         slot = null == activity
-          ? null
-          : activity.getSlot(
-              UUID.fromString(
-                  req.params("window")));
+            ? null
+            : activity.getSlot(
+                UUID.fromString(
+                    req.params("window")));
+        volunteer = Volunteer.getVolunteer(
+            UUID.fromString(
+                req.params("volunteer")));
       } catch(IllegalArgumentException e) { }
-
-      if(null == event || null == activity || null == slot
-          || 0 != event.getID().compareTo(activity.getEvent()))
+      
+      if(null == event || null == activity || null == slot || null == volunteer
+          || 0 != event.getID().compareTo(activity.getEvent())
+          || 0 != event.getID().compareTo(volunteer.getEvent()))
         throw new EndpointException(req, "slot not found", 404);
 
-      slot.delete();
+      if(activity.getMaxActivityVolunteers() >= activity.countRSVPs()
+          || slot.getMaxSlotVolunteers() >= slot.countRSVPs())
+        throw new EndpointException(req, "volunteer cap exceeded", 409);
 
-      res.status(200);
+      RSVP rsvp = new RSVP(activity.getID(), slot.getWindow(), volunteer.getID());
+      rsvp.commit();
+
+      res.status(201);
       return new JSONObject()
-          .put("status", "ok")
-          .put("info", "successfully unset slot");
+        .put("status", "ok")
+        .put("info", "successfully set rsvp")
+        .put("rsvp", new JSONObject()
+             .put("activity", rsvp.getActivity())
+             .put("window", rsvp.getWindow())
+             .put("volunteer", rsvp.getVolunteer()));
 
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);

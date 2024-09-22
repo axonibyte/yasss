@@ -8,9 +8,11 @@
 package com.crowdease.yasss.model;
 
 import java.sql.SQLException;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
-public class Detail {
+public class Detail implements Comparable<Detail> {
 
   public static enum Type {
     STRING(".*"),
@@ -30,10 +32,25 @@ public class Detail {
     }
   }
 
+  private UUID id;
+  private Type type;
   private String label;
   private String hint;
   private int priority;
   private boolean required;
+
+  public UUID getID() {
+    return id;
+  }
+
+  public Type getType() {
+    return type;
+  }
+
+  public Detail setType(Type type) {
+    this.type = type;
+    return this;
+  }
 
   public String getLabel() {
     return label;
@@ -71,10 +88,24 @@ public class Detail {
     return this;
   }
 
+  public boolean isValid(String candidate) {
+    if(required && (null == candidate || candidate.isBlank()))
+      return false;
+    return type.isValid(candidate);
+  }
+
   public void commit() throws SQLException {
   }
 
   public void delete() throws SQLException {
+  }
+
+  @Override public int compareTo(Detail detail) {
+    Objects.requireNonNull(detail);
+    int c;
+    return 0 == (c = Integer.compare(priority, detail.priority))
+        ? label.compareToIgnoreCase(detail.label)
+        : c;
   }
   
 }

@@ -7,9 +7,13 @@
  */
 package com.crowdease.yasss.http.api;
 
+import java.sql.SQLException;
+import java.util.UUID;
+
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.model.Event;
 
 import org.json.JSONObject;
 
@@ -18,11 +22,32 @@ import spark.Response;
 
 public class RemoveEventEndpoint extends APIEndpoint {
 
-  protected RemoveEventEndpoint(String resource, APIVersion version, HTTPMethod[] methods) {
-    super(null, APIVersion.VERSION_1, null);
+  protected RemoveEventEndpoint() {
+    super("/events/:event", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
-    return null;
+    try {
+      Event event = null;
+      
+      try {
+        event = Event.getEvent(
+            UUID.fromString(
+                req.params("event")));
+      } catch(IllegalArgumentException e) { }
+      
+      if(null == event)
+        throw new EndpointException(req, "event not found", 404);
+      
+      event.delete();
+      
+      res.status(200);
+      return new JSONObject()
+          .put("status", "ok")
+          .put("info", "successfully deleted event");
+      
+    } catch(SQLException e) {
+      throw new EndpointException(req, "database malfunction", 500, e);
+    }
   }
 }

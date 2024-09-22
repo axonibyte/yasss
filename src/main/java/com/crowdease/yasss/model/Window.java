@@ -7,7 +7,7 @@
  */
 package com.crowdease.yasss.model;
 
-import java.time.ZonedDateTime;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -17,15 +17,17 @@ public class Window implements Comparable<Window> {
   public static Window getWindow(UUID windowID) {
     return null;
   }
-
-  private final UUID event;
   
   private UUID id = null;
-  private ZonedDateTime begin = null;
-  private ZonedDateTime end = null;
+  private UUID event = null;
+  private Timestamp begin = null;
+  private Timestamp end = null;
 
-  public Window(UUID event) {
+  public Window(UUID id, UUID event, Timestamp begin, Timestamp end) {
+    this.id = id;
     this.event = event;
+    this.begin = begin;
+    this.end = end;
   }
 
   public UUID getID() {
@@ -36,20 +38,25 @@ public class Window implements Comparable<Window> {
     return event;
   }
 
-  public ZonedDateTime getBeginTime() {
+  public Window setEvent(UUID event) {
+    this.event = event;
+    return this;
+  }
+
+  public Timestamp getBeginTime() {
     return begin;
   }
 
-  public Window setBeginTime(ZonedDateTime beginTime) {
+  public Window setBeginTime(Timestamp beginTime) {
     this.begin = beginTime;
     return this;
   }
 
-  public ZonedDateTime getEndTime() {
+  public Timestamp getEndTime() {
     return end;
   }
 
-  public Window setEndTime(ZonedDateTime endTime) {
+  public Window setEndTime(Timestamp endTime) {
     this.end = endTime;
     return this;
   }
@@ -72,7 +79,7 @@ public class Window implements Comparable<Window> {
       : c;
   }
 
-  private int compareTimes(ZonedDateTime a, ZonedDateTime b) {
+  private int compareTimes(Timestamp a, Timestamp b) {
     return null == a ? (null == b ? 0 : 1) : (null == b ? -1 : a.compareTo(b));    
   }
   

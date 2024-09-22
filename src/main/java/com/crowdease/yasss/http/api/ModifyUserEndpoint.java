@@ -16,9 +16,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class UnsetVolunteerEndpoint extends APIEndpoint {
+public class ModifyUserEndpoint extends APIEndpoint {
 
-  protected UnsetVolunteerEndpoint(String resource, APIVersion version, HTTPMethod[] methods) {
+  protected ModifyUserEndpoint() {
     super(null, APIVersion.VERSION_1, null);
   }
 

@@ -7,30 +7,36 @@
  */
 package com.crowdease.yasss.model;
 
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class Volunteer {
 
-  private final UUID activity;
-  private final UUID window;
+  public static Volunteer getVolunteer(UUID volunteerID) throws SQLException {
+    return null;
+  }
 
+  private final UUID event;
+
+  private UUID id;
   private UUID user;
   private Map<Detail, String> details = new HashMap<>();
   private boolean remindersEnabled;
 
-  public Volunteer(UUID activity, UUID window) {
-    this.activity = activity;
-    this.window = window;
+  public Volunteer(UUID id, UUID user, UUID event) {
+    this.id = id;
+    this.user = user;
+    this.event = event;
   }
 
-  public UUID getActivity() {
-    return activity;
+  public UUID getID() {
+    return id;
   }
 
-  public UUID getWindow() {
-    return window;
+  public UUID getEvent() {
+    return event;
   }
 
   public UUID getUser() {
@@ -58,6 +64,12 @@ public class Volunteer {
   public Volunteer enableReminders(boolean enabled) {
     this.remindersEnabled = enabled;
     return this;
+  }
+
+  public void commit() throws SQLException {
+  }
+
+  public void delete() throws SQLException {
   }
   
 }

@@ -17,18 +17,24 @@ public class Activity implements Comparable<Activity> {
   public static Activity getActivity(UUID activityID) throws SQLException {
     return null;
   }
-
-  private final UUID event;
   
   private UUID id = null;
+  private UUID event = null;
   private String shortDescription = null;
   private String longDescription = null;
   private int maxActivityVolunteers = -1;
   private int maxSlotVolunteersDefault = -1;
   private int priority = 0;
 
-  public Activity(UUID event) {
+  public Activity(UUID id, UUID event, String shortDescription, String longDescription,
+      int maxActivityVolunteers, int maxSlotVolunteersDefault, int priority) {
+    this.id = id;
     this.event = event;
+    this.shortDescription = shortDescription;
+    this.longDescription = longDescription;
+    this.maxActivityVolunteers = maxActivityVolunteers;
+    this.maxSlotVolunteersDefault = maxSlotVolunteersDefault;
+    this.priority = priority;
   }
 
   public UUID getID() {
@@ -37,6 +43,11 @@ public class Activity implements Comparable<Activity> {
 
   public UUID getEvent() {
     return event;
+  }
+
+  public Activity setEvent(UUID event) {
+    this.event = event;
+    return this;
   }
 
   public String getShortDescription() {
@@ -48,7 +59,7 @@ public class Activity implements Comparable<Activity> {
     return this;
   }
 
-  public String getLongDescrpition() {
+  public String getLongDescription() {
     return longDescription;
   }
 
@@ -90,6 +101,10 @@ public class Activity implements Comparable<Activity> {
 
   public Slot getSlot(UUID window) throws SQLException {
     return null;
+  }
+
+  public int countRSVPs() throws SQLException {
+    return -1;
   }
 
   public void commit() throws SQLException {

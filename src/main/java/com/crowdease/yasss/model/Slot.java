@@ -22,13 +22,39 @@ public class Slot {
   
   private int maxSlotVolunteers = -1;
 
-  public Slot(UUID activity, UUID window) {
+  public Slot(UUID activity, UUID window, int maxSlotVolunteers) {
     this.activity = activity;
     this.window = window;
+    this.maxSlotVolunteers = maxSlotVolunteers;
   }
 
-  public Set<Volunteer> getVolunteers() throws SQLException {
+  public UUID getActivity() {
+    return activity;
+  }
+
+  public UUID getWindow() {
+    return window;
+  }
+
+  public int getMaxSlotVolunteers() {
+    return maxSlotVolunteers;
+  }
+
+  public Slot setMaxSlotVolunteers(int maxVolunteers) {
+    this.maxSlotVolunteers = maxVolunteers;
+    return this;
+  }
+
+  public Set<RSVP> getRSPVs() throws SQLException {
     return null;
+  }
+
+  public RSVP getRSVP(UUID rsvpID) throws SQLException {
+    return null;
+  }
+
+  public int countRSVPs() throws SQLException {
+    return -1;
   }
 
   public void commit() throws SQLException {
