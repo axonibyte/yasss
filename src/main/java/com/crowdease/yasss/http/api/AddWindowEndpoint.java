@@ -23,9 +23,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class AddWindowEndpoint extends APIEndpoint {
+public final class AddWindowEndpoint extends APIEndpoint {
 
-  protected AddWindowEndpoint() {
+  public AddWindowEndpoint() {
     super("/events/:event/windows", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 

@@ -29,9 +29,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class ModifyVolunteerEndpoint extends APIEndpoint {
+public final class ModifyVolunteerEndpoint extends APIEndpoint {
 
-  protected ModifyVolunteerEndpoint() {
+  public ModifyVolunteerEndpoint() {
     super("/events/:event/volunteers/:volunteer", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 

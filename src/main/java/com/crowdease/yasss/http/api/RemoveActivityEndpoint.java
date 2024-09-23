@@ -21,24 +21,21 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class RemoveActivityEndpoint extends APIEndpoint {
+public final class RemoveActivityEndpoint extends APIEndpoint {
 
-  protected RemoveActivityEndpoint() {
+  public RemoveActivityEndpoint() {
     super("/events/:event/activities/:activity", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
-    try {
-      
+    try {      
       Event event = null;
+      Activity activity = null;
+      
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-      } catch(IllegalArgumentException e) { }
-      
-      Activity activity = null;
-      try {
         activity = Activity.getActivity(
             UUID.fromString(
                 req.params("activity")));

@@ -21,9 +21,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class RemoveWindowEndpoint extends APIEndpoint {
+public final class RemoveWindowEndpoint extends APIEndpoint {
 
-  protected RemoveWindowEndpoint() {
+  public RemoveWindowEndpoint() {
     super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 

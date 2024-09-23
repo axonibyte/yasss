@@ -23,15 +23,14 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class AddActivityEndpoint extends APIEndpoint {
+public final class AddActivityEndpoint extends APIEndpoint {
 
-  protected AddActivityEndpoint() {
+  public AddActivityEndpoint() {
     super("/events/:event/activities", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
-
       Event event = null;
 
       try {

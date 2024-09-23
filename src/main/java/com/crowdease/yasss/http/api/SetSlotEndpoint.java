@@ -25,9 +25,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class SetSlotEndpoint extends APIEndpoint {
+public final class SetSlotEndpoint extends APIEndpoint {
 
-  protected SetSlotEndpoint() {
+  public SetSlotEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window",
         APIVersion.VERSION_1,

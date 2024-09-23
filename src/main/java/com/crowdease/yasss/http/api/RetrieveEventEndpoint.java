@@ -16,9 +16,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class RetrieveEventEndpoint extends APIEndpoint {
+public final class RetrieveEventEndpoint extends APIEndpoint {
 
-  protected RetrieveEventEndpoint() {
+  public RetrieveEventEndpoint() {
     super(null, APIVersion.VERSION_1, null);
   }
 

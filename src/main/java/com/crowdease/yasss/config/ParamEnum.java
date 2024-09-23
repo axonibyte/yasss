@@ -66,7 +66,18 @@ public enum ParamEnum {
   /**
    * Boolean indicating whether or not the use a secure line to the database.
    */
-  DB_SECURE(new Param("db.secure", false));
+  DB_SECURE(new Param("db.secure", false)),
+
+  /**
+   * Number of minutes between each regeneration of the system signing key.
+   */
+  TICKET_REFRESH_INTERVAL(new Param("ticket.refreshInterval", 1)),
+
+  /**
+   * Maximum number of signing keys (current and historicalY that will render a
+   * verified message is valid.
+   */
+  TICKET_MAX_HISTORY(new Param("ticket.maxHistory", 15));
 
   private final Param param;
 

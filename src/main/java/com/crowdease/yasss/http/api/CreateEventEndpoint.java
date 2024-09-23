@@ -16,10 +16,12 @@ import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Activity;
+import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.Window;
+import com.crowdease.yasss.model.Detail.Type;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 
 import org.json.JSONArray;
@@ -28,9 +30,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class CreateEventEndpoint extends APIEndpoint {
+public final class CreateEventEndpoint extends APIEndpoint {
 
-  protected CreateEventEndpoint() {
+  public CreateEventEndpoint() {
     super("/events", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
@@ -44,6 +46,7 @@ public class CreateEventEndpoint extends APIEndpoint {
         .tokenize("allowMultiUserSignups", false)
         .tokenize("activities", true)
         .tokenize("windows", true)
+        .tokenize("details", true)
         .check();
 
       Event event = new Event(
@@ -143,6 +146,46 @@ public class CreateEventEndpoint extends APIEndpoint {
         windows.add(window);
       }
       Collections.sort(windows);
+
+      List<Detail> details = new ArrayList<>();
+      for(var detailDeserializer : deserializer.tokenizeJSONArray("details", true)) {
+        detailDeserializer
+          .tokenize("type", true)
+          .tokenize("label", true)
+          .tokenize("hint", false)
+          .tokenize("priority", false)
+          .tokenize("required", false)
+          .check();
+
+        Type type;
+        try {
+          type = Type.valueOf(
+              detailDeserializer.getString("type").strip().toUpperCase());
+        } catch(IllegalArgumentException e) {
+          throw new EndpointException(req, "malformed argument (details[].type)", 400, e);
+        }
+
+        Detail detail = new Detail(
+            null,
+            null,
+            type,
+            detailDeserializer.getString("label").strip(),
+            detailDeserializer.has("hint")
+                ? detailDeserializer.getString("hint").strip()
+                : "",
+            detailDeserializer.has("priority")
+                ? detailDeserializer.getInt("priority")
+                : 0,
+            detailDeserializer.has("required")
+                ? detailDeserializer.getBool("required")
+                : false);
+
+        if(detail.getLabel().isBlank())
+          throw new EndpointException(req, "malformed argument (details[].label)", 400);
+
+        details.add(detail);
+      }
+      Collections.sort(details);
       
       event.commit();
       for(var window : windows) {
@@ -160,6 +203,10 @@ public class CreateEventEndpoint extends APIEndpoint {
               activity.getMaxSlotVolunteersDefault());
           slot.commit();
         }
+      }
+      for(var detail : details) {
+        detail.setEvent(event.getID());
+        detail.commit();
       }
 
       res.status(201);
@@ -209,7 +256,18 @@ public class CreateEventEndpoint extends APIEndpoint {
                           JSONArray::put,
                           (a, b) -> {
                             for(final Object o : b) a.put(o);
-                          })));
+                          }))
+              .put(
+                  "details",
+                  details
+                      .stream()
+                      .map(
+                          d -> new JSONObject()
+                              .put("id", d.getID())
+                              .put("label", d.getLabel())
+                              .put("hint", d.getHint())
+                              .put("priority", d.getPriority())
+                              .put("required", d.isRequired()))));
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);

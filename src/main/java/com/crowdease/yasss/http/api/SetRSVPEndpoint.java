@@ -24,9 +24,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class SetRSVPEndpoint extends APIEndpoint {
+public final class SetRSVPEndpoint extends APIEndpoint {
 
-  protected SetRSVPEndpoint() {
+  public SetRSVPEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
         APIVersion.VERSION_1,

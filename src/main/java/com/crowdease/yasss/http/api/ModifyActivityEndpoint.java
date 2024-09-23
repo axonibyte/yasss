@@ -23,17 +23,17 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class ModifyActivityEndpoint extends APIEndpoint {
+public final class ModifyActivityEndpoint extends APIEndpoint {
 
-  protected ModifyActivityEndpoint() {
+  public ModifyActivityEndpoint() {
     super("/events/:event/activities/:activity", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
-
       Event event = null;
       Activity activity = null;
+      
       try {
         event = Event.getEvent(
             UUID.fromString(
@@ -54,44 +54,44 @@ public class ModifyActivityEndpoint extends APIEndpoint {
           .tokenize("priority", false)
           .check();
 
-      if(deserializer.has("shortDescription"))
+      if(deserializer.has("shortDescription")) {
         activity.setShortDescription(
             deserializer.getString("shortDescription").strip());
-
+        if(activity.getShortDescription().isBlank())
+          throw new EndpointException(
+              req,
+              "malformed argument (string: shortDescription)",
+              400);
+      }
+      
       if(deserializer.has("longDescription"))
         activity.setLongDescription(
             deserializer.getString("longDescription").strip());
-
-      if(deserializer.has("maxActivityVolunteers"))
+      
+      if(deserializer.has("maxActivityVolunteers")) {
         activity.setMaxActivityVolunteers(
             deserializer.getInt("maxActivityVolunteers"));
-
-      if(deserializer.has("maxSlotVolunteersDefault"))
+        if(0 > activity.getMaxActivityVolunteers())
+          throw new EndpointException(
+              req,
+              "malformed argument (int: maxActivityVolunteers)",
+              400);
+      }
+      
+      if(deserializer.has("maxSlotVolunteersDefault")) {
         activity.setMaxSlotVolunteersDefault(
             deserializer.getInt("maxSlotVolunteersDefault"));
-
+        if(0 > activity.getMaxSlotVolunteersDefault())
+          throw new EndpointException(
+              req,
+              "malformed argument (int: maxSlotVolunteerDefault)",
+              400);
+      }
+      
       if(deserializer.has("priority"))
         activity.setPriority(
             deserializer.getInt("priority"));
-
-      if(activity.getShortDescription().isBlank())
-        throw new EndpointException(
-            req,
-            "malformed argument (string: shortDescription)",
-            400);
-
-      if(0 > activity.getMaxActivityVolunteers())
-        throw new EndpointException(
-            req,
-            "malformed argument (int: maxActivityVolunteers)",
-            400);
-
-      if(0 > activity.getMaxSlotVolunteersDefault())
-        throw new EndpointException(
-            req,
-            "malformed argument (int: maxSlotVolunteerDefault)",
-            400);
-
+      
       activity.commit();
 
       res.status(200);

@@ -22,9 +22,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class UnsetSlotEndpoint extends APIEndpoint {
+public final class UnsetSlotEndpoint extends APIEndpoint {
 
-  protected UnsetSlotEndpoint() {
+  public UnsetSlotEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window",
         APIVersion.VERSION_1,

@@ -20,9 +20,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class RemoveEventEndpoint extends APIEndpoint {
+public final class RemoveEventEndpoint extends APIEndpoint {
 
-  protected RemoveEventEndpoint() {
+  public RemoveEventEndpoint() {
     super("/events/:event", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 

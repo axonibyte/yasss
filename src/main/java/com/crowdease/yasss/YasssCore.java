@@ -11,6 +11,7 @@ import com.axonibyte.lib.cfg.CLConfig;
 import com.axonibyte.lib.db.Database;
 import com.axonibyte.lib.http.APIDriver;
 import com.crowdease.yasss.config.ParamEnum;
+import com.crowdease.yasss.daemon.TicketEngine;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ public class YasssCore {
 
   private static APIDriver apiDriver = null;
   private static Database database = null;
+  private static TicketEngine ticketEngine = null;
 
   /**
    * Entry-point.
@@ -51,6 +53,11 @@ public class YasssCore {
           config.getBoolean(ParamEnum.DB_SECURE.param().toString()));
       database.setup(YasssCore.class, "db");
 
+      ticketEngine = new TicketEngine(
+          config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.toString()),
+          config.getInteger(ParamEnum.TICKET_MAX_HISTORY.toString()));
+      ticketEngine.start();
+
       apiDriver = APIDriver.build(
           config.getInteger(ParamEnum.API_PORT.param().toString()),
           config.getString(ParamEnum.API_ALLOWED_ORIGINS.param().toString()),
@@ -60,6 +67,7 @@ public class YasssCore {
         @Override public void run() {
           logger.info("Shutting down...");
           apiDriver.halt();
+          ticketEngine.stop();
           logger.info("Goodbye! ^_^");
         }
       });
@@ -79,6 +87,15 @@ public class YasssCore {
    */
   public static Database getDB() {
     return database;
+  }
+
+  /**
+   * Retrieves the ticket engine.
+   *
+   * @return the {@link TicketEngine} instance
+   */
+  public static TicketEngine getTicketEngine() {
+    return ticketEngine;
   }
 
 }

@@ -22,9 +22,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class ModifyEventEndpoint extends APIEndpoint {
+public final class ModifyEventEndpoint extends APIEndpoint {
 
-  protected ModifyEventEndpoint() {
+  public ModifyEventEndpoint() {
     super("/events/:event", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 

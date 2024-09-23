@@ -10,13 +10,20 @@ package com.crowdease.yasss.model;
 import java.sql.SQLException;
 import java.util.UUID;
 
-public class User {
+import com.axonibyte.lib.auth.Credentialed;
+import com.axonibyte.lib.auth.CryptoException;
 
+public class User extends Credentialed {
+  
   public static enum AccessLevel {
     BANNED,
     UNVERIFIED,
     STANDARD,
     ADMIN
+  }
+
+  public static int countUsers() throws SQLException {
+    return 0;
   }
 
   public static User getUser(UUID userID) throws SQLException {
@@ -27,12 +34,22 @@ public class User {
     return null;
   }
 
-  private UUID id = null;
   private String email = null;
+  private String pendingEmail = null;
   private AccessLevel accessLevel = AccessLevel.UNVERIFIED;
 
-  public UUID getID() {
-    return id;
+  public User(UUID id, byte[] pubkey, byte[] mfakey, String email, String pendingEmail, AccessLevel accessLevel) {
+    super(id, pubkey, null, mfakey);
+    this.email = email;
+    this.pendingEmail = email;
+    this.accessLevel = accessLevel;
+  }
+  
+  public User(String email, AccessLevel accessLevel, String pubkey) throws CryptoException {
+    super(null, null, null, null);
+    this.pendingEmail = email;
+    this.accessLevel = accessLevel;
+    setPubkey(pubkey);
   }
 
   public String getEmail() {
@@ -41,6 +58,15 @@ public class User {
 
   public User setEmail(String email) {
     this.email = email;
+    return this;
+  }
+
+  public String getPendingEmail() {
+    return pendingEmail;
+  }
+
+  public User setPendingEmail(String email) {
+    this.pendingEmail = email;
     return this;
   }
 
@@ -53,6 +79,10 @@ public class User {
     return this;
   }
 
-  
+  public void commit() throws SQLException {
+  }
+
+  public void delete() throws SQLException {
+  }
   
 }

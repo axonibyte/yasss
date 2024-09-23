@@ -29,9 +29,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class AddVolunteerEndpoint extends APIEndpoint {
+public final class AddVolunteerEndpoint extends APIEndpoint {
 
-  protected AddVolunteerEndpoint() {
+  public AddVolunteerEndpoint() {
     super("/events/:event/volunteers", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 

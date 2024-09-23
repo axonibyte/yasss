@@ -16,9 +16,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class ListEventsEndpoint extends APIEndpoint {
+public final class ListEventsEndpoint extends APIEndpoint {
 
-  protected ListEventsEndpoint() {
+  public ListEventsEndpoint() {
     super(null, APIVersion.VERSION_1, null);
   }
 

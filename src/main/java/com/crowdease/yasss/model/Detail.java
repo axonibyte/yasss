@@ -32,15 +32,39 @@ public class Detail implements Comparable<Detail> {
     }
   }
 
+  public static Detail getDetail(UUID detailID) throws SQLException {
+    return null;
+  }
+
   private UUID id;
+  private UUID event;
   private Type type;
   private String label;
   private String hint;
   private int priority;
   private boolean required;
 
+  public Detail(UUID id, UUID event, Type type, String label, String hint, int priority, boolean required) {
+    this.id = id;
+    this.event = event;
+    this.type = type;
+    this.label = label;
+    this.hint = hint;
+    this.priority = priority;
+    this.required = required;
+  }
+
   public UUID getID() {
     return id;
+  }
+
+  public UUID getEvent() {
+    return event;
+  }
+
+  public Detail setEvent(UUID event) {
+    this.event = event;
+    return this;
   }
 
   public Type getType() {

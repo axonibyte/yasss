@@ -23,9 +23,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class ModifyWindowEndpoint extends APIEndpoint {
+public final class ModifyWindowEndpoint extends APIEndpoint {
 
-  protected ModifyWindowEndpoint() {
+  public ModifyWindowEndpoint() {
     super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 

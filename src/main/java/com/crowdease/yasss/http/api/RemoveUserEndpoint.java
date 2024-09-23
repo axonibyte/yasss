@@ -13,44 +13,38 @@ import java.util.UUID;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
-import com.crowdease.yasss.model.Event;
-import com.crowdease.yasss.model.Volunteer;
+import com.crowdease.yasss.model.User;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public final class RemoveVolunteerEndpoint extends APIEndpoint {
+public final class RemoveUserEndpoint extends APIEndpoint {
 
-  public RemoveVolunteerEndpoint() {
-    super("/events/:event/volunteers/:volunteer", APIVersion.VERSION_1, HTTPMethod.DELETE);
+  public RemoveUserEndpoint() {
+    super("/users", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
+      User user = null;
 
-      Event event = null;
-      Volunteer volunteer = null;
-      
       try {
-        event = Event.getEvent(
+        user = User.getUser(
             UUID.fromString(
-                req.params("event")));
-        volunteer = Volunteer.getVolunteer(
-            UUID.fromString(
-                req.params("volunteer")));
+                req.params("user")));
       } catch(IllegalArgumentException e) { }
-      
-      if(null == event || null == volunteer || 0 != event.getID().compareTo(volunteer.getEvent()))
-        throw new EndpointException(req, "volunteer not found", 404);
-      
-      volunteer.delete();
-      
+
+      if(null == user)
+        throw new EndpointException(req, "user not found", 404);
+
+      user.delete();
+
       res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully deleted volunteer");
+          .put("info", "successfully deleted event");
       
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);

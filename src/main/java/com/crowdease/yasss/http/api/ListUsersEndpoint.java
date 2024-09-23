@@ -16,9 +16,9 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public class ListUsersEndpoint extends APIEndpoint {
+public final class ListUsersEndpoint extends APIEndpoint {
 
-  protected ListUsersEndpoint() {
+  public ListUsersEndpoint() {
     super(null, APIVersion.VERSION_1, null);
   }
 

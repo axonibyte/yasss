@@ -13,64 +13,48 @@ import java.util.UUID;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
-import com.crowdease.yasss.model.Activity;
+import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
-import com.crowdease.yasss.model.RSVP;
-import com.crowdease.yasss.model.Slot;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public final class UnsetRSVPEndpoint extends APIEndpoint {
+public final class RemoveDetailEndpoint extends APIEndpoint {
 
-  public UnsetRSVPEndpoint() {
-    super(
-        "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
-        APIVersion.VERSION_1,
-        HTTPMethod.DELETE);
+  public RemoveDetailEndpoint() {
+    super("/events/:event/details/:detail", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 
       Event event = null;
-      Activity activity = null;
-      Slot slot = null;
-      RSVP rsvp = null;
+      Detail detail = null;
+
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        activity = Activity.getActivity(
+        detail = Detail.getDetail(
             UUID.fromString(
-                req.params("activity")));
-        slot = null == activity
-            ? null
-            : activity.getSlot(
-                UUID.fromString(
-                    req.params("window")));
-        rsvp = null == slot
-            ? null
-            : slot.getRSVP(
-                UUID.fromString(
-                    req.params("volunteer")));
+                req.params("detail")));
       } catch(IllegalArgumentException e) { }
-      
-      if(null == event || null == activity || null == slot || null == rsvp
-          || 0 != event.getID().compareTo(activity.getEvent()))
-        throw new EndpointException(req, "rsvp not found", 404);
 
-      rsvp.delete();
+      if(null == event || null == detail || 0 != event.getID().compareTo(detail.getEvent()))
+        throw new EndpointException(req, "detail not found", 404);
+
+      detail.delete();
 
       res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully unset rsvp");
+          .put("info", "successfully deleted detail");
       
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
   }
+  
 }
