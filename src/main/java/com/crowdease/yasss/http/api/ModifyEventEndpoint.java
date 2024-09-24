@@ -25,7 +25,7 @@ import spark.Response;
 public final class ModifyEventEndpoint extends APIEndpoint {
 
   public ModifyEventEndpoint() {
-    super("/events/:event", APIVersion.VERSION_1, HTTPMethod.DELETE);
+    super("/events/:event", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {

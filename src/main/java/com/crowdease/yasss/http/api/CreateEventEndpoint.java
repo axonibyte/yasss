@@ -222,7 +222,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
               .put("allowMultiUserSignups", event.allowMultiUserSignups())
               .put(
                   "activities",
-                  activities
+                  (JSONArray)activities
                       .stream()
                       .map(
                           a -> new JSONObject()
@@ -240,7 +240,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
                           }))
               .put(
                   "windows",
-                  windows
+                  (JSONArray)windows
                       .stream()
                       .map(
                           w -> new JSONObject()
@@ -259,7 +259,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
                           }))
               .put(
                   "details",
-                  details
+                  (JSONArray)details
                       .stream()
                       .map(
                           d -> new JSONObject()

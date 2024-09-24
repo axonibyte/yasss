@@ -12,6 +12,8 @@ import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.axonibyte.lib.http.rest.JSONEndpoint;
+import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -37,5 +39,16 @@ public abstract class APIEndpoint extends JSONEndpoint {
   }
 
   public abstract JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException;
+
+  protected JSONDeserializer deserializeQueryParams(Request req) throws DeserializationException {
+    JSONObject map = new JSONObject();
+    for(var param : req.queryParams()) {
+      var argArr = req.queryParamsValues(param);
+      map.put(
+          param,
+          1 == argArr.length ? argArr[0] : argArr);
+    }
+    return new JSONDeserializer(map);
+  }
   
 }

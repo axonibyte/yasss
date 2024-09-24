@@ -21,7 +21,7 @@ public class RSVP {
     this.window = window;
     this.volunteer = volunteer;
   }
-
+  
   public UUID getActivity() {
     return activity;
   }

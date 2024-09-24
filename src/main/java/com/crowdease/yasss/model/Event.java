@@ -8,10 +8,23 @@
 package com.crowdease.yasss.model;
 
 import java.sql.SQLException;
-import java.util.List;
+import java.sql.Timestamp;
+import java.util.Set;
 import java.util.UUID;
 
 public class Event {
+
+  public static Set<Event> getEvents(UUID userID, String labelSubstr, Timestamp earliest, Timestamp latest) throws SQLException {
+    return null;
+  }
+
+  public static Set<Event> getEvents(UUID userID, String labelSubstr, Timestamp earliest, Integer page, Integer limit) throws SQLException {
+    return null;
+  }
+
+  public static int countEvents(UUID userID, String labelSubstr, Timestamp earliest) {
+    return 0;
+  }
 
   public static Event getEvent(UUID eventID) throws SQLException {
     return null;
@@ -105,15 +118,15 @@ public class Event {
     return this;
   }
 
-  public List<Detail> getDetails() throws SQLException {
+  public Set<Detail> getDetails() throws SQLException {
     return null;
   }
 
-  public List<Activity> getActivities() throws SQLException {
+  public Set<Activity> getActivities() throws SQLException {
     return null;
   }
 
-  public List<Window> getWindows() throws SQLException {
+  public Set<Window> getWindows() throws SQLException {
     return null;
   }
 

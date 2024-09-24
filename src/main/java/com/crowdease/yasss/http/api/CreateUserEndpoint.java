@@ -40,7 +40,7 @@ public final class CreateUserEndpoint extends APIEndpoint {
         .check();
 
       final AccessLevel accessLevel;
-      if(0 == User.countUsers())
+      if(0 == User.countUsers(null))
         accessLevel = AccessLevel.ADMIN;
       else if(deserializer.has("accessLevel")) {
         try {

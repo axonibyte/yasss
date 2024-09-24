@@ -113,7 +113,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
               .put("event", volunteer.getEvent())
               .put(
                   "details",
-                  details.entrySet()
+                  (JSONArray)details.entrySet()
                       .stream()
                       .map(
                           d -> new JSONObject()

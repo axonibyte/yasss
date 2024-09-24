@@ -8,6 +8,7 @@
 package com.crowdease.yasss.model;
 
 import java.sql.SQLException;
+import java.util.Set;
 import java.util.UUID;
 
 import com.axonibyte.lib.auth.Credentialed;
@@ -22,7 +23,11 @@ public class User extends Credentialed {
     ADMIN
   }
 
-  public static int countUsers() throws SQLException {
+  public static Set<User> getUsers(AccessLevel level, Integer page, Integer limit) throws SQLException {
+    return null;
+  }
+
+  public static int countUsers(AccessLevel level) throws SQLException {
     return 0;
   }
 

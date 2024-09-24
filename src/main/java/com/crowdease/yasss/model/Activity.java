@@ -8,8 +8,8 @@
 package com.crowdease.yasss.model;
 
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 public class Activity implements Comparable<Activity> {
@@ -95,7 +95,7 @@ public class Activity implements Comparable<Activity> {
     return this;
   }
 
-  public List<Slot> getSlots() throws SQLException {
+  public Set<Slot> getSlots() throws SQLException {
     return null;
   }
 

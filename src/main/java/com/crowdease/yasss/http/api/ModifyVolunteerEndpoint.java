@@ -122,7 +122,7 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
               .put("event", volunteer.getEvent())
               .put(
                   "details",
-                  volunteer.getDetails()
+                  (JSONArray)volunteer.getDetails()
                       .entrySet()
                       .stream()
                       .map(
