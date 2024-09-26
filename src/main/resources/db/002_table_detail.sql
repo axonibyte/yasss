@@ -12,6 +12,6 @@ CREATE TABLE IF NOT EXISTS ${database}.${prefix}detail (
     NOT NULL,
   FOREIGN KEY (event) REFERENCES ${prefix}event (id)
     ON UPDATE CASCADE
-    ON DELETE CASCADE
+    ON DELETE CASCADE,
   PRIMARY KEY (id)
 )Engine=InnoDB;

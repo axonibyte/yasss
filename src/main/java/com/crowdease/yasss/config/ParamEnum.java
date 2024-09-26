@@ -19,7 +19,7 @@ public enum ParamEnum {
   /**
    * The port on which the API is exposed.
    */
-  API_PORT(new Param("api.port", "7002")),
+  API_PORT(new Param("api.port", "7455")),
 
   /**
    * The CORS origin setting for the API.
@@ -44,6 +44,11 @@ public enum ParamEnum {
   AUTH_REQUIRE_PAYMENT(new Param("auth.requirePayment")),
 
   /**
+   * Path to the configuration file.
+   */
+  CONFIG_FILE(new Param("config.file", null)),
+
+  /**
    * The location of the database (location:port/name).
    */
   DB_LOCATION(new Param("db.location", null)),
@@ -61,7 +66,7 @@ public enum ParamEnum {
   /**
    * The prefix to be prepended to table names.
    */
-  DB_PREFIX(new Param("db.prefix", "profile_")),
+  DB_PREFIX(new Param("db.prefix", "yasss_")),
 
   /**
    * Boolean indicating whether or not the use a secure line to the database.
@@ -69,15 +74,20 @@ public enum ParamEnum {
   DB_SECURE(new Param("db.secure", false)),
 
   /**
-   * Number of minutes between each regeneration of the system signing key.
+   * The global secret for the ticket engine and, ultimately, all users.
    */
-  TICKET_REFRESH_INTERVAL(new Param("ticket.refreshInterval", 1)),
-
+  TICKET_GLOBAL_SECRET(new Param("ticket.globalSecret", null)),
+  
   /**
-   * Maximum number of signing keys (current and historicalY that will render a
+   * Maximum number of signing keys (current and historical) that will render a
    * verified message is valid.
    */
-  TICKET_MAX_HISTORY(new Param("ticket.maxHistory", 15));
+  TICKET_MAX_HISTORY(new Param("ticket.maxHistory", 15)),
+  
+  /**
+   * Number of minutes between each regeneration of the system signing key.
+   */
+  TICKET_REFRESH_INTERVAL(new Param("ticket.refreshInterval", 1));
 
   private final Param param;
 

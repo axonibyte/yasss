@@ -7,7 +7,17 @@
  */
 package com.crowdease.yasss;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+import com.axonibyte.lib.auth.Credentialed;
 import com.axonibyte.lib.cfg.CLConfig;
+import com.axonibyte.lib.cfg.Config;
+import com.axonibyte.lib.cfg.FileConfig;
+import com.axonibyte.lib.cfg.Config.BadParamException;
+import com.axonibyte.lib.cfg.FileConfig.FileReadException;
 import com.axonibyte.lib.db.Database;
 import com.axonibyte.lib.http.APIDriver;
 import com.crowdease.yasss.config.ParamEnum;
@@ -26,6 +36,7 @@ public class YasssCore {
   private static final Logger logger = LoggerFactory.getLogger(YasssCore.class);
 
   private static APIDriver apiDriver = null;
+  private static Config config = null;
   private static Database database = null;
   private static TicketEngine ticketEngine = null;
 
@@ -38,12 +49,24 @@ public class YasssCore {
 
     logger.info("Hello, world!");
 
-    var config = new CLConfig();
-    for(var param : ParamEnum.values())
-      config.defineParam(param.param());
-
     try {
-      config.loadArgs(args);
+
+      config = new CLConfig();
+      for(var param : ParamEnum.values())
+      config.defineParam(param.param());
+      ((CLConfig)config).loadArgs(args);
+
+      try {
+        FileConfig fCfg = new FileConfig(
+            config.getString(ParamEnum.CONFIG_FILE.param().toString()));
+        for(var param : ParamEnum.values())
+          if(ParamEnum.CONFIG_FILE != param)
+            fCfg.defineParam(param.param());
+        fCfg.load();
+        config = fCfg.merge(config);
+      } catch(BadParamException e) {
+        logger.warn("No configuration file specified.");
+      }
 
       database = new Database(
           config.getString(ParamEnum.DB_LOCATION.param().toString()),
@@ -53,9 +76,13 @@ public class YasssCore {
           config.getBoolean(ParamEnum.DB_SECURE.param().toString()));
       database.setup(YasssCore.class, "db");
 
+      Credentialed.setGlobalSecret(
+          config.getString(
+              ParamEnum.TICKET_GLOBAL_SECRET.param().toString()));
+
       ticketEngine = new TicketEngine(
-          config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.toString()),
-          config.getInteger(ParamEnum.TICKET_MAX_HISTORY.toString()));
+          config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.param().toString()),
+          config.getInteger(ParamEnum.TICKET_MAX_HISTORY.param().toString()));
       ticketEngine.start();
 
       apiDriver = APIDriver.build(
@@ -71,6 +98,24 @@ public class YasssCore {
           logger.info("Goodbye! ^_^");
         }
       });
+
+    } catch(FileReadException e) {
+      
+      File diskConfig = new File(
+          config.getString(ParamEnum.CONFIG_FILE.param().toString()));
+
+      if(diskConfig.exists()) {
+        logger.error("Failed to read config file: {}", e.getMessage());
+      } else {
+        try {
+          Files.copy(
+              YasssCore.class.getResourceAsStream("/yasss.cfg"),
+              Paths.get(diskConfig.toURI()));
+          logger.warn("Saved default config file. Please modify and try again!");
+        } catch(IOException e2) {
+          logger.error("Failed to save the default config file: {}", e2.getMessage());
+        }
+      }
       
     } catch(Exception e) {
       logger.error("Failed to properly launch: {}", e.getMessage());

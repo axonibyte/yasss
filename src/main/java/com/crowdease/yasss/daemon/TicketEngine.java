@@ -8,6 +8,7 @@
 package com.crowdease.yasss.daemon;
 
 import java.util.Deque;
+import java.util.UUID;
 
 import com.axonibyte.lib.auth.Credentialed;
 import com.axonibyte.lib.auth.CryptoException;
@@ -45,11 +46,12 @@ public final class TicketEngine implements Runnable {
   @Override public void run() {
     try {
       while(!thread.isInterrupted()) {
-        Credentialed signer = new Credentialed(null, null, null, null);
+        Credentialed signer = new Credentialed(UUID.randomUUID(), null, null, null);
         try {
           signer.regenerateKeypair();
         } catch(CryptoException e) {
-          logger.error("Failed to generate signer! {}", e.getMessage());
+          logger.error("Failed to generate signer: {}", e.getMessage());
+          e.printStackTrace();
         }
         signers.add(signer);
         

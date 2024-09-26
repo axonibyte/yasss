@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS ${database}.${prefix}volunteer_detail (
   FOREIGN KEY (volunteer) REFERENCES ${prefix}volunteer (id)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
-  FOREIGN KEY (detail_field) REFERENCES ${prefix}detail_field (id)
+  FOREIGN KEY (detail_field) REFERENCES ${prefix}detail (id)
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   PRIMARY KEY (volunteer, detail_field)
