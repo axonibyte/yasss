@@ -5,7 +5,7 @@
  * v. 2.0. If a copy of the MPL was not distributed with this file, You can
  * obtain one at https://mozilla.org/MPL/2.0/.
  */
-package com.crowdease.yasss.http.api;
+package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
 import java.util.UUID;
@@ -15,21 +15,20 @@ import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Event;
-import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
-import com.crowdease.yasss.model.Window;
-import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public final class SetSlotEndpoint extends APIEndpoint {
+public final class SetRSVPEndpoint extends APIEndpoint {
 
-  public SetSlotEndpoint() {
+  public SetRSVPEndpoint() {
     super(
-        "/events/:event/activities/:activity/windows/:window",
+        "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
         APIVersion.VERSION_1,
         HTTPMethod.PUT);
   }
@@ -39,7 +38,8 @@ public final class SetSlotEndpoint extends APIEndpoint {
 
       Event event = null;
       Activity activity = null;
-      Window window = null;
+      Slot slot = null;
+      Volunteer volunteer = null;
       try {
         event = Event.getEvent(
             UUID.fromString(
@@ -49,43 +49,37 @@ public final class SetSlotEndpoint extends APIEndpoint {
           activity = event.getActivity(
               UUID.fromString(
                   req.params("activity")));
-          window = event.getWindow(
+          volunteer = event.getVolunteer(
+              UUID.fromString(
+                  req.params("volunteer")));
+        }
+
+        if(null != activity)
+          slot = activity.getSlot(
               UUID.fromString(
                   req.params("window")));
-        }
         
       } catch(IllegalArgumentException e) { }
+      
+      if(null == slot)
+        throw new EndpointException(req, "slot not found", 404);
 
-      if(null == activity)
-        throw new EndpointException(req, "activity not found", 404);
-      if(null == window)
-        throw new EndpointException(req, "window not found", 404);
+      if(activity.getMaxActivityVolunteers() >= activity.countRSVPs()
+          || slot.getMaxSlotVolunteers() >= slot.countRSVPs())
+        throw new EndpointException(req, "volunteer cap exceeded", 409);
 
-      JSONDeserializer deserializer = new JSONDeserializer(req.body())
-        .tokenize("maxSlotVolunteers", false)
-        .check();
-
-      Slot slot = new Slot(
-          activity.getID(),
-          window.getID(),
-          deserializer.has("maxSlotVolunteers")
-              ? deserializer.getInt("maxSlotVolunteers")
-              : activity.getMaxSlotVolunteersDefault());
-
-      slot.commit();
+      RSVP rsvp = new RSVP(activity.getID(), slot.getWindow(), volunteer.getID());
+      rsvp.commit();
 
       res.status(201);
       return new JSONObject()
         .put("status", "ok")
-        .put("info", "successfully set slot")
-        .put("slot", new JSONObject()
-             .put("activity", activity.getID())
-             .put("window", window.getID())
-             .put("maxSlotVolunteers", slot.getMaxSlotVolunteers()));
+        .put("info", "successfully set rsvp")
+        .put("rsvp", new JSONObject()
+             .put("activity", rsvp.getActivity())
+             .put("window", rsvp.getWindow())
+             .put("volunteer", rsvp.getVolunteer()));
 
-    } catch(DeserializationException e) {
-      throw new EndpointException(req, e.getMessage(), 400, e);
-      
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }

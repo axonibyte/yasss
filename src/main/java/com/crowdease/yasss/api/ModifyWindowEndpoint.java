@@ -5,7 +5,7 @@
  * v. 2.0. If a copy of the MPL was not distributed with this file, You can
  * obtain one at https://mozilla.org/MPL/2.0/.
  */
-package com.crowdease.yasss.http.api;
+package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
 import java.util.UUID;
@@ -23,38 +23,46 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public final class AddWindowEndpoint extends APIEndpoint {
+public final class ModifyWindowEndpoint extends APIEndpoint {
 
-  public AddWindowEndpoint() {
-    super("/events/:event/windows", APIVersion.VERSION_1, HTTPMethod.POST);
+  public ModifyWindowEndpoint() {
+    super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 
       Event event = null;
-
+      Window window = null;
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
+
+        if(null != event)
+          window = event.getWindow(
+              UUID.fromString(
+                  req.params("window")));
+        
       } catch(IllegalArgumentException e) { }
 
-      if(null == event)
-        throw new EndpointException(req, "event not found", 404);
+      if(null == window)
+        throw new EndpointException(req, "window not found", 404);
 
       JSONDeserializer deserializer = new JSONDeserializer(req.body())
-        .tokenize("beginTime", true)
-        .tokenize("endTime", false)
-        .check();
+          .tokenize("beginTime", false)
+          .tokenize("endTime", false)
+          .check();
 
-      Window window = new Window(
-          null,
-          event.getID(),
-          deserializer.getTimestamp("beginTime"),
-          deserializer.has("endTime")
-              ? deserializer.getTimestamp("endTime")
-              : null);
+      if(deserializer.has("beginTime"))
+        window.setBeginTime(
+            deserializer.getTimestamp("beginTime"));
+
+      if(deserializer.has("endTime"))
+        window.setEndTime(
+            JSONObject.NULL == deserializer.get("endTime")
+                ? null
+                : deserializer.getTimestamp("endTime"));
 
       if(null != window.getEndTime()) {
         if(window.getBeginTime().equals(window.getEndTime()))
@@ -67,10 +75,10 @@ public final class AddWindowEndpoint extends APIEndpoint {
 
       window.commit();
 
-      res.status(201);
+      res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully created window")
+          .put("info", "successfully updated window")
           .put("window", new JSONObject()
               .put("id", window.getID())
               .put("beginTime", window.getBeginTime().getTime())
@@ -79,7 +87,7 @@ public final class AddWindowEndpoint extends APIEndpoint {
                   null == window.getEndTime()
                       ? JSONObject.NULL
                       : window.getEndTime().getTime()));
-
+      
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
     } catch(SQLException e) {

@@ -5,7 +5,7 @@
  * v. 2.0. If a copy of the MPL was not distributed with this file, You can
  * obtain one at https://mozilla.org/MPL/2.0/.
  */
-package com.crowdease.yasss.http.api;
+package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
 import java.util.UUID;
@@ -13,50 +13,51 @@ import java.util.UUID;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
-import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public final class RemoveVolunteerEndpoint extends APIEndpoint {
+public final class RemoveDetailEndpoint extends APIEndpoint {
 
-  public RemoveVolunteerEndpoint() {
-    super("/events/:event/volunteers/:volunteer", APIVersion.VERSION_1, HTTPMethod.DELETE);
+  public RemoveDetailEndpoint() {
+    super("/events/:event/details/:detail", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 
       Event event = null;
-      Volunteer volunteer = null;
-      
+      Detail detail = null;
+
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
 
         if(null != event)
-          volunteer = event.getVolunteer(
+          detail = event.getDetail(
               UUID.fromString(
-                  req.params("volunteer")));
+                  req.params("detail")));
         
       } catch(IllegalArgumentException e) { }
-      
-      if(null == volunteer)
-        throw new EndpointException(req, "volunteer not found", 404);
-      
-      volunteer.delete();
-      
+
+      if(null == detail)
+        throw new EndpointException(req, "detail not found", 404);
+
+      detail.delete();
+
       res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully deleted volunteer");
+          .put("info", "successfully deleted detail");
       
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
   }
+  
 }

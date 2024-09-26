@@ -5,7 +5,7 @@
  * v. 2.0. If a copy of the MPL was not distributed with this file, You can
  * obtain one at https://mozilla.org/MPL/2.0/.
  */
-package com.crowdease.yasss.http.api;
+package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
 import java.util.UUID;
@@ -13,51 +13,50 @@ import java.util.UUID;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
-import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.Window;
 
 import org.json.JSONObject;
 
 import spark.Request;
 import spark.Response;
 
-public final class RemoveDetailEndpoint extends APIEndpoint {
+public final class RemoveWindowEndpoint extends APIEndpoint {
 
-  public RemoveDetailEndpoint() {
-    super("/events/:event/details/:detail", APIVersion.VERSION_1, HTTPMethod.DELETE);
+  public RemoveWindowEndpoint() {
+    super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 
       Event event = null;
-      Detail detail = null;
-
+      Window window = null;
+      
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
 
         if(null != event)
-          detail = event.getDetail(
+          window = event.getWindow(
               UUID.fromString(
-                  req.params("detail")));
+                  req.params("window")));
         
       } catch(IllegalArgumentException e) { }
+      
+      if(null == window)
+        throw new EndpointException(req, "window not found", 404);
 
-      if(null == detail)
-        throw new EndpointException(req, "detail not found", 404);
-
-      detail.delete();
+      window.delete();
 
       res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully deleted detail");
+          .put("info", "successfully deleted window");
       
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
   }
-  
 }

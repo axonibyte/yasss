@@ -20,6 +20,33 @@ import com.axonibyte.lib.cfg.Config.BadParamException;
 import com.axonibyte.lib.cfg.FileConfig.FileReadException;
 import com.axonibyte.lib.db.Database;
 import com.axonibyte.lib.http.APIDriver;
+import com.crowdease.yasss.api.AddActivityEndpoint;
+import com.crowdease.yasss.api.AddDetailEndpoint;
+import com.crowdease.yasss.api.AddVolunteerEndpoint;
+import com.crowdease.yasss.api.AddWindowEndpoint;
+import com.crowdease.yasss.api.CreateEventEndpoint;
+import com.crowdease.yasss.api.CreateUserEndpoint;
+import com.crowdease.yasss.api.ListEventsEndpoint;
+import com.crowdease.yasss.api.ListUsersEndpoint;
+import com.crowdease.yasss.api.ModifyActivityEndpoint;
+import com.crowdease.yasss.api.ModifyDetailEndpoint;
+import com.crowdease.yasss.api.ModifyEventEndpoint;
+import com.crowdease.yasss.api.ModifyUserEndpoint;
+import com.crowdease.yasss.api.ModifyVolunteerEndpoint;
+import com.crowdease.yasss.api.ModifyWindowEndpoint;
+import com.crowdease.yasss.api.RemoveActivityEndpoint;
+import com.crowdease.yasss.api.RemoveDetailEndpoint;
+import com.crowdease.yasss.api.RemoveEventEndpoint;
+import com.crowdease.yasss.api.RemoveUserEndpoint;
+import com.crowdease.yasss.api.RemoveVolunteerEndpoint;
+import com.crowdease.yasss.api.RemoveWindowEndpoint;
+import com.crowdease.yasss.api.ResetUserEndpoint;
+import com.crowdease.yasss.api.RetrieveEventEndpoint;
+import com.crowdease.yasss.api.SetRSVPEndpoint;
+import com.crowdease.yasss.api.SetSlotEndpoint;
+import com.crowdease.yasss.api.UnsetRSVPEndpoint;
+import com.crowdease.yasss.api.UnsetSlotEndpoint;
+import com.crowdease.yasss.api.VerifyUserEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.TicketEngine;
 
@@ -85,10 +112,38 @@ public class YasssCore {
           config.getInteger(ParamEnum.TICKET_MAX_HISTORY.param().toString()));
       ticketEngine.start();
 
+      spark.Spark.staticFiles.location("/public");
       apiDriver = APIDriver.build(
           config.getInteger(ParamEnum.API_PORT.param().toString()),
           config.getString(ParamEnum.API_ALLOWED_ORIGINS.param().toString()),
-          null);
+          null,
+          new AddActivityEndpoint(),
+          new AddDetailEndpoint(),
+          new AddVolunteerEndpoint(),
+          new AddWindowEndpoint(),
+          new CreateEventEndpoint(),
+          new CreateUserEndpoint(),
+          new ListEventsEndpoint(),
+          new ListUsersEndpoint(),
+          new ModifyActivityEndpoint(),
+          new ModifyDetailEndpoint(),
+          new ModifyEventEndpoint(),
+          new ModifyUserEndpoint(),
+          new ModifyVolunteerEndpoint(),
+          new ModifyWindowEndpoint(),
+          new RemoveActivityEndpoint(),
+          new RemoveDetailEndpoint(),
+          new RemoveEventEndpoint(),
+          new RemoveUserEndpoint(),
+          new RemoveVolunteerEndpoint(),
+          new RemoveWindowEndpoint(),
+          new ResetUserEndpoint(),
+          new RetrieveEventEndpoint(),
+          new SetRSVPEndpoint(),
+          new SetSlotEndpoint(),
+          new UnsetRSVPEndpoint(),
+          new UnsetSlotEndpoint(),
+          new VerifyUserEndpoint());
 
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override public void run() {

@@ -5,10 +5,11 @@
  * v. 2.0. If a copy of the MPL was not distributed with this file, You can
  * obtain one at https://mozilla.org/MPL/2.0/.
  */
-package com.crowdease.yasss.http.api;
+package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
 import java.util.UUID;
+import java.util.Map.Entry;
 
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -24,13 +25,13 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
-public final class SetRSVPEndpoint extends APIEndpoint {
+public final class UnsetRSVPEndpoint extends APIEndpoint {
 
-  public SetRSVPEndpoint() {
+  public UnsetRSVPEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
         APIVersion.VERSION_1,
-        HTTPMethod.PUT);
+        HTTPMethod.DELETE);
   }
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
@@ -39,47 +40,39 @@ public final class SetRSVPEndpoint extends APIEndpoint {
       Event event = null;
       Activity activity = null;
       Slot slot = null;
-      Volunteer volunteer = null;
+      Entry<RSVP, Volunteer> rsvp = null;
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
 
-        if(null != event) {
+        if(null != event)
           activity = event.getActivity(
               UUID.fromString(
                   req.params("activity")));
-          volunteer = event.getVolunteer(
-              UUID.fromString(
-                  req.params("volunteer")));
-        }
 
         if(null != activity)
           slot = activity.getSlot(
               UUID.fromString(
                   req.params("window")));
+
+        if(null != slot)
+          rsvp = slot.getRSVP(
+              UUID.fromString(
+                  req.params("volunteer")));
         
       } catch(IllegalArgumentException e) { }
-      
-      if(null == slot)
-        throw new EndpointException(req, "slot not found", 404);
 
-      if(activity.getMaxActivityVolunteers() >= activity.countRSVPs()
-          || slot.getMaxSlotVolunteers() >= slot.countRSVPs())
-        throw new EndpointException(req, "volunteer cap exceeded", 409);
+      if(null == rsvp)
+        throw new EndpointException(req, "rsvp not found", 404);
 
-      RSVP rsvp = new RSVP(activity.getID(), slot.getWindow(), volunteer.getID());
-      rsvp.commit();
+      rsvp.getKey().delete();
 
-      res.status(201);
+      res.status(200);
       return new JSONObject()
-        .put("status", "ok")
-        .put("info", "successfully set rsvp")
-        .put("rsvp", new JSONObject()
-             .put("activity", rsvp.getActivity())
-             .put("window", rsvp.getWindow())
-             .put("volunteer", rsvp.getVolunteer()));
-
+          .put("status", "ok")
+          .put("info", "successfully unset rsvp");
+      
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
