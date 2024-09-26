@@ -44,22 +44,24 @@ public final class SetRSVPEndpoint extends APIEndpoint {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        activity = Activity.getActivity(
-            UUID.fromString(
-                req.params("activity")));
-        slot = null == activity
-            ? null
-            : activity.getSlot(
-                UUID.fromString(
-                    req.params("window")));
-        volunteer = Volunteer.getVolunteer(
-            UUID.fromString(
-                req.params("volunteer")));
+
+        if(null != event) {
+          activity = event.getActivity(
+              UUID.fromString(
+                  req.params("activity")));
+          volunteer = event.getVolunteer(
+              UUID.fromString(
+                  req.params("volunteer")));
+        }
+
+        if(null != activity)
+          slot = activity.getSlot(
+              UUID.fromString(
+                  req.params("window")));
+        
       } catch(IllegalArgumentException e) { }
       
-      if(null == event || null == activity || null == slot || null == volunteer
-          || 0 != event.getID().compareTo(activity.getEvent())
-          || 0 != event.getID().compareTo(volunteer.getEvent()))
+      if(null == slot)
         throw new EndpointException(req, "slot not found", 404);
 
       if(activity.getMaxActivityVolunteers() >= activity.countRSVPs()

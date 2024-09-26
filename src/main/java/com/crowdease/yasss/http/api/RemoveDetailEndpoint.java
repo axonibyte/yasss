@@ -37,12 +37,15 @@ public final class RemoveDetailEndpoint extends APIEndpoint {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        detail = Detail.getDetail(
-            UUID.fromString(
-                req.params("detail")));
+
+        if(null != event)
+          detail = event.getDetail(
+              UUID.fromString(
+                  req.params("detail")));
+        
       } catch(IllegalArgumentException e) { }
 
-      if(null == event || null == detail || 0 != event.getID().compareTo(detail.getEvent()))
+      if(null == detail)
         throw new EndpointException(req, "detail not found", 404);
 
       detail.delete();

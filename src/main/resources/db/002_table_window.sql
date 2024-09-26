@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS ${database}.${prefix}event_window (
+  id BINARY(16) NOT NULL,
+  event BINARY(16) NOT NULL,
+  begin_time DATETIME NOT NULL,
+  end_time DATETIME NOT NULL,
+  last_update TIMESTAMP
+    DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP
+    NOT NULL,
+  FOREIGN KEY (event) REFERENCES ${prefix}event (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+  PRIMARY KEY (id)
+)Engine=InnoDB;

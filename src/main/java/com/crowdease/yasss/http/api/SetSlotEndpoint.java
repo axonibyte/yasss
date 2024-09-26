@@ -44,17 +44,21 @@ public final class SetSlotEndpoint extends APIEndpoint {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        activity = Activity.getActivity(
-            UUID.fromString(
-                req.params("activity")));
-        window = Window.getWindow(
-            UUID.fromString(
-                req.params("window")));
+
+        if(null != event) {
+          activity = event.getActivity(
+              UUID.fromString(
+                  req.params("activity")));
+          window = event.getWindow(
+              UUID.fromString(
+                  req.params("window")));
+        }
+        
       } catch(IllegalArgumentException e) { }
 
-      if(null == event || null == activity || 0 != event.getID().compareTo(activity.getEvent()))
+      if(null == activity)
         throw new EndpointException(req, "activity not found", 404);
-      else if(null == window || 0 != event.getID().compareTo(window.getEvent()))
+      if(null == window)
         throw new EndpointException(req, "window not found", 404);
 
       JSONDeserializer deserializer = new JSONDeserializer(req.body())

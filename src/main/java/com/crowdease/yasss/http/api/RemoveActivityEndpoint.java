@@ -36,12 +36,15 @@ public final class RemoveActivityEndpoint extends APIEndpoint {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        activity = Activity.getActivity(
-            UUID.fromString(
-                req.params("activity")));
+
+        if(null != event)
+          activity = event.getActivity(
+              UUID.fromString(
+                  req.params("activity")));
+        
       } catch(IllegalArgumentException e) { }
 
-      if(null == event || null == activity || 0 != event.getID().compareTo(activity.getEvent()))
+      if(null == activity)
         throw new EndpointException(req, "activity not found", 404);
 
       activity.delete();

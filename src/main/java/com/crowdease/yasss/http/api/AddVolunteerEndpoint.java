@@ -67,7 +67,13 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           throw new EndpointException(req, "user not found", 404);
       }
 
-      Volunteer volunteer = new Volunteer(null, user.getID(), event.getID());
+      Volunteer volunteer = new Volunteer(
+          null,
+          user.getID(),
+          event.getID(),
+          deserializer.has("remindersEnabled")
+              ? deserializer.getBool("remindersEnabled")
+              : false);
       Map<UUID, Detail> fields = event.getDetails()
           .stream()
           .collect(

@@ -9,6 +9,7 @@ package com.crowdease.yasss.http.api;
 
 import java.sql.SQLException;
 import java.util.UUID;
+import java.util.Map.Entry;
 
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -17,6 +18,7 @@ import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
+import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONObject;
 
@@ -38,31 +40,33 @@ public final class UnsetRSVPEndpoint extends APIEndpoint {
       Event event = null;
       Activity activity = null;
       Slot slot = null;
-      RSVP rsvp = null;
+      Entry<RSVP, Volunteer> rsvp = null;
       try {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        activity = Activity.getActivity(
-            UUID.fromString(
-                req.params("activity")));
-        slot = null == activity
-            ? null
-            : activity.getSlot(
-                UUID.fromString(
-                    req.params("window")));
-        rsvp = null == slot
-            ? null
-            : slot.getRSVP(
-                UUID.fromString(
-                    req.params("volunteer")));
+
+        if(null != event)
+          activity = event.getActivity(
+              UUID.fromString(
+                  req.params("activity")));
+
+        if(null != activity)
+          slot = activity.getSlot(
+              UUID.fromString(
+                  req.params("window")));
+
+        if(null != slot)
+          rsvp = slot.getRSVP(
+              UUID.fromString(
+                  req.params("volunteer")));
+        
       } catch(IllegalArgumentException e) { }
-      
-      if(null == event || null == activity || null == slot || null == rsvp
-          || 0 != event.getID().compareTo(activity.getEvent()))
+
+      if(null == rsvp)
         throw new EndpointException(req, "rsvp not found", 404);
 
-      rsvp.delete();
+      rsvp.getKey().delete();
 
       res.status(200);
       return new JSONObject()

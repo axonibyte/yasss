@@ -33,7 +33,8 @@ public final class ListEventsEndpoint extends APIEndpoint {
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       JSONDeserializer deserializer = deserializeQueryParams(req)
-        .tokenize("user", false)
+        .tokenize("admin", false)
+        .tokenize("volunteer", false)
         .tokenize("label", false)
         .tokenize("earliest", false)
         .tokenize("latest", false)
@@ -45,7 +46,8 @@ public final class ListEventsEndpoint extends APIEndpoint {
         throw new EndpointException(req, "argument conflict (latest vs limit/page)", 400);
       }
 
-      UUID userID = deserializer.getUUID("user");
+      UUID adminID = deserializer.getUUID("admin");
+      UUID volunteerID = deserializer.getUUID("volunteer");
       String labelSubstr = deserializer.getString("label");
       Timestamp earliest = deserializer.getTimestamp("earliest");
       Timestamp latest = deserializer.getTimestamp("latest");
@@ -64,10 +66,10 @@ public final class ListEventsEndpoint extends APIEndpoint {
           throw new EndpointException(req, "malformed argument (page)", 400);
       }
 
-      int eventCount = Event.countEvents(userID, labelSubstr, earliest);
+      int eventCount = Event.countEvents(adminID, volunteerID, labelSubstr, earliest);
       var events = null == latest
-        ? Event.getEvents(userID, labelSubstr, earliest, page, limit)
-        : Event.getEvents(userID, labelSubstr, earliest, latest);
+        ? Event.getEvents(adminID, volunteerID, labelSubstr, earliest, page, limit)
+        : Event.getEvents(adminID, volunteerID, labelSubstr, earliest, latest);
 
       res.status(200);
       JSONObject resJSO = new JSONObject()

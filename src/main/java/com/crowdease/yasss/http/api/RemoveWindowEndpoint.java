@@ -37,12 +37,15 @@ public final class RemoveWindowEndpoint extends APIEndpoint {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        window = Window.getWindow(
-            UUID.fromString(
-                req.params("window")));
+
+        if(null != event)
+          window = event.getWindow(
+              UUID.fromString(
+                  req.params("window")));
+        
       } catch(IllegalArgumentException e) { }
       
-      if(null == event || null == window || 0 != event.getID().compareTo(window.getEvent()))
+      if(null == window)
         throw new EndpointException(req, "window not found", 404);
 
       window.delete();

@@ -45,12 +45,15 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        volunteer = Volunteer.getVolunteer(
-            UUID.fromString(
-                req.params("volunteer")));
+
+        if(null != event)
+          volunteer = event.getVolunteer(
+              UUID.fromString(
+                  req.params("volunteer")));
+        
       } catch(IllegalArgumentException e) { }
 
-      if(null == event || null == volunteer || 0 != event.getID().compareTo(volunteer.getEvent()))
+      if(null == volunteer)
         throw new EndpointException(req, "volunteer not found", 404);
 
       JSONDeserializer deserializer = new JSONDeserializer(req.body())

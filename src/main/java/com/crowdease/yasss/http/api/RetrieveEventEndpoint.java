@@ -53,12 +53,12 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
         JSONArray slotArr = new JSONArray();
         for(var slot : activity.getSlots()) {
           JSONArray rsvpArr = new JSONArray();
-          for(var rsvp : slot.getRSPVs()) {
-            if(!volunteers.containsKey(rsvp.getVolunteer()))
+          for(var rsvp : slot.getRSPVs().entrySet()) {
+            if(!volunteers.containsKey(rsvp.getValue().getID()))
               volunteers.put(
-                  rsvp.getVolunteer(),
-                  Volunteer.getVolunteer(rsvp.getVolunteer()));
-            rsvpArr.put(rsvp.getVolunteer());
+                  rsvp.getValue().getID(),
+                  rsvp.getValue());
+            rsvpArr.put(rsvp.getValue().getID());
           }
           slotArr.put(
               new JSONObject()

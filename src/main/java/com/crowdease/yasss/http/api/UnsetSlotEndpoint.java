@@ -41,18 +41,20 @@ public final class UnsetSlotEndpoint extends APIEndpoint {
         event = Event.getEvent(
             UUID.fromString(
                 req.params("event")));
-        activity = Activity.getActivity(
-            UUID.fromString(
-                req.params("activity")));
-        slot = null == activity
-          ? null
-          : activity.getSlot(
+
+        if(null != event)
+          activity = event.getActivity(
+              UUID.fromString(
+                  req.params("activity")));
+
+        if(null != activity)
+          slot = activity.getSlot(
               UUID.fromString(
                   req.params("window")));
+        
       } catch(IllegalArgumentException e) { }
 
-      if(null == event || null == activity || null == slot
-          || 0 != event.getID().compareTo(activity.getEvent()))
+      if(null == slot)
         throw new EndpointException(req, "slot not found", 404);
 
       slot.delete();

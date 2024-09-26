@@ -8,6 +8,7 @@
 package com.crowdease.yasss.http.api;
 
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -58,7 +59,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
           deserializer.has("longDescription")
               ? deserializer.getString("longDescription").strip()
               : "",
-          System.currentTimeMillis(),
+          new Timestamp(System.currentTimeMillis()),
           deserializer.has("emailOnSubmission")
               ? deserializer.getBool("emailOnSubmission")
               : false,
