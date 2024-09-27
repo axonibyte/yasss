@@ -1,8 +1,237 @@
 <html>
   <head>
     <title>Yasss!</title>
+    <link rel="stylesheet" href="/assets/css/bulma.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-calendar.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-switch.min.css" />
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <script src="/assets/js/jquery-3.7.1.min.js" defer></script>
+    <script src="/assets/js/bulma-calendar.min.js" defer></script>
+    <script src="/assets/js/app.js" defer></script>
   </head>
   <body>
-    <h2>Hello, world!</h2>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand">
+        <a class="navbar-item" href="/">
+          <strong class="has-text-primary">Yasss!</strong>
+        </a>
+      </div>
+      <div class="navbar-end">
+        <a id="create-event-btn" class="navbar-item">Create Event</a>
+        <a class="navbar-item">Log In</a>
+      </div>
+    </nav>
+    
+    <!-- introduction section -->
+    <section id="introduction-section" class="section">
+      <div class="container has-text-centered mb-4">
+        <h1 class="title is-2">
+          <strong class="has-text-primary">Yasss!</strong>
+        </h1>
+        <h2 class="subtitle is-4">Sign me up!</h2>
+      </div>
+      <div class="box">
+        <p class="subtitle">
+          Create an event or log in to see any of the events you've signed up for.
+        </p>
+      </div>
+    </section>
+
+    <!-- event view section -->
+    <section id="view-event-section" class="section" style="display: none;">
+      <!-- TODO -->
+    </section>
+
+    <!-- event modification form modal -->
+    <div id="edit-event-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Create an Event</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Event Title</div>
+            <div class="control">
+              <input class="input" type="text" placeholder="What's the name of your event?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Description</div>
+            <div class="control">
+              <textarea class="textarea" placeholder="Describe your event!" rows=4></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <input id="edit-event-notify-switch" type="checkbox" class="switch" checked="checked" />
+              <label for="edit-event-notify-switch">Do you want to be notified when someone signs up?</label>
+            </div>            
+          </div>
+          <div class="field">
+            <div class="control">
+              <input id="edit-event-multiuser-switch" type="checkbox" class="switch" />
+              <label for="edit-event-multiuser-switch">Allow multiple volunteers per signup?</label>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-success">Save</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- activity creation form modal -->
+    <div id="edit-activity-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Add an Activity</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Activity</div>
+            <div class="control">
+              <input class="input" type="text" placeholder="What's the activity?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Description</div>
+            <div class="control">
+              <textarea class="textarea" placeholder="Describe the activity!" rows=4></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Acitvity Volunteer Cap</div>
+            <div class="control">
+              <input id="edit-activity-vol-cap-switch" type="checkbox" class="switch" checked="checked" />
+              <label for="edit-activity-vol-cap-switch" class="switch toggle toggle-activity-vol-cap">Unlimited volunteers for this activity?</label>
+            </div>
+          </div>
+          <div class="field toggle-activity-vol-cap hide-on-load" style="display: none;">
+            <div class="control">
+              <input id="edit-activity-vol-cap-field" class="input" type="text" placeholder="How many volunteers do you need for this event?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Slot Volunteer Cap Default</div>
+            <div class="control">
+              <input id="edit-slot-vol-cap-def-switch" type="checkbox" class="switch" checked="checked" />
+              <label for="edit-slot-vol-cap-def-switch" class="switch toggle toggle-slot-vol-def-cap">Unlimited volunteers per slot by default?</label>
+            </div>
+          </div>
+          <div class="field toggle-slot-vol-def-cap hide-on-load" style="display: none;">
+            <div class="control">
+              <input id="edit-activity-slot-vol-cap-field" class="input" type="text" placeholder="How many volunteers per slot by default?" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons>
+            <button class="button is-success">Save Activity</button>
+            <button class="button is-warning">Remove Activity</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- window creation form modal -->
+    <div id="edit-window-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Add a Window</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Window</div>
+            <div class="control">
+              <input class="input" type="date" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button class="button is-success">Save Window</button>
+            <button class="button is-warning">Remove Window</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- detail creation form modal -->
+    <div id="edit-detail-modal" class="modal is-active">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Add a Detail</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Type</div>
+            <div class="control">
+              <div class="select">
+                <select>
+                  <option selected="true" disabled="disabled">What type of detail?</option>
+                  <option value="STRING">String</option>
+                  <option value="BOOLEAN">Boolean</option>
+                  <option value="INTEGER">Integer</option>
+                  <option value="EMAIL">Email Address</option>
+                  <option value="PHONE">Phone Number</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Field</div>
+            <div class="control">
+              <input class="input" type="text" placeholder="What do you need from your volunteers?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Description</div>
+            <div class="control">
+              <textarea class="textarea" placeholder="You can put additional instructions or requirements here if you want." rows=4></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <input id="edit-detail-required-switch" type="checkbox" class="switch" />
+              <label for="edit-detail-required-switch">Should users be required to answer this?</label>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button class="button is-success">Save Detail</button>
+            <button class="button is-warning">Remove Detail</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        <p>
+          <strong class="has-text-primary">Yasss!</strong> is made with love by
+          the team at <a href="https://crowdease.com" class="has-text-primary">CrowdEase</a>.
+        </p>
+        <p class="is-size-7 mt-5">
+          Copyright &copy; <script>document.write(/\d{4}/.exec(Date())[0])</script> CrowdEase, LLC. All rights reserved.
+        </p>
+        <p class="is-size-7 mt-2">
+          <a href="/terms" class="has-text-primary">Terms of Service</a>
+          &emsp;|&emsp;
+          <a href="/privacy" class="has-text-primary">Privacy Policy</a>
+          &emsp;|&emsp;
+          <a href="https://bitbucket.org/axonibyte/yasss" class="has-text-primary">Host it Yourself</a>
+        </p>
+      </div>
+    </footer>
+
   </body>
 </html>
