@@ -36,7 +36,15 @@ function renderTable(parent, step = 1) {
       continue;
     }
     console.log(`add cell ${i} with label ${cell.label}`);
-    addCell(grid, cell.label, 0 === i % (sz + 1) ? 'is-primary' : 'is-outlined is-primary');
+    addCell(
+        grid,
+        cell.label,
+        0 !== i % (sz + 1)
+            ? '' !== cell.aesthetics
+                ? cell.aesthetics
+                : 'is-outlined is-primary'
+            : 'is-primary'
+    );
   }
 
   parent.empty()
@@ -121,14 +129,14 @@ $(function() {
       {'label': 'Slot No. 1-2'},
       {'label': 'Slot No. 2-2'},
       {'label': 'Slot No. 3-2'},
-      {'label': 'Slot No. 4-2'},
+      {'label': 'Slot No. 4-2', 'aesthetics': 'is-outlined is-white' },
       {'label': 'Slot No. 5-2'},
       {'label': 'Slot No. 6-2'},
       {'label': 'Slot No. 7-2'},
       {'label': 'Slot No. 8-2'},
       {'label': 'Window No. 3'},
       {'label': 'Slot No. 1-3'},
-      {'label': 'Slot No. 2-3'},
+      {'label': 'Slot No. 2-3', 'aesthetics': 'is-outlined is-warning'},
       {'label': 'Slot No. 3-3'},
       {'label': 'Slot No. 4-3'},
       {'label': 'Slot No. 5-3'},
