@@ -57,7 +57,7 @@ var renderTableSlider = function(parent, step, max, fn) {
   parent
     .append(
         $('<input/>')
-          .addClass('slider is-fullwidth is-small')
+          .addClass('slider is-fullwidth is-small is-primary is-light')
           .attr('id', 'view-event-slider')
           .attr('step', '1')
           .attr('min', '1')
@@ -163,20 +163,38 @@ $(function() {
     $('#edit-event-modal').addClass('is-active');
   });
 
+  $('#view-event-edit-summary').on('click', () => {
+    $('#edit-event-modal').addClass('is-active');
+  });
+
+  $('#view-event-add-activity').on('click', () => {
+    $('#edit-activity-modal').addClass('is-active');
+  });
+
+  $('#view-event-add-window').on('click', () => {
+    $('#edit-window-modal').addClass('is-active');
+  });
+
+  $('#view-event-add-field').on('click', () => {
+    $('#edit-detail-modal').addClass('is-active');
+  });
+
   // close any modal when their respective 'x' is clicked
   $('.modal .modal-close, .modal button.delete').on('click', function() {
     $(this).closest('.modal.is-active').removeClass('is-active');
   });
 
   // certain switches hide elements
-  $('.toggle').on('click', function() {
-    let elems = [];
-    $(this).attr('class').split(/\s+/).forEach((elem) => {
-      if(elem.startsWith('toggle-')) {
-        console.log(elem);
-        $(`.${elem}`).not('.toggle').toggle();
-      }
-    });
+  $('.toggle').on('click keyup', function(e) {
+    if("keyup" != e.type || " " == e.which) {
+      let elems = [];
+      $(this).attr('class').split(/\s+/).forEach((elem) => {
+        if(elem.startsWith('toggle-')) {
+          console.log(elem);
+          $(`.${elem}`).not('.toggle').toggle();
+        }
+      });
+    }
   });
 
 });
