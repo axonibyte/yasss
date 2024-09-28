@@ -2,11 +2,14 @@
   <head>
     <title>Yasss!</title>
     <link rel="stylesheet" href="/assets/css/bulma.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-block-list.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-calendar.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-slider.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-switch.min.css" />
     <link rel="stylesheet" href="/assets/css/style.css" />
     <script src="/assets/js/jquery-3.7.1.min.js" defer></script>
     <script src="/assets/js/bulma-calendar.min.js" defer></script>
+    <script src="/assets/js/bulma-slider.min.js" defer></script>
     <script src="/assets/js/app.js" defer></script>
   </head>
   <body>
@@ -24,12 +27,14 @@
     
     <!-- introduction section -->
     <section id="introduction-section" class="section">
-      <div class="container has-text-centered mb-4">
+      <div class="container has-text-centered">
         <h1 class="title is-2">
           <strong class="has-text-primary">Yasss!</strong>
         </h1>
         <h2 class="subtitle is-4">Sign me up!</h2>
       </div>
+    </section>
+    <section>
       <div class="box">
         <p class="subtitle">
           Create an event or log in to see any of the events you've signed up for.
@@ -38,8 +43,171 @@
     </section>
 
     <!-- event view section -->
-    <section id="view-event-section" class="section" style="display: none;">
-      <!-- TODO -->
+    <section id="view-event-section" class="section">
+      <div class="fixed-grid has-5-cols">
+        <div class="grid">
+
+          <!-- header row -->
+          <div class="cell"></div>
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Activity A</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Activity B</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Activity C</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Activity D</li>
+            </ul>
+          </div>
+
+          <!-- row 1 -->
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Window 1</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot A1</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot B1</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot C1</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot D1</li>
+            </ul>
+          </div>
+
+          <!-- row 2 -->
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Window 2</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot A2</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot B2</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot C2</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot D2</li>
+            </ul>
+          </div>
+
+          <!-- row 3 -->
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Window 3</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot A3</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot B3</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot C3</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot D3</li>
+            </ul>
+          </div>
+
+          <!-- row 4 -->
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Window 4</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot A4</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot B4</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot C4</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot D4</li>
+            </ul>
+          </div>
+
+          <!-- row 5 -->
+          <div class="cell">
+            <ul class="block-list is-small is-primary is-centered">
+              <li>Window 5</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot A5</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot B5</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot C5</li>
+            </ul>
+          </div>
+          <div class="cell">
+            <ul class="block-list is-small is-outlined is-primary is-centered">
+              <li>Slot D5</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+      <input class="slider is-fullwidth is-small" step="1" min="0" max="100" value="50" type="range" />
     </section>
 
     <!-- event modification form modal -->
@@ -163,7 +331,7 @@
     </div>
 
     <!-- detail creation form modal -->
-    <div id="edit-detail-modal" class="modal is-active">
+    <div id="edit-detail-modal" class="modal">
       <div class="modal-background"></div>
       <div class="modal-card">
         <header class="modal-card-head">

@@ -3,8 +3,14 @@ The following software is included in the web UI:
 - bulma ; Copyright (c) 2023 Jeremy Thomas
   https://bulma.io/
 
+- bulma-block-list ; Copyright (c) 2019 CS Rhymes
+  https://github.com/chrisrhymes/bulma-block-list
+
 - bulma-calendar ; Copyright (c) 2017 Wikiki
   https://github.com/michael-hack/bulma-calendar
+
+- bulma-slider ; Copyright (c) 2017 Wikiki
+  https://github.com/Wikiki/bulma-slider
 
 - bulma-switch ; Copyright (c) 2017 Wikiki
   https://github.com/Wikiki/bulma-switch
@@ -13,8 +19,8 @@ The following software is included in the web UI:
   https://openjsf.org
   https://github.com/jquery/jquery
 
-The aforementioned software (bulma, bulma-calendar, bulma-switch, and jQuery)
-are all licensed under the MIT license, as follows:
+The aforementioned software repositories are all licensed under 
+the MIT license, as follows:
 
 ===
 
