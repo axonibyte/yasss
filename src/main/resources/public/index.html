@@ -134,15 +134,45 @@
               <button id="view-event-add-activity" class="button is-light is-outlined is-primary">Add an Activity</button>
               <button id="view-event-add-window" class="button is-light is-outlined is-primary">Add a Window</button>
               <button id="view-event-add-field" class="button is-light is-outlined is-primary">Add a Field</button>
-              <button id="view-event-save-event" class="button is-primary">Save Event</button>
+              <button id="view-event-publish-event" class="button is-primary">Publish Event</button>
             </div>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- modal for asking guests if they want to log in or register -->
+    <div id="guest-auth-prompt-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Hey there friend!</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4">
+            Looks like you aren't logged in... but that's totally fine!
+          </p>
+          <p class="mb-4">
+            You can absolutely publish an event without creating an account. But, it
+            means you won't be able to go back and edit your event submission.
+          </p>
+          <p>
+            Would you like to sign in or create an account so you can go back and
+            edit your event later?
+          </p>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+           <button id="guest-auth-prompt-open-auth" class="button is-success">Yes please!</button>
+           <button id="guest-auth-prompt-publish-now" class="button is-danger">No thanks, I'm good!</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
     <!-- log in / register modal -->
-    <div id="authentication-modal" class="modal is-active">
+    <div id="authentication-modal" class="modal">
       <div class="modal-background"></div>
       <div class="modal-card">
         <header class="modal-card-head">

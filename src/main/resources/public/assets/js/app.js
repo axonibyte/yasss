@@ -159,24 +159,41 @@ $(function() {
     );
   });
 
+  // for when someone hits the 'create event' nav item
   $('#create-event-btn').on('click', () => {
     $('#edit-event-modal').addClass('is-active');
   });
 
+  // for when someone wants to go back and edit the event summary
   $('#view-event-edit-summary').on('click', () => {
     $('#edit-event-modal').addClass('is-active');
   });
 
+  // for when someone wants to add or modify event activities
   $('#view-event-add-activity').on('click', () => {
     $('#edit-activity-modal').addClass('is-active');
   });
 
+  // for when someone wants to add or modify event windows
   $('#view-event-add-window').on('click', () => {
     $('#edit-window-modal').addClass('is-active');
   });
 
+  // for when someone wants to add or modify event details
   $('#view-event-add-field').on('click', () => {
     $('#edit-detail-modal').addClass('is-active');
+  });
+
+  // for when someone wants to log in or register
+  $('#log-in-btn, #guest-auth-prompt-open-auth').on('click', () => {
+    $('#guest-auth-prompt-modal').removeClass('is-active');
+    $('#authentication-modal').addClass('is-active');
+  });
+
+  // for when someone's ready to publish their event
+  $('#view-event-publish-event').on('click', () => {
+    // TODO more processing here to see if the user is logged in, etc.
+    $('#guest-auth-prompt-modal').addClass('is-active');
   });
 
   // close any modal when their respective 'x' is clicked
