@@ -1,3 +1,5 @@
+import('/assets/js/event-table.js');
+
 $(function(){
 
   const urlParams = new URLSearchParams(window.location.search);
