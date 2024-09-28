@@ -147,10 +147,10 @@ $(function() {
     ]
   };
 
-  $('#log-in-btn').on('click', () => {
+  $('#magic-button').on('click', () => {
     renderTable($('#view-event-table'));
     renderTableSlider(
-        $('#view-event-section'),
+        $('#view-event-table').parent(),
         1,
         eventTableData.headers.length > 4 ? 5 : (eventTableData.headers.length + 1),
         (val) => {
