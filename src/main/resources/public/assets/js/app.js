@@ -1,19 +1,25 @@
 var eventTableData = { "headers": [], "rows": [] };
 
 function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}) {
-  parent.append(
-      $('<div/>')
-        .addClass('cell')
-        .append(
-            $('<ul/>')
-              .addClass('block-list is-small is-centered')
-              .addClass(aesthetics)
-              .append(
-                  $('<li/>')
-                    .text(label)
-              )
-        )
-  );
+  let cell = $('<div/>')
+    .addClass('cell')
+    .append(
+        $('<ul/>')
+          .addClass('block-list is-small is-centered')
+          .addClass(aesthetics)
+          .append(
+              $('<li/>')
+                .text(label)
+          )
+    );
+
+  parent.append(cell);
+
+  if('function' === typeof fn) {
+    cell.on('click', function() {
+      fn(data);
+    });
+  }
 }
 
 function renderTable(parent, step = 1) {
@@ -43,7 +49,9 @@ function renderTable(parent, step = 1) {
             ? '' !== cell.aesthetics
                 ? cell.aesthetics
                 : 'is-outlined is-primary'
-            : 'is-primary'
+            : 'is-primary',
+        cell.fn,
+        cell.data
     );
   }
 
@@ -59,7 +67,7 @@ var viewTableSliderOutput = $('<output/>')
   .attr('for', 'view-event-slider')
   .hide();
 
-var renderTableSlider = function(parent, step, max, fn) {
+var renderTableSlider = function(parent, step, max) {
 
   parent.children('input.slider').remove();
   parent
@@ -117,7 +125,7 @@ $(function() {
     ],
     rows: [
       {'label': 'Window No. 1'},
-      {'label': 'Slot No. 1-1'},
+      {'label': 'Slot No. 1-1', 'fn': (data) => { console.log(data); }, 'data': { 'foo': 'bar' }},
       {'label': 'Slot No. 2-1'},
       {'label': 'Slot No. 3-1'},
       {'label': 'Slot No. 4-1'},
