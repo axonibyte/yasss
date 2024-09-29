@@ -3,9 +3,6 @@ var eventTableData = {
   "rows": []
 };
 
-var eventData = {
-};
-
 function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}) {
   let cell = $('<div/>')
     .addClass('cell')
@@ -28,9 +25,21 @@ function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null
   }
 }
 
+function renderTableMeta(title, description, editable) {
+  $('#view-event-short-descr').text(title);
+  $('#view-event-long-descr').text(description);
+  if(editable) {
+    $('#view-event-details').show();
+    $('#view-event-edit-summary').parent().show();
+  } else {
+    $('#view-event-details').hide();
+    $('#view-event-edit-summary').parent().hide();
+  }
+}
+
 function renderTable(parent, step = 1) {
   let sz = eventTableData.headers.length;
-  let cols = sz > 4 ? 5 : (cols + 1);
+  let cols = sz > 4 ? 5 : (sz + 1);
 
   console.log(`render ${cols}-column table at step ${step}`);
 
@@ -96,12 +105,15 @@ function renderTableSlider(parent, step, max) {
   bulmaSlider.attach();
 }
 
-function renderEventSummaryModal(summary = {
+function renderEventSummaryModal(newEvent = true, fn = null, summary = {
   title: '',
   description: '',
   notifyOnSignup: true,
   allowMultiuserSignups: false
-}, fn = null) {
+}) {
+  $('#edit-event-modal p.modal-card-title').text(
+      newEvent ? 'Create an Event' : 'Update an Event');
+
   $('#edit-event-short-descr').attr('value', summary.title);
   $('#edit-event-long-descr').text(summary.description);
   $('#edit-event-notify-switch').prop('checked', summary.notifyOnSignup);
@@ -336,7 +348,27 @@ $(function() {
 
   // for when someone hits the 'create event' nav item
   $('#create-event-btn').on('click', () => {
-    $('#edit-event-modal').addClass('is-active');
+    renderEventSummaryModal(newEvent = true, fn = function(summary) {
+      renderTableMeta(
+        $('#edit-event-short-descr').val(),
+        $('#edit-event-long-descr').val(),
+        true);
+      eventTableData = {
+        "headers": [],
+        "rows": []
+      };
+      renderTable($('#view-event-table'));
+      renderTableSlider(
+          $('#view-event-table').parent(),
+          1,
+          eventTableData.headers.length > 4 ? 5 : (eventTableData.headers.length + 1),
+          (val) => {
+            console.log(`slider: ${val}`);
+          }
+      );
+      $('#view-event-section').show();
+      return true;
+    });
   });
 
   // for when someone wants to go back and edit the event summary
