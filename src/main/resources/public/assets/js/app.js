@@ -1,4 +1,10 @@
-var eventTableData = { "headers": [], "rows": [] };
+var eventTableData = {
+  "headers": [],
+  "rows": []
+};
+
+var eventData = {
+};
 
 function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}) {
   let cell = $('<div/>')

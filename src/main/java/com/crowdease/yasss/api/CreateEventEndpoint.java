@@ -11,7 +11,9 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -71,7 +73,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
       if(event.getShortDescription().isBlank())
         throw new EndpointException(req, "malformed argument (string: shortDescription)", 400);
 
-      List<Activity> activities = new ArrayList<>();
+      LinkedHashMap<Activity, List<JSONDeserializer>> activities = new LinkedHashMap<>();
       for(var activityDeserializer : deserializer.tokenizeJSONArray("activities", true)) {
         activityDeserializer
           .tokenize("shortDescription", true)
@@ -79,8 +81,9 @@ public final class CreateEventEndpoint extends APIEndpoint {
           .tokenize("maxActivityVolunteers", false)
           .tokenize("maxSlotVolunteersDefault", false)
           .tokenize("priority", false)
+          .tokenize("slots", false)
           .check();
-        
+
         Activity activity = new Activity(
             null,
             null,
@@ -116,9 +119,12 @@ public final class CreateEventEndpoint extends APIEndpoint {
               "malformed argument (int: activities[].maxSlotVolunteersDefault)",
               400);
 
-        activities.add(activity);
+        activities.put(
+            activity,
+            activityDeserializer.has("slots")
+            ? activityDeserializer.tokenizeJSONArray("slots", true)
+            : null);
       }
-      Collections.sort(activities);
 
       List<Window> windows = new ArrayList<>();
       for(var windowDeserializer : deserializer.tokenizeJSONArray("windows", true)) {
@@ -146,7 +152,6 @@ public final class CreateEventEndpoint extends APIEndpoint {
 
         windows.add(window);
       }
-      Collections.sort(windows);
 
       List<Detail> details = new ArrayList<>();
       for(var detailDeserializer : deserializer.tokenizeJSONArray("details", true)) {
@@ -187,23 +192,60 @@ public final class CreateEventEndpoint extends APIEndpoint {
         details.add(detail);
       }
       Collections.sort(details);
+
+      TempSlot[][] slots = new TempSlot[activities.size()][windows.size()];
+      int aIdx = 0;
+      for(var activity : activities.entrySet()) {
+        for(int sIdx = 0; sIdx < activity.getValue().size(); sIdx++) {
+          var slotDeserializer = activity.getValue().get(sIdx)
+            .tokenize("enabled", true)
+            .tokenize("window", true)
+            .tokenize("maxSlotVolunteers", false)
+            .check();
+          int wIdx = slotDeserializer.getInt("window");
+          TempSlot tempSlot = new TempSlot(aIdx, wIdx);
+          tempSlot.setEnabled(
+              slotDeserializer.getBool("enabled"));
+          if(tempSlot.isEnabled())
+            tempSlot.setMaxSlotVolunteers(
+                slotDeserializer.has("maxSlotVolunteers")
+                ? slotDeserializer.getInt("maxSlotVolunteers")
+                : activity.getKey().getMaxSlotVolunteersDefault());
+          slots[aIdx][wIdx] = tempSlot;
+        }
+        aIdx++;
+      }
       
       event.commit();
       for(var window : windows) {
         window.setEvent(event.getID());
         window.commit();
       }
-      for(var activity : activities) {
-        activity.setEvent(event.getID());
-        activity.commit();
+      aIdx = 0;
+      for(var activity : activities.entrySet()) {
+        activity.getKey().setEvent(event.getID());
+        activity.getKey().commit();
 
+        int wIdx = 0;
         for(var window : windows) {
           Slot slot = new Slot(
-              activity.getID(),
+              activity.getKey().getID(),
               window.getID(),
-              activity.getMaxSlotVolunteersDefault());
-          slot.commit();
+              activity.getKey().getMaxSlotVolunteersDefault());
+          
+          TempSlot tempSlot = slots[aIdx][wIdx];
+          if(null != tempSlot && tempSlot.isEnabled()) { // specified vals
+            if(null != tempSlot.getMaxSlotVolunteers()) // possibly update defaults
+              slot.setMaxSlotVolunteers(
+                  tempSlot.getMaxSlotVolunteers());
+            slot.commit();
+          } else if(null == tempSlot) { // default vals
+            slot.commit();
+          } // else assume tempSlot is explicitly disabled, don't commit it
+
+          wIdx++;
         }
+        aIdx++;
       }
       for(var detail : details) {
         detail.setEvent(event.getID());
@@ -224,6 +266,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
               .put(
                   "activities",
                   (JSONArray)activities
+                      .keySet()
                       .stream()
                       .map(
                           a -> new JSONObject()
@@ -276,4 +319,35 @@ public final class CreateEventEndpoint extends APIEndpoint {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
   }
+
+  private static final class TempSlot {
+    
+    private final int activity;
+    private final int window;
+    
+    private boolean enabled;
+    private Integer maxSlotVolunteers;
+
+    private TempSlot(int activity, int window) {
+      this.activity = activity;
+      this.window = window;
+    }
+
+    private boolean isEnabled() {
+      return enabled;
+    }
+
+    private void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    private Integer getMaxSlotVolunteers() {
+      return maxSlotVolunteers;
+    }
+
+    private void setMaxSlotVolunteers(Integer maxSlotVolunteers) {
+      this.maxSlotVolunteers = maxSlotVolunteers;
+    }
+  }
+  
 }
