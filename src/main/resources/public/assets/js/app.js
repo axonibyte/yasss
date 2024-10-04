@@ -189,9 +189,9 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
 
 function renderEventWindowModal(newWindow = true, savFn = null, delFn = null, window = {
   startDate: '',
-  startTime: '',
-  endDate: '',
-  endTime: ''
+  //startTime: '',
+  endDate: ''
+  //endTime: ''
 }) {
   $('#edit-window-sav').unbind('click');
   $('#edit-window-del').unbind('click');
@@ -200,13 +200,14 @@ function renderEventWindowModal(newWindow = true, savFn = null, delFn = null, wi
       newWindow ? 'Add a Window' : 'Update a Window');
 
   let cal = $('#edit-window-range')[0].bulmaCalendar;
-  if('' == startDate || '' == startTime || '' == endDate || '' == endTime)
+  //if('' == startDate || '' == startTime || '' == endDate || '' == endTime)
+  if('' == window.startDate || '' == window.startTime)
     cal.clear();
   else {
     cal.startDate = window.startDate;
-    cal.startTime = window.startTime;
+    //cal.startTime = window.startTime;
     cal.endDate = window.endDate;
-    cal.endTime = window.endTime;
+    //cal.endTime = window.endTime;
     cal.save();
   }
 
@@ -228,10 +229,10 @@ function renderEventWindowModal(newWindow = true, savFn = null, delFn = null, wi
 }
 
 function renderEventDetailModal(newDetail = true, savFn = null, delFn = null, detail = {
-  'type': '',
-  'field': '',
-  'description': '',
-  'required': false
+  type: '',
+  field: '',
+  description: '',
+  required: false
 }) {
   $('#edit-detail-sav').unbind('click');
   $('#edit-detail-del').unbind('click');
@@ -274,14 +275,11 @@ function renderEventSlotModal(newSlot = true, savFn = null, slot = {
 }) {
   $('#edit-slot-sav').unbind('click');
 
-  $('#edit-slot-modal p.modal-card-title').text(
-      newEvent ? 'Add a Slot' : 'Update a Slot');
-
   $('#edit-slot-activity-field').val(slot.activitySummary);
 
   if('function' === typeof slot.activityEditFn) {
     $('#edit-slot-activity-btn').on('click', () => {
-      slot.activityEditFn();
+      slot.activityEditFn(slot);
     }).show();
   } else $('#edit-slot-activity-btn').hide();
 
@@ -289,7 +287,7 @@ function renderEventSlotModal(newSlot = true, savFn = null, slot = {
 
   if('function' === typeof slot.windowEditFn) {
     $('#edit-slot-window-btn').on('click', () => {
-      slot.windowEditFn();
+      slot.windowEditFn(slot);
     }).show();
   } else $('#edit-slot-window-btn').hide();
 
@@ -334,6 +332,26 @@ function getActivityModalVals(newVals = null) {
         ? -1 : $('#edit-activity-vol-cap-field').val(),
     slotVolunteerCapDefault: $('#edit-activity-slot-vol-cap-def-switch').prop('checked')
         ? -1 : $('#edit-activity-slot-vol-cap-def-field').val()
+  }
+  return null != newVals ? Object.assign(data, newVals) : data;
+}
+
+function getWindowModalVals(newVals = null) {
+  let cal = $('#edit-window-range')[0].bulmaCalendar;
+  let data = {
+    startDate: cal.startDate,
+    //startTime: '',
+    endDate: cal.endDate
+    //endTime: ''
+  }
+  return null != newVals ? Object.assign(data, newVals) : data;
+}
+
+function getSlotModalVals(newVals = null) {
+  let data = {
+    slotEnabled: $('#edit-slot-enable-switch').prop('checked'),
+    slotVolunteerCap: $('#edit-slot-vol-cap-switch').prop('checked')
+        ? -1 : $('#edit-slot-vol-cap-field').val()
   }
   return null != newVals ? Object.assign(data, newVals) : data;
 }
@@ -416,6 +434,7 @@ $(function() {
     // for when someone wants to add or modify event activities
     $('#view-event-add-activity').on('click', () => {
       renderEventActivityModal(newActivity = true, savFn = function(activity) {
+
         let data = getActivityModalVals({ idx: eventTableData.headers.length });
         eventTableData.headers.push({
           label: data.label,
@@ -426,15 +445,55 @@ $(function() {
               refreshTable();
               return true;
             }, delFn = function(activity) { // on delete
+              for(let i = d.idx + 1; i < eventTableData.rows.length; i += eventTableData.headers.length)
+                eventTableData.rows.splice(i, 1); // remove the slots that correspond with the activity
+              for(let i = 0; i < eventTableData.rows.length; i++) {
+                eventTableData.rows[i].data.idx = i; // reset the window/slot idxs
+                eventTableData.rows[i].data.activityIdx = i - eventTableData.rows[i].data.windowIdx - 1;
+              }
+              
               for(let i = d.idx + 1; i < eventTableData.headers.length; i++)
                 eventTableData.headers[i].data.idx--;
-              eventTableData.headers.splice(d.idx, 1);
+              eventTableData.headers.splice(d.idx, 1); // d.idx is the current idx of the activity in the arr
               refreshTable();
               return true;
             }, d); // last param is to set modal defaults
           },
           data: data // on save activity
         });
+
+        // TODO also add new slots
+        for(let i = 0; i < eventTableData.rows.length; i += eventTableData.headers.length + 1) {
+
+          console.log(`${i} ${eventTableData.rows.length} ${eventTableData.headers.length}`);
+
+          let slotData = { // TODO pull the summary, window, make sure edit fns are active
+            activitySummary: 'activity summary',
+            activityEditFn: (slot) => {
+              console.log(`idx: ${slot.idx}/${eventTableData.headers.length + 1} = ${Math.floor(slot.idx / (eventTableData.headers.length + 1))}`);
+            },
+            activityIdx: eventTableData.headers.length,
+            windowSummary: 'window summary',
+            windowEditFn: null,
+            windowIdx: i,
+            slotEnabled: true,
+            slotVolunteerCap: data.slotVolunteerCapDefault,
+            idx: i + eventTableData.headers.length
+          };
+
+          eventTableData.rows.splice(i + eventTableData.headers.length, 0, {
+            label: 'Slot',
+            fn: (d) => { // on click function for slot
+              renderEventSlotModal(newSlot = true, saveFn = function(slot) { // slot save
+                Object.assign(slotData, slot);
+                eventTableData.rows[slotData.idx].label = 'Slot';
+                refreshTable();
+                return true;
+              }, d); // last param is to set modal defaults
+            },
+            data: slotData
+          });
+        }
 
         refreshTable();
         return true;
@@ -443,7 +502,31 @@ $(function() {
 
     // for when someone wants to add or modify event windows
     $('#view-event-add-window').on('click', () => {
-      $('#edit-window-modal').addClass('is-active');
+      renderEventWindowModal(newWindow = true, savFn = function(activity) {
+
+        let data = getWindowModalVals({ idx: eventTableData.rows.lengh });
+        eventTableData.rows.push({
+          label: `${data.startDate} - ${data.endDate}`,
+          fn: (d) => { // on click function
+            renderEventWindowModal(newWindow = false, saveFn = function(window) { // on save
+              Object.assign(window, getWindowModalVals());
+              eventTableData.rows[data.idx].label = `${data.startDate} - ${data.endDate}`;
+              refreshTable();
+              return true;
+            }, delFn = function(window) { // on delete
+              for(let i = d.idx + 1; i < eventTableData.rows.length; i++)
+                eventTableData.rows[i].data.idx -= eventTableData.headers.length + 1;
+              eventTableData.headers.splice(d.idx, eventTableData.headers.length + 1);
+              refreshTable();
+              return true;
+            }, d); // last param is to set modal defaults
+          },
+          data: data // on save window
+        }); // null window is new window
+
+        refreshTable();
+        return true;
+      }); // null window is new window
     });
 
     // for when someone wants to add or modify event details
