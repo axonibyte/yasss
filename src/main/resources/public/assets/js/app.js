@@ -1,13 +1,16 @@
+const maxTableCols = 5;
+
 var eventTableData = {
-  "headers": [],
-  "rows": []
+  "activities": [],
+  "windows": [],
+  "slots": []
 };
 
 var eventChanges = {};
 
-function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}) {
+function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}, idx = null) {
   let cell = $('<div/>')
-    .addClass('cell')
+    .addClass('cell event-cell')
     .append(
         $('<ul/>')
           .addClass('block-list is-small is-centered')
@@ -19,6 +22,9 @@ function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null
     );
 
   parent.append(cell);
+
+  if(null != idx)
+    data.idx = idx;
 
   if('function' === typeof fn) {
     cell.on('click', function() {
@@ -40,24 +46,49 @@ function renderTableMeta(title, description, editable) {
 }
 
 function renderTable(parent, step = 1) {
-  let sz = eventTableData.headers.length;
-  let cols = sz > 4 ? 5 : (sz + 1);
+  let sz = eventTableData.activities.length;
+  let cols = sz >= maxTableCols ? maxTableCols : (sz + 1);
 
   console.log(`render ${cols}-column table at step ${step}`);
 
   let grid = $('<div/>').addClass('grid');
-  addCell(grid, '', '');
+  let idx = 0;
+  addCell(grid, '', ''); // this is the space in the top-left part of the grid
   console.log(eventTableData);
-  for(let i = step - 1; i < cols + step - 2; ++i) {
-    console.log(`add header ${i} with label ${eventTableData.headers[i].label}`);
+
+  for(let a = step - 1; a < cols + step - 2; ++a) {
+    console.log(`add activity ${a} with label ${eventTableData.activities[a].label}`);
     addCell(
         grid,
-        eventTableData.headers[i].label,
+        eventTableData.activities[a].label,
         'is-primary',
-        eventTableData.headers[i].fn,
-        eventTableData.headers[i].data);
+        eventTableData.activities[a].fn,
+        eventTableData.activities[a].data,
+        ++idx);
   }
 
+  for(let w = 0; w < eventTableData.windows.length; ++w) {
+    console.log(`add window ${w} with label ${eventTableData.windows[w].label}`);
+    addCell(
+      grid,
+      eventTableData.windows[w].label,
+      'is-primary',
+      eventTableData.windows[w].fn,
+      eventTableData.windows[w].data,
+      ++idx);
+    
+    for(let s = w * sz + (step - 1); s < w * sz + (step - 2 + cols); ++s) {
+      addCell(
+        grid,
+        eventTableData.slots[s].label,
+        'is-outlined is-primary',
+        eventTableData.slots[s].fn,
+        eventTableData.slots[s].data,
+        ++idx);
+    }
+  }
+
+  /*
   for(let i = 0, cell; cell = eventTableData.rows[i]; ++i) {
     if(0 !== i % (sz + 1) && (i % (sz + 1) < step || i % (sz + 1) >= cols + step - 1)) {
       console.log(`skip cell ${i} with label ${cell.label}`);
@@ -76,6 +107,7 @@ function renderTable(parent, step = 1) {
         cell.data
     );
   }
+  */
 
   parent.empty()
     .append(
@@ -90,8 +122,10 @@ var viewTableSliderOutput = $('<output/>')
   .hide();
 
 function renderTableSlider(parent, step = 1, max = null) {
-  if(null == max)
-    max = eventTableData.headers.length > 4 ? 5 : (eventTableData.headers.length + 1);
+  if(null == max) {
+    ln = eventTableData.activities.length;
+    max = ln > (maxTableCols - 2) ? ln - (maxTableCols - 2) : 1;
+  }
   parent.children('input.slider').remove();
   parent
     .append(
@@ -382,32 +416,34 @@ $(function() {
   viewTableSliderObserver.observe(viewTableSliderOutput[0], { childList: true, subtree: true, characterData: true });
 
   $('#magic-button').on('click', () => {
-    eventTableData = { "headers": [], "rows": [] };
-    for(let header = 1; header <= 8; header++)
-      eventTableData.headers.push({
-        label: `Activity #${header}`,
+    for(let activity = 1; activity <= 5; activity++)
+      eventTableData.activities.push({
+        label: `Activity #${activity}`,
         fn: (data) => {
-          $('#edit-activity-modal').addClass('is-active');
+          console.log(`Activity idx = ${data.idx} clicked.`);
         }
       });
+    for(let window = 0; window < 4; window++) {
+      eventTableData.windows.push({
+        label: `Window #${window + 1}`,
+        fn: (data) => {
+          console.log(`Window idx = ${data.idx} clicked.`);
+        }
+      });
+    }
     for(let row = 0; row < 4; row++) {
-      eventTableData.rows.push({
-        label: `Window #${row + 1}`,
-        fn: (data) => {
-          $('#edit-window-modal').addClass('is-active');
-        }
-      });
-      for(let col = 0; col < 8; col++) {
-        eventTableData.rows.push({
+      for(let col = 0; col < 5; col++) {
+        eventTableData.slots.push({
           label: `Slot #${row + 1}-${col + 1}`,
           fn: (data) => {
-            $('#edit-slot-modal').addClass('is-active');
+            console.log(`Slot idx = ${data.idx} clicked.`);
           }
         });
       }
     }
 
     refreshTable();
+    $('#view-event-section').show();
   });
 
   // for when someone hits the 'create event' nav item
@@ -435,26 +471,26 @@ $(function() {
     $('#view-event-add-activity').on('click', () => {
       renderEventActivityModal(newActivity = true, savFn = function(activity) {
 
-        let data = getActivityModalVals({ idx: eventTableData.headers.length });
-        eventTableData.headers.push({
+        let data = getActivityModalVals({ idx: eventTableData.activities.length });
+        eventTableData.activities.push({
           label: data.label,
           fn: (d) => { // on click function
             renderEventActivityModal(newActivity = false, savFn = function(activity) { // on save
               Object.assign(activity, getActivityModalVals());
-              eventTableData.headers[data.idx].label = activity.label;
+              eventTableData.activities[data.idx].label = activity.label;
               refreshTable();
               return true;
             }, delFn = function(activity) { // on delete
-              for(let i = d.idx + 1; i < eventTableData.rows.length; i += eventTableData.headers.length)
+              for(let i = d.idx + 1; i < eventTableData.rows.length; i += eventTableData.activities.length)
                 eventTableData.rows.splice(i, 1); // remove the slots that correspond with the activity
               for(let i = 0; i < eventTableData.rows.length; i++) {
                 eventTableData.rows[i].data.idx = i; // reset the window/slot idxs
                 eventTableData.rows[i].data.activityIdx = i - eventTableData.rows[i].data.windowIdx - 1;
               }
               
-              for(let i = d.idx + 1; i < eventTableData.headers.length; i++)
-                eventTableData.headers[i].data.idx--;
-              eventTableData.headers.splice(d.idx, 1); // d.idx is the current idx of the activity in the arr
+              for(let i = d.idx + 1; i < eventTableData.activities.length; i++)
+                eventTableData.activities[i].data.idx--;
+              eventTableData.activities.splice(d.idx, 1); // d.idx is the current idx of the activity in the arr
               refreshTable();
               return true;
             }, d); // last param is to set modal defaults
@@ -463,25 +499,25 @@ $(function() {
         });
 
         // TODO also add new slots
-        for(let i = 0; i < eventTableData.rows.length; i += eventTableData.headers.length + 1) {
+        for(let i = 0; i < eventTableData.rows.length; i += eventTableData.activities.length + 1) {
 
-          console.log(`${i} ${eventTableData.rows.length} ${eventTableData.headers.length}`);
+          console.log(`${i} ${eventTableData.rows.length} ${eventTableData.activities.length}`);
 
           let slotData = { // TODO pull the summary, window, make sure edit fns are active
             activitySummary: 'activity summary',
             activityEditFn: (slot) => {
-              console.log(`idx: ${slot.idx}/${eventTableData.headers.length + 1} = ${Math.floor(slot.idx / (eventTableData.headers.length + 1))}`);
+              console.log(`idx: ${slot.idx}/${eventTableData.activities.length + 1} = ${Math.floor(slot.idx / (eventTableData.activities.length + 1))}`);
             },
-            activityIdx: eventTableData.headers.length,
+            activityIdx: eventTableData.activities.length,
             windowSummary: 'window summary',
             windowEditFn: null,
             windowIdx: i,
             slotEnabled: true,
             slotVolunteerCap: data.slotVolunteerCapDefault,
-            idx: i + eventTableData.headers.length
+            idx: i + eventTableData.activities.length
           };
 
-          eventTableData.rows.splice(i + eventTableData.headers.length, 0, {
+          eventTableData.rows.splice(i + eventTableData.activities.length, 0, {
             label: 'Slot',
             fn: (d) => { // on click function for slot
               renderEventSlotModal(newSlot = true, saveFn = function(slot) { // slot save
@@ -515,8 +551,8 @@ $(function() {
               return true;
             }, delFn = function(window) { // on delete
               for(let i = d.idx + 1; i < eventTableData.rows.length; i++)
-                eventTableData.rows[i].data.idx -= eventTableData.headers.length + 1;
-              eventTableData.headers.splice(d.idx, eventTableData.headers.length + 1);
+                eventTableData.rows[i].data.idx -= eventTableData.activities.length + 1;
+              eventTableData.activities.splice(d.idx, eventTableData.activities.length + 1);
               refreshTable();
               return true;
             }, d); // last param is to set modal defaults
