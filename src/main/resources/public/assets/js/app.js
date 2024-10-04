@@ -3,12 +3,13 @@ const maxTableCols = 5;
 var eventTableData = {
   "activities": [],
   "windows": [],
-  "slots": []
+  "slots": [],
+  "step": 1
 };
 
 var eventChanges = {};
 
-function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}, idx = null) {
+function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}, tblIdx = null) {
   let cell = $('<div/>')
     .addClass('cell event-cell')
     .append(
@@ -23,14 +24,93 @@ function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null
 
   parent.append(cell);
 
-  if(null != idx)
-    data.idx = idx;
+  if(null != tblIdx)
+    data.tblIdx = tblIdx;
 
   if('function' === typeof fn) {
     cell.on('click', function() {
       fn(data);
     });
   }
+}
+
+// add an activity and new slots to event data table
+// note: slots len must match window arr len
+function mkActivity(activity, slots) {
+  if(slots.length != eventTableData.windows.length)
+    throw 'slot arr len does not match window arr len';
+  eventTableData.activities.push(activity);
+  for(let i = 0, slot; slot = slots[i]; i++)
+    eventTableData.slots.splice((i + 1) * eventTableData.activities.length - 1, 0, slot);
+}
+
+// move an activity and all associated slots from one col idx to another idx in event data table
+// col idx 0 represents the slots under the first activity -- windows not counted
+// note: from == to is a nop; from, to must be in bounds
+function mvActivity(from, to) {
+  if(eventTableData.activities.length <= from || eventTableData.activities.length <= to)
+    throw new 'activity idx out of bounds';
+  if(from == to) return;
+  eventTableData.activities.splice(
+    from < to ? to - 1 : to,
+    0,
+    eventTableData.activities.splice(from, 1)[0]);
+  for(let i = 0; i < eventTableData.windows.length; i++) {
+    eventTableData.slots.splice(
+      i * eventTableData.activities.length + (from < to ? to - 1 : to),
+      0,
+      eventTableData.slots.splice(
+        i * eventTableData.activities.length + from,
+        1)[0]);
+  }
+}
+
+// delete an activity and all associated slots from event data table
+// col idx 0 represents the slots under the first activity -- windows not counted
+function rmActivity(target) {
+  for(let i = eventTableData.slots.length - eventTableData.activities.length + target, slot; slot = eventTableData.slots[i]; i -= eventTableData.activities.length)
+  //for(let i = target, slot; slot = eventTableData.slots[i]; i += eventTableData.activities.length) {
+    eventTableData.slots.splice(i, 1);
+  eventTableData.activities.splice(target, 1);
+}
+
+
+// add a window and new slots to event data table
+// note: slots len must match activity arr len
+function mkWindow(window, slots) {
+  if(slots.length != eventTableData.activities.length)
+    throw 'slot arr len does not match activity arr len';
+  eventTableData.windows.push(window);
+  for(let i = 0, slot; slot = slots[i]; i++)
+    eventTableData.slots.push(slot);
+}
+
+// move a window and all associated slots from one row to another idx in event data table
+// row idx 0 represents the slots associated with the first window -- activities not counted
+// note: from == to is a nop; from, to must be in bounds
+function mvWindow(from, to) {
+  if(eventTableData.windows.length <= from || eventTableData.activities.length <= to)
+    throw new 'window idx out of bounds';
+  if(from == to) return;
+  eventTableData.windows.splice(
+    from < to ? to - 1 : to,
+    0,
+    eventTableData.windows.splice(from, 1)[0]);
+  eventTableData.slots.splice(
+    eventTableData.activities.length * (from < to ? to - 1 : to),
+    0,
+    ...eventTableData.slots.splice(
+      eventTableData.activities.length * from,
+      eventTableData.activities.length));
+}
+
+// delete a window and all associated slots from event data table
+// row idx 0 represents the slots associated with the first window -- activities not counted
+function rmWindow(target) {
+  eventTableData.slots.splice(
+    eventTableData.activities.length * target,
+    eventTableData.activities.length);
+  eventTableData.windows.splice(target, 1);
 }
 
 function renderTableMeta(title, description, editable) {
@@ -46,6 +126,7 @@ function renderTableMeta(title, description, editable) {
 }
 
 function renderTable(parent, step = 1) {
+  eventTableData.step = step;
   let sz = eventTableData.activities.length;
   let cols = sz >= maxTableCols ? maxTableCols : (sz + 1);
 
@@ -87,27 +168,6 @@ function renderTable(parent, step = 1) {
         ++idx);
     }
   }
-
-  /*
-  for(let i = 0, cell; cell = eventTableData.rows[i]; ++i) {
-    if(0 !== i % (sz + 1) && (i % (sz + 1) < step || i % (sz + 1) >= cols + step - 1)) {
-      console.log(`skip cell ${i} with label ${cell.label}`);
-      continue;
-    }
-    console.log(`add cell ${i} with label ${cell.label}`);
-    addCell(
-        grid,
-        cell.label,
-        0 !== i % (sz + 1)
-            ? '' !== cell.aesthetics
-                ? cell.aesthetics
-                : 'is-outlined is-primary'
-            : 'is-primary',
-        cell.fn,
-        cell.data
-    );
-  }
-  */
 
   parent.empty()
     .append(
@@ -420,14 +480,14 @@ $(function() {
       eventTableData.activities.push({
         label: `Activity #${activity}`,
         fn: (data) => {
-          console.log(`Activity idx = ${data.idx} clicked.`);
+          console.log(`Activity idx = ${data.tblIdx} clicked.`);
         }
       });
     for(let window = 0; window < 4; window++) {
       eventTableData.windows.push({
         label: `Window #${window + 1}`,
         fn: (data) => {
-          console.log(`Window idx = ${data.idx} clicked.`);
+          console.log(`Window idx = ${data.tblIdx} clicked.`);
         }
       });
     }
@@ -436,12 +496,50 @@ $(function() {
         eventTableData.slots.push({
           label: `Slot #${row + 1}-${col + 1}`,
           fn: (data) => {
-            console.log(`Slot idx = ${data.idx} clicked.`);
+            console.log(`Slot idx = ${data.tblIdx} clicked.`);
           }
         });
       }
     }
 
+    let newSlots = [];
+    for(let window = 0; window < 4; window++) {
+      newSlots.push({
+        label: `New Slot #A${window}`,
+        fn: (data) => {
+          console.log(`New slot idx = ${data.tblIdx} clicked.`);
+        }
+      });
+    }
+    mkActivity({
+      label: `New Activity`,
+      fn: (data) => {
+        console.log(`New activity idx = ${data.tblIdx} clicked.`);
+      }
+    }, newSlots);
+
+    mvActivity(5, 2);
+    rmActivity(1);
+
+    newSlots = [];
+    for(let activity = 0; activity < 5; activity++) {
+      newSlots.push({
+        label: `New Slot #W${activity}`,
+        fn: (data) => {
+          console.log(`New slot idx = ${data.tblIdx} clicked.`);
+        }
+      });
+    }
+    mkWindow({
+      label: `New Window`,
+      fn: (data) => {
+        console.log(`New window idx = ${data.tblIdx} clicked.`);
+      }
+    }, newSlots);
+
+    mvWindow(4, 2);
+    rmWindow(3);
+    
     refreshTable();
     $('#view-event-section').show();
   });
