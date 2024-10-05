@@ -547,8 +547,10 @@ $(function() {
   // for when someone hits the 'create event' nav item
   $('#create-event-btn').on('click', () => {
     eventTableData = {
-      "headers": [],
-      "rows": []
+      "activities": [],
+      "windows": [],
+      "slots": [],
+      "step": 1
     };
     renderEventSummaryModal(newEvent = true, fn = function(summary) {
       renderTableMeta(
@@ -570,7 +572,16 @@ $(function() {
       renderEventActivityModal(newActivity = true, savFn = function(activity) {
 
         let data = getActivityModalVals({ idx: eventTableData.activities.length });
-        eventTableData.activities.push({
+        let slots = [];
+        for(let i = 0, window; window = eventTableData.windows[i]; ++i) {
+          slots.push({
+            activity: data.idx,
+            window: i,
+            slotEnabled: true,
+            slotVolunteerCap: data.slotVolunteerCapDefault
+          });
+        }
+        mkActivity({
           label: data.label,
           fn: (d) => { // on click function
             renderEventActivityModal(newActivity = false, savFn = function(activity) { // on save
@@ -579,55 +590,26 @@ $(function() {
               refreshTable();
               return true;
             }, delFn = function(activity) { // on delete
-              for(let i = d.idx + 1; i < eventTableData.rows.length; i += eventTableData.activities.length)
-                eventTableData.rows.splice(i, 1); // remove the slots that correspond with the activity
-              for(let i = 0; i < eventTableData.rows.length; i++) {
-                eventTableData.rows[i].data.idx = i; // reset the window/slot idxs
-                eventTableData.rows[i].data.activityIdx = i - eventTableData.rows[i].data.windowIdx - 1;
-              }
-              
-              for(let i = d.idx + 1; i < eventTableData.activities.length; i++)
-                eventTableData.activities[i].data.idx--;
-              eventTableData.activities.splice(d.idx, 1); // d.idx is the current idx of the activity in the arr
+              rmActivity(activity.idx);
               refreshTable();
               return true;
             }, d); // last param is to set modal defaults
           },
           data: data // on save activity
-        });
-
-        // TODO also add new slots
-        for(let i = 0; i < eventTableData.rows.length; i += eventTableData.activities.length + 1) {
-
-          console.log(`${i} ${eventTableData.rows.length} ${eventTableData.activities.length}`);
-
-          let slotData = { // TODO pull the summary, window, make sure edit fns are active
-            activitySummary: 'activity summary',
-            activityEditFn: (slot) => {
-              console.log(`idx: ${slot.idx}/${eventTableData.activities.length + 1} = ${Math.floor(slot.idx / (eventTableData.activities.length + 1))}`);
-            },
-            activityIdx: eventTableData.activities.length,
-            windowSummary: 'window summary',
-            windowEditFn: null,
-            windowIdx: i,
-            slotEnabled: true,
-            slotVolunteerCap: data.slotVolunteerCapDefault,
-            idx: i + eventTableData.activities.length
-          };
-
-          eventTableData.rows.splice(i + eventTableData.activities.length, 0, {
+        }, slots.map((slot) => {
+          return {
             label: 'Slot',
-            fn: (d) => { // on click function for slot
-              renderEventSlotModal(newSlot = true, saveFn = function(slot) { // slot save
-                Object.assign(slotData, slot);
-                eventTableData.rows[slotData.idx].label = 'Slot';
+            fn: (d) => {
+              renderEventSlotModal(newSlot = true, saveFn = function(s) {
+                Object.assign(s, getSlotModalVals());
+                //eventTableData.slots[s.window * eventTableData.activities.length + s.activity].label = 'Updated';
                 refreshTable();
                 return true;
-              }, d); // last param is to set modal defaults
+              }, d);
             },
-            data: slotData
-          });
-        }
+            data: slot
+          };
+        }));
 
         refreshTable();
         return true;
@@ -638,26 +620,45 @@ $(function() {
     $('#view-event-add-window').on('click', () => {
       renderEventWindowModal(newWindow = true, savFn = function(activity) {
 
-        let data = getWindowModalVals({ idx: eventTableData.rows.lengh });
-        eventTableData.rows.push({
+        let data = getWindowModalVals({ idx: eventTableData.windows.length });
+        let slots = [];
+        for(let i = 0, activity; activity = eventTableData.activities[i]; ++i) {
+          slots.push({
+            activity: i,
+            window: data.idx,
+            slotEnabled: true,
+            slotVolunteerCap: activity.slotVolunteerCapDefault
+          });
+        }
+        mkWindow({
           label: `${data.startDate} - ${data.endDate}`,
           fn: (d) => { // on click function
             renderEventWindowModal(newWindow = false, saveFn = function(window) { // on save
               Object.assign(window, getWindowModalVals());
-              eventTableData.rows[data.idx].label = `${data.startDate} - ${data.endDate}`;
+              eventTableData.windows[data.idx].label = `${data.startDate} - ${data.endDate}`;
               refreshTable();
               return true;
             }, delFn = function(window) { // on delete
-              for(let i = d.idx + 1; i < eventTableData.rows.length; i++)
-                eventTableData.rows[i].data.idx -= eventTableData.activities.length + 1;
-              eventTableData.activities.splice(d.idx, eventTableData.activities.length + 1);
+              rmWindow(window.idx);
               refreshTable();
               return true;
-            }, d); // last param is to set modal defaults
+            }, d);
           },
           data: data // on save window
-        }); // null window is new window
-
+        }, slots.map((slot) => {
+          return {
+            label: 'Slot',
+            fn: (d) => {
+              renderEventSlotModal(newSlot = true, saveFn = function(s) {
+                Object.assign(s, getSlotModalVals());
+                refreshTable();
+                return true;
+              }, d);
+            },
+            data: slot
+          };
+        }));
+        
         refreshTable();
         return true;
       }); // null window is new window
