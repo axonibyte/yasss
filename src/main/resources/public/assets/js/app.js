@@ -39,9 +39,13 @@ function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null
 function mkActivity(activity, slots) {
   if(slots.length != eventTableData.windows.length)
     throw 'slot arr len does not match window arr len';
+  activity.data.idx = eventTableData.activities.length;
   eventTableData.activities.push(activity);
-  for(let i = 0, slot; slot = slots[i]; i++)
+  for(let i = 0, slot; slot = slots[i]; i++) {
+    slot.data.activity = activity.data.idx;
+    slot.data.window = i;
     eventTableData.slots.splice((i + 1) * eventTableData.activities.length - 1, 0, slot);
+  }
 }
 
 // move an activity and all associated slots from one col idx to another idx in event data table
@@ -63,6 +67,10 @@ function mvActivity(from, to) {
         i * eventTableData.activities.length + from,
         1)[0]);
   }
+  for(let i = 0, activity; activity = eventTableData.activities[i]; i++)
+    activity.data.idx = i;
+  for(let i = 0, slot; slot = eventTableData.slots[i]; i++)
+    slot.data.activity = i % eventTableData.activities.length;
 }
 
 // delete an activity and all associated slots from event data table
@@ -72,6 +80,10 @@ function rmActivity(target) {
   //for(let i = target, slot; slot = eventTableData.slots[i]; i += eventTableData.activities.length) {
     eventTableData.slots.splice(i, 1);
   eventTableData.activities.splice(target, 1);
+  for(let i = target, activity; activity = eventTableData.activities[i]; i++)
+    activity.data.idx = i;
+  for(let i = 0, slot; slot = eventTableData.slots[i]; i++)
+    slot.data.activity = i % eventTableData.activities.length;
 }
 
 
@@ -80,9 +92,13 @@ function rmActivity(target) {
 function mkWindow(window, slots) {
   if(slots.length != eventTableData.activities.length)
     throw 'slot arr len does not match activity arr len';
+  window.data.idx = eventTableData.windows.length;
   eventTableData.windows.push(window);
-  for(let i = 0, slot; slot = slots[i]; i++)
+  for(let i = 0, slot; slot = slots[i]; i++) {
+    slot.data.activity = i;
+    slot.data.window = window.data.idx;
     eventTableData.slots.push(slot);
+  }
 }
 
 // move a window and all associated slots from one row to another idx in event data table
@@ -102,6 +118,10 @@ function mvWindow(from, to) {
     ...eventTableData.slots.splice(
       eventTableData.activities.length * from,
       eventTableData.activities.length));
+  for(let i = 0, window; window = eventTableData.windows[i]; i++)
+    window.data.idx = i;
+  for(let i = 0, slot; slot = eventTableData.slots[i]; i++)
+    slot.data.window = Math.floor(i / eventTableData.activities.length);
 }
 
 // delete a window and all associated slots from event data table
@@ -111,6 +131,10 @@ function rmWindow(target) {
     eventTableData.activities.length * target,
     eventTableData.activities.length);
   eventTableData.windows.splice(target, 1);
+  for(let i = target, window; window = eventTableData.windows[i]; i++)
+    window.data.idx = i;
+  for(let i = 0, slot; slot = eventTableData.slots[i]; i++)
+    slot.data.window = Math.floor(i / eventTableData.activities.length);
 }
 
 function renderTableMeta(title, description, editable) {
