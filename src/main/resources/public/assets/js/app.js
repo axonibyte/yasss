@@ -1,13 +1,19 @@
 const maxTableCols = 5;
 
-var eventTableData = {
-  "activities": [],
-  "windows": [],
-  "slots": [],
-  "step": 1
-};
+var eventTableData;
+clearTable();
 
 var eventChanges = {};
+
+function clearTable() {
+  eventTableData = {
+    activities: [],
+    windows: [],
+    slots: [],
+    details: [],
+    step: 1
+  }
+}
 
 function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}, tblIdx = null) {
   let cell = $('<div/>')
@@ -141,7 +147,25 @@ function rmWindow(target) {
     slot.data.window = Math.floor(i / eventTableData.activities.length);
 }
 
-function renderTableMeta(title, description, editable) {
+function mkDetail(detail) {
+  eventTableData.details.push(detail);
+}
+
+function mvDetail(from, to) {
+  if(eventTableData.details.length <= from || eventTableData.details.length <= to)
+    throw new 'detail idx out of bounds';
+  if(from == to) return;
+  eventTableData.details.splice(
+    from < to ? to - 1 : to,
+    0,
+    eventTableData.details.splice(from, 1)[0]);
+}
+
+function rmDetail(target) {
+  eventTableData.details.splice(target, 1);
+}
+
+function renderEventTableMeta(title, description, editable) {
   $('#view-event-short-descr').text(title);
   $('#view-event-long-descr').text(description);
   if(editable) {
@@ -153,49 +177,58 @@ function renderTableMeta(title, description, editable) {
   }
 }
 
-function renderTable(parent, step = 1) {
+function renderEventTable(parent, step = 1) {
   eventTableData.step = step;
   let sz = eventTableData.activities.length;
   let cols = sz >= maxTableCols ? maxTableCols : (sz + 1);
 
-  console.log(`render ${cols}-column table at step ${step}`);
-
   let grid = $('<div/>').addClass('grid');
-  let idx = 0;
-  addCell(grid, '', ''); // this is the space in the top-left part of the grid
-  console.log(eventTableData);
 
-  for(let a = step - 1; a < cols + step - 2; ++a) {
-    console.log(`add activity ${a} with label ${eventTableData.activities[a].label}`);
+  if(0 == sz) {
+    cols = 1;
     addCell(
+      grid,
+      'You haven\'t added any windows or activities to your event yet!',
+      'is-warning');
+  } else {
+    console.log(`render ${cols}-column table at step ${step}`);
+  
+    let idx = 0;
+    addCell(grid, '', ''); // this is the space in the top-left part of the grid
+    console.log(eventTableData);
+    
+    for(let a = step - 1; a < cols + step - 2; ++a) {
+      console.log(`add activity ${a} with label ${eventTableData.activities[a].label}`);
+      addCell(
         grid,
         eventTableData.activities[a].label,
         'is-primary',
         eventTableData.activities[a].fn,
         eventTableData.activities[a].data,
         ++idx);
-  }
+    }
 
-  for(let w = 0; w < eventTableData.windows.length; ++w) {
-    console.log(`add window ${w} with label ${eventTableData.windows[w].label}`);
-    addCell(
-      grid,
-      eventTableData.windows[w].label,
-      'is-primary',
-      eventTableData.windows[w].fn,
-      eventTableData.windows[w].data,
-      ++idx);
-    
-    for(let s = w * sz + (step - 1); s < w * sz + (step - 2 + cols); ++s) {
+    for(let w = 0; w < eventTableData.windows.length; ++w) {
+      console.log(`add window ${w} with label ${eventTableData.windows[w].label}`);
       addCell(
         grid,
-        eventTableData.slots[s].label,
-        eventTableData.slots[s].data.slotEnabled
-          ? 'is-outlined is-primary'
-          : 'is-outlined is-light',
-        eventTableData.slots[s].fn,
-        eventTableData.slots[s].data,
+        eventTableData.windows[w].label,
+        'is-primary',
+        eventTableData.windows[w].fn,
+        eventTableData.windows[w].data,
         ++idx);
+      
+      for(let s = w * sz + (step - 1); s < w * sz + (step - 2 + cols); ++s) {
+        addCell(
+          grid,
+          eventTableData.slots[s].label,
+          eventTableData.slots[s].data.slotEnabled
+            ? 'is-outlined is-primary'
+            : 'is-outlined is-light',
+          eventTableData.slots[s].fn,
+          eventTableData.slots[s].data,
+          ++idx);
+      }
     }
   }
 
@@ -211,7 +244,7 @@ var viewTableSliderOutput = $('<output/>')
   .attr('for', 'view-event-slider')
   .hide();
 
-function renderTableSlider(parent, step = 1, max = null) {
+function renderEventTableSlider(parent, step = 1, max = null) {
   if(null == max) {
     ln = eventTableData.activities.length;
     max = ln > (maxTableCols - 2) ? ln - (maxTableCols - 2) : 1;
@@ -231,6 +264,61 @@ function renderTableSlider(parent, step = 1, max = null) {
 
   viewTableSliderOutput.text(step);
   bulmaSlider.attach();
+}
+
+function renderFieldTable() {
+  $('#view-event-details tr').not('.is-primary').remove();
+
+  if(0 == eventTableData.details.length) {
+    $('#view-event-details tbody').append(
+      $('<tr/>').append(
+        $('<td/>')
+          .addClass('is-light is-warning has-text-centered is-size-7')
+          .attr('colspan', 2)
+          .text('You haven\'t specified any custom fields yet! :)')));
+    $('#view-event-details table').removeClass('is-hoverable');
+    return;
+  }
+
+  $('#view-event-details table').addClass('is-hoverable');
+  
+  for(let i = 0, detail; detail = eventTableData.details[i]; i++) {
+    detail.data.tblIdx = i;
+    
+    switch(eventTableData.details[i].data.type) {
+    case 'STRING':
+      var type = 'Text';
+      break;
+    case 'BOOLEAN':
+      var type = 'True/False';
+      break;
+    case 'INTEGER':
+      var type = 'Whole Number';
+      break;
+    case 'EMAIL':
+      var type = 'Email Address';
+      break;
+    case 'PHONE':
+      var type = 'Phone Number';
+      break;
+    default:
+      var type = 'INVALID';
+      break;
+    }
+
+    let row = $('<tr/>')
+        .append(
+          $('<td/>').text(eventTableData.details[i].data.field))
+        .append(
+          $('<td/>').text(`${type}${eventTableData.details[i].data.required ? ' (required)' : ''}`));
+
+    if('function' === typeof detail.fn)
+      row.on('click', function() {
+        detail.fn(detail.data);
+      });
+
+    $('#view-event-details tbody').append(row);
+  }
 }
 
 function renderEventSummaryModal(newEvent = true, savFn = null, summary = {
@@ -369,7 +457,7 @@ function renderEventDetailModal(newDetail = true, savFn = null, delFn = null, de
   else $(`#edit-detail-type-dropdown option[value="${detail.type}"]`).prop('selected', true);
 
   $('#edit-detail-field').val(detail.field);
-  $('#edit-detail-descr').val(detail.field);
+  $('#edit-detail-descr').val(detail.description);
   $('#edit-detail-required-switch').prop('checked', detail.required);
 
   if('function' === typeof savFn)
@@ -453,8 +541,9 @@ function renderEventSlotModal(newSlot = true, savFn = null, slot = {
 }
 
 function refreshTable() {
-  renderTable($('#view-event-table'));
-  renderTableSlider($('#view-event-table').parent());
+  renderEventTable($('#view-event-table'));
+  renderEventTableSlider($('#view-event-table').parent());
+  renderFieldTable();
 }
 
 function fmtDateRange(begin, end) {
@@ -487,9 +576,7 @@ function getWindowModalVals(newVals = null) {
   let cal = $('#edit-window-range')[0].bulmaCalendar;
   let data = {
     startDate: cal.startDate,
-    //startTime: '',
     endDate: cal.endDate
-    //endTime: ''
   }
   return null != newVals ? Object.assign(data, newVals) : data;
 }
@@ -499,6 +586,16 @@ function getSlotModalVals(newVals = null) {
     slotEnabled: $('#edit-slot-enable-switch').prop('checked'),
     slotVolunteerCap: $('#edit-slot-vol-cap-switch').prop('checked')
         ? -1 : $('#edit-slot-vol-cap-field').val()
+  }
+  return null != newVals ? Object.assign(data, newVals) : data;
+}
+
+function getFieldModalVals(newVals = null) {
+  let data = {
+    type: $('#edit-detail-type-dropdown option:selected').val(),
+    field: $('#edit-detail-field').val(),
+    description: $('#edit-detail-descr').val(),
+    required: $('#edit-detail-required-switch').prop('checked')
   }
   return null != newVals ? Object.assign(data, newVals) : data;
 }
@@ -521,7 +618,7 @@ $(function() {
     mutationsList.forEach(function(mutation) {
       if('characterData' === mutation.type || 'childList' === mutation.type) {
         console.log(`slider moved to ${viewTableSliderOutput.text()}`);
-        renderTable($('#view-event-table'), Number(viewTableSliderOutput.text()));
+        renderEventTable($('#view-event-table'), Number(viewTableSliderOutput.text()));
       }
     });
   });
@@ -529,84 +626,26 @@ $(function() {
   viewTableSliderObserver.observe(viewTableSliderOutput[0], { childList: true, subtree: true, characterData: true });
 
   $('#magic-button').on('click', () => {
-    for(let activity = 1; activity <= 5; activity++)
-      eventTableData.activities.push({
-        label: `Activity #${activity}`,
-        fn: (data) => {
-          console.log(`Activity idx = ${data.tblIdx} clicked.`);
-        }
-      });
-    for(let window = 0; window < 4; window++) {
-      eventTableData.windows.push({
-        label: `Window #${window + 1}`,
-        fn: (data) => {
-          console.log(`Window idx = ${data.tblIdx} clicked.`);
-        }
-      });
-    }
-    for(let row = 0; row < 4; row++) {
-      for(let col = 0; col < 5; col++) {
-        eventTableData.slots.push({
-          label: `Slot #${row + 1}-${col + 1}`,
-          fn: (data) => {
-            console.log(`Slot idx = ${data.tblIdx} clicked.`);
-          }
-        });
+    mkDetail({
+      data: {
+        type: 'STRING',
+        field: 'Name',
+        description: 'Please enter your name.',
+        required: true
+      },
+      fn: function(data) {
+        console.log(`detail id ${data.tblIdx} clicked`);
       }
-    }
-
-    let newSlots = [];
-    for(let window = 0; window < 4; window++) {
-      newSlots.push({
-        label: `New Slot #A${window}`,
-        fn: (data) => {
-          console.log(`New slot idx = ${data.tblIdx} clicked.`);
-        }
-      });
-    }
-    mkActivity({
-      label: `New Activity`,
-      fn: (data) => {
-        console.log(`New activity idx = ${data.tblIdx} clicked.`);
-      }
-    }, newSlots);
-
-    mvActivity(5, 2);
-    rmActivity(1);
-
-    newSlots = [];
-    for(let activity = 0; activity < 5; activity++) {
-      newSlots.push({
-        label: `New Slot #W${activity}`,
-        fn: (data) => {
-          console.log(`New slot idx = ${data.tblIdx} clicked.`);
-        }
-      });
-    }
-    mkWindow({
-      label: `New Window`,
-      fn: (data) => {
-        console.log(`New window idx = ${data.tblIdx} clicked.`);
-      }
-    }, newSlots);
-
-    mvWindow(4, 2);
-    rmWindow(3);
-    
-    refreshTable();
+    });
+    renderFieldTable();
     $('#view-event-section').show();
   });
 
   // for when someone hits the 'create event' nav item
   $('#create-event-btn').on('click', () => {
-    eventTableData = {
-      "activities": [],
-      "windows": [],
-      "slots": [],
-      "step": 1
-    };
+    clearTable();
     renderEventSummaryModal(newEvent = true, fn = function(summary) {
-      renderTableMeta(
+      renderEventTableMeta(
         $('#edit-event-short-descr').val(),
         $('#edit-event-long-descr').val(),
         true);
@@ -655,7 +694,6 @@ $(function() {
             fn: (d) => {
               renderEventSlotModal(newSlot = true, saveFn = function(s) {
                 Object.assign(s, getSlotModalVals());
-                //eventTableData.slots[s.window * eventTableData.activities.length + s.activity].label = 'Updated';
                 refreshTable();
                 return true;
               }, d);
@@ -719,7 +757,28 @@ $(function() {
 
     // for when someone wants to add or modify event details
     $('#view-event-add-field').on('click', () => {
-      $('#edit-detail-modal').addClass('is-active');
+      renderEventDetailModal(newDetail = true, savFn = function(detail) {
+
+        let data = getFieldModalVals({ idx: eventTableData.details.length });
+        mkDetail({
+          data: data,
+          fn: (d) => {
+            renderEventDetailModal(newDetail = false, saveFn = function(d) {
+              Object.assign(d, getFieldModalVals());
+              renderFieldTable();
+              return true;
+            }, delFn = function(d) {
+              rmDetail(d.tblIdx);
+              renderFieldTable();
+              return true;
+            }, d);
+          }
+        });
+
+        renderFieldTable();
+        return true;
+      });
+      //$('#edit-detail-modal').addClass('is-active');
     });
   });
 
