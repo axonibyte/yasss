@@ -1,3 +1,7 @@
 .datetimepicker .timepicker .timepicker-end .timepicker-hours .timepicker-input input, .datetimepicker .timepicker .timepicker-end .timepicker-minutes .timepicker-input input, .datetimepicker .timepicker .timepicker-start .timepicker-hours .timepicker-input input, .datetimepicker .timepicker .timepicker-start .timepicker-minutes .timepicker-input input {
   padding: 1.1em;
 }
+
+.event-cell ul.is-outlined li {
+  height: 94%;
+}

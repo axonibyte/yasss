@@ -18,7 +18,7 @@ function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null
           .addClass(aesthetics)
           .append(
               $('<li/>')
-                .text(label)
+                .html(label)
           )
     );
 
@@ -390,31 +390,40 @@ function renderEventDetailModal(newDetail = true, savFn = null, delFn = null, de
 }
 
 function renderEventSlotModal(newSlot = true, savFn = null, slot = {
-  'activitySummary': '',
-  'activityEditFn': null,
-  'windowSummary': '',
-  'windowEditFn': null,
-  'slotEnabled': true,
-  'slotVolunteerCap': -1
+  activity: -1,
+  window: -1,
+  slotEnabled: true,
+  slotVolunteerCap: -1
 }) {
   $('#edit-slot-sav').unbind('click');
-
-  $('#edit-slot-activity-field').val(slot.activitySummary);
-
-  if('function' === typeof slot.activityEditFn) {
+  
+  $('#edit-slot-activity-field').val(
+    0 <= slot.activity
+      ? eventTableData.activities[slot.activity].label
+      : 'N/A');
+  $('#edit-slot-window-field').val(
+    0 <= slot.window
+      ? eventTableData.windows[slot.window].label
+      : 'N/A');
+  
+  $('#edit-slot-activity-btn').unbind('click');
+  if(0 <= slot.activity) {
     $('#edit-slot-activity-btn').on('click', () => {
-      slot.activityEditFn(slot);
+      $('#edit-slot-modal').removeClass('is-active');
+      console.log(`click on activity tbl idx ${eventTableData.activities[slot.activity].data.tblIdx}`);
+      $('.event-cell')[eventTableData.activities[slot.activity].data.tblIdx].click();
     }).show();
   } else $('#edit-slot-activity-btn').hide();
 
-  $('#edit-slot-window-field').val(slot.windowSummary);
-
-  if('function' === typeof slot.windowEditFn) {
+  $('#edit-slot-window-btn').unbind('click');
+  if(0 <= slot.window) {
     $('#edit-slot-window-btn').on('click', () => {
-      slot.windowEditFn(slot);
+      $('#edit-slot-modal').removeClass('is-active');
+      console.log(`click on window tbl idx ${eventTableData.windows[slot.window].data.tblIdx}`);
+      $('.event-cell')[eventTableData.windows[slot.window].data.tblIdx].click();
     }).show();
   } else $('#edit-slot-window-btn').hide();
-
+  
   if(slot.slotEnabled) {
     $('#edit-slot-enable-switch').prop('checked', true);
     $('#edit-slot-cap-fields').show();
@@ -446,6 +455,20 @@ function renderEventSlotModal(newSlot = true, savFn = null, slot = {
 function refreshTable() {
   renderTable($('#view-event-table'));
   renderTableSlider($('#view-event-table').parent());
+}
+
+function fmtDateRange(begin, end) {
+  let options = {
+    day: '2-digit',
+    year: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  };
+  let beginStr = begin.toLocaleDateString('en-us', options);
+  let endStr = end.toLocaleDateString('en-us', options);
+  return `Begin: ${beginStr}<br />End: ${endStr}`;
 }
 
 function getActivityModalVals(newVals = null) {
@@ -661,11 +684,11 @@ $(function() {
           });
         }
         mkWindow({
-          label: `${data.startDate} - ${data.endDate}`,
+          label: fmtDateRange(data.startDate, data.endDate),
           fn: (d) => { // on click function
             renderEventWindowModal(newWindow = false, saveFn = function(window) { // on save
               Object.assign(window, getWindowModalVals());
-              eventTableData.windows[data.idx].label = `${data.startDate} - ${data.endDate}`;
+              eventTableData.windows[data.idx].label = fmtDateRange(data.startDate, data.endDate);
               refreshTable();
               return true;
             }, delFn = function(window) { // on delete
