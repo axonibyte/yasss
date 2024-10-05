@@ -39,9 +39,11 @@ function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null
 function mkActivity(activity, slots) {
   if(slots.length != eventTableData.windows.length)
     throw 'slot arr len does not match window arr len';
+  if(!activity.data) activity.data = {};
   activity.data.idx = eventTableData.activities.length;
   eventTableData.activities.push(activity);
   for(let i = 0, slot; slot = slots[i]; i++) {
+    if(!slot.data) slot.data = {};
     slot.data.activity = activity.data.idx;
     slot.data.window = i;
     eventTableData.slots.splice((i + 1) * eventTableData.activities.length - 1, 0, slot);
@@ -92,9 +94,11 @@ function rmActivity(target) {
 function mkWindow(window, slots) {
   if(slots.length != eventTableData.activities.length)
     throw 'slot arr len does not match activity arr len';
+  if(!window.data) window.data = {};
   window.data.idx = eventTableData.windows.length;
   eventTableData.windows.push(window);
   for(let i = 0, slot; slot = slots[i]; i++) {
+    if(!slot.data) slot.data = {};
     slot.data.activity = i;
     slot.data.window = window.data.idx;
     eventTableData.slots.push(slot);
@@ -186,7 +190,9 @@ function renderTable(parent, step = 1) {
       addCell(
         grid,
         eventTableData.slots[s].label,
-        'is-outlined is-primary',
+        eventTableData.slots[s].data.slotEnabled
+          ? 'is-outlined is-primary'
+          : 'is-outlined is-light',
         eventTableData.slots[s].fn,
         eventTableData.slots[s].data,
         ++idx);
