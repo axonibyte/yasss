@@ -7,6 +7,7 @@ var eventChanges = {};
 
 function clearTable() {
   eventTableData = {
+    summary: {},
     activities: [],
     windows: [],
     slots: [],
@@ -332,8 +333,8 @@ function renderEventSummaryModal(newEvent = true, savFn = null, summary = {
   $('#edit-event-modal p.modal-card-title').text(
       newEvent ? 'Create an Event' : 'Update an Event');
 
-  $('#edit-event-short-descr').attr('value', summary.title);
-  $('#edit-event-long-descr').text(summary.description);
+  $('#edit-event-short-descr').val(summary.title);
+  $('#edit-event-long-descr').val(summary.description);
   $('#edit-event-notify-switch').prop('checked', summary.notifyOnSignup);
   $('#edit-event-multiuser-switch').prop('checked', summary.allowMultiuserSignups);
 
@@ -560,43 +561,121 @@ function fmtDateRange(begin, end) {
   return `Begin: ${beginStr}<br />End: ${endStr}`;
 }
 
-function getActivityModalVals(newVals = null) {
+function validateSummaryModal() {
   let data = {
-    label: $('#edit-activity-short-descr').val(),
-    description: $('#edit-activity-long-descr').val(),
-    activityVolunteerCap: $('#edit-activity-vol-cap-switch').prop('checked')
-        ? -1 : $('#edit-activity-vol-cap-field').val(),
-    slotVolunteerCapDefault: $('#edit-activity-slot-vol-cap-def-switch').prop('checked')
-        ? -1 : $('#edit-activity-slot-vol-cap-def-field').val()
+    title: $('#edit-event-short-descr').val().trim(),
+    description: $('#edit-event-long-descr').val().trim(),
+    notifyOnSignup: $('#edit-event-notify-switch').prop('checked'),
+    allowMultiuserSignups: $('#edit-event-multiuser-switch').prop('checked')
+  };
+
+  try {
+    if('' === data.title)
+      throw 'The title of your event cannot be blank.';
+  } catch(e) {
+    console.error(e);
+    toast({ message: e, type: 'is-danger' });
+    return null;
   }
+  
+  return data;
+}
+
+function validateActivityModal(newVals = null) {
+  let avcChecked = $('#edit-activity-vol-cap-switch').prop('checked');
+  let svcdChecked = $('#edit-activity-slot-vol-cap-def-switch').prop('checked');
+  
+  let data = {
+    label: $('#edit-activity-short-descr').val().trim(),
+    description: $('#edit-activity-long-descr').val().trim(),
+    activityVolunteerCap: avcChecked
+      ? -1
+      : Number($('#edit-activity-vol-cap-field').val()),
+    slotVolunteerCapDefault: svcdChecked
+      ? -1
+      : Number($('#edit-activity-slot-vol-cap-def-field').val())
+  }
+
+  try {
+    if('' == data.label)
+      throw 'The label for your activity cannot be blank.';
+    
+    if(!Number.isInteger(data.activityVolunteerCap)
+        || !avcChecked && 1 > data.activityVolunteerCap)
+      throw 'The activity volunteer cap needs to be number larger than 0.';
+    if(!Number.isInteger(data.slotVolunteerCapDefault)
+        || !svcdChecked && 1 > data.slotVolunteerCapDefault)
+      throw 'The default slot volunteer cap needs to be a number larger than 0.';
+  } catch(e) {
+    console.error(e);
+    toast({ message: e, type: 'is-danger' });
+    return null;
+  }
+  
   return null != newVals ? Object.assign(data, newVals) : data;
 }
 
-function getWindowModalVals(newVals = null) {
+function validateWindowModal(newVals = null) {
   let cal = $('#edit-window-range')[0].bulmaCalendar;
   let data = {
     startDate: cal.startDate,
     endDate: cal.endDate
   }
+
+  try {
+    if(!cal.startDate || !cal.endDate)
+      throw 'Please specify the entire window range.';
+  } catch(e) {
+    console.error(e);
+    toast({ message: e, type: 'is-danger' });
+    return null;
+  }
+  
   return null != newVals ? Object.assign(data, newVals) : data;
 }
 
-function getSlotModalVals(newVals = null) {
+function validateSlotModal(newVals = null) {
+  let esvcChecked = $('#edit-slot-vol-cap-switch').prop('checked')
+  
   let data = {
     slotEnabled: $('#edit-slot-enable-switch').prop('checked'),
-    slotVolunteerCap: $('#edit-slot-vol-cap-switch').prop('checked')
-        ? -1 : $('#edit-slot-vol-cap-field').val()
+    slotVolunteerCap: esvcChecked
+      ? -1
+      : Number($('#edit-slot-vol-cap-field').val())
   }
+
+  try {
+    if(!Number.isInteger(data.slotVolunteerCap)
+        || !esvcChecked && 1 > data.slotVolunteerCap)
+      throw 'The volunteer cap needs to be a number larger than 0.';
+  } catch(e) {
+    console.error(e);
+    toast({ message: e, type: 'is-danger' });
+    return null;
+  }
+  
   return null != newVals ? Object.assign(data, newVals) : data;
 }
 
-function getFieldModalVals(newVals = null) {
+function validateFieldModal(newVals = null) {
   let data = {
     type: $('#edit-detail-type-dropdown option:selected').val(),
-    field: $('#edit-detail-field').val(),
-    description: $('#edit-detail-descr').val(),
+    field: $('#edit-detail-field').val().trim(),
+    description: $('#edit-detail-descr').val().trim(),
     required: $('#edit-detail-required-switch').prop('checked')
   }
+
+  try {
+    if(data.type.includes('?'))
+      throw 'Please make sure to select a detail type.';
+    if('' === data.field)
+      throw 'The field label can\'t be empty.';
+  } catch(e) {
+    console.error(e);
+    toast({ message: e, type: 'is-danger' });
+    return null;
+  }
+  
   return null != newVals ? Object.assign(data, newVals) : data;
 }
 
@@ -632,47 +711,53 @@ $(function() {
   viewTableSliderObserver.observe(viewTableSliderOutput[0], { childList: true, subtree: true, characterData: true });
 
   $('#magic-button').on('click', () => {
-    /*
-    mkDetail({
-      data: {
-        type: 'STRING',
-        field: 'Name',
-        description: 'Please enter your name.',
-        required: true
-      },
-      fn: function(data) {
-        console.log(`detail id ${data.tblIdx} clicked`);
-      }
-    });
-    renderFieldTable();
-    $('#view-event-section').show();
-    */
     toast({ message: 'I eat pez.', type: 'is-success' });
   });
 
   // for when someone hits the 'create event' nav item
   $('#create-event-btn').on('click', () => {
-    clearTable();
-    renderEventSummaryModal(newEvent = true, fn = function(summary) {
+    
+    renderEventSummaryModal(newEvent = true, savFn = function(summary) {
+      let s = validateSummaryModal();
+      if(null === s) return false;
+      
+      $('#view-event-volunteer').hide();
+      clearTable();
+
       renderEventTableMeta(
-        $('#edit-event-short-descr').val(),
-        $('#edit-event-long-descr').val(),
+        s.title,
+        s.description,
         true);
+      eventTableData.summary = s;
       refreshTable();
       $('#view-event-section').show();
       return true;
     });
-
+    
     // for when someone wants to go back and edit the event summary
     $('#view-event-edit-summary').on('click', () => {
-      renderEventSummaryModal(newEvent = false); // fn null to keep prev. fn in place
+      renderEventSummaryModal(newEvent = false, savFn = function(summary) {
+        let s = validateSummaryModal();
+        if(null === s) return false;
+        
+        renderEventTableMeta(
+          s.title,
+          s.description,
+          true);
+        eventTableData.summary = s;
+        refreshTable();
+        $('#view-event-section').show();
+        return true;
+      }, eventTableData.summary);
     });
 
     // for when someone wants to add or modify event activities
     $('#view-event-add-activity').on('click', () => {
       renderEventActivityModal(newActivity = true, savFn = function(activity) {
 
-        let data = getActivityModalVals({ idx: eventTableData.activities.length });
+        let data = validateActivityModal({ idx: eventTableData.activities.length });
+        if(null === data) return false;
+        
         let slots = [];
         for(let i = 0, window; window = eventTableData.windows[i]; ++i) {
           slots.push({
@@ -686,7 +771,10 @@ $(function() {
           label: data.label,
           fn: (d) => { // on click function
             renderEventActivityModal(newActivity = false, savFn = function(activity) { // on save
-              Object.assign(activity, getActivityModalVals());
+              let a = validateActivityModal();
+              if(null === a) return false;
+              
+              Object.assign(activity, a);
               eventTableData.activities[data.idx].label = activity.label;
               refreshTable();
               return true;
@@ -702,7 +790,10 @@ $(function() {
             label: 'Slot',
             fn: (d) => {
               renderEventSlotModal(newSlot = true, saveFn = function(s) {
-                Object.assign(s, getSlotModalVals());
+                let newSlotVals = validateSlotModal();
+                if(null === newSlotVals) return false;
+                
+                Object.assign(s, newSlotVals);
                 refreshTable();
                 return true;
               }, d);
@@ -720,7 +811,9 @@ $(function() {
     $('#view-event-add-window').on('click', () => {
       renderEventWindowModal(newWindow = true, savFn = function(activity) {
 
-        let data = getWindowModalVals({ idx: eventTableData.windows.length });
+        let data = validateWindowModal({ idx: eventTableData.windows.length });
+        if(null === data) return false;
+        
         let slots = [];
         for(let i = 0, activity; activity = eventTableData.activities[i]; ++i) {
           slots.push({
@@ -734,7 +827,10 @@ $(function() {
           label: fmtDateRange(data.startDate, data.endDate),
           fn: (d) => { // on click function
             renderEventWindowModal(newWindow = false, saveFn = function(window) { // on save
-              Object.assign(window, getWindowModalVals());
+              let w = validateWindowModal();
+              if(null === w) return false;
+              
+              Object.assign(window, w);
               eventTableData.windows[data.idx].label = fmtDateRange(data.startDate, data.endDate);
               refreshTable();
               return true;
@@ -750,7 +846,10 @@ $(function() {
             label: 'Slot',
             fn: (d) => {
               renderEventSlotModal(newSlot = true, saveFn = function(s) {
-                Object.assign(s, getSlotModalVals());
+                let newSlotVals = validateSlotModal();
+                if(null === newSlotVals) return false;
+                
+                Object.assign(s, newSlotVals);
                 refreshTable();
                 return true;
               }, d);
@@ -768,12 +867,17 @@ $(function() {
     $('#view-event-add-field').on('click', () => {
       renderEventDetailModal(newDetail = true, savFn = function(detail) {
 
-        let data = getFieldModalVals({ idx: eventTableData.details.length });
+        let data = validateFieldModal({ idx: eventTableData.details.length });
+        if(null === data) return false;
+        
         mkDetail({
           data: data,
           fn: (d) => {
             renderEventDetailModal(newDetail = false, saveFn = function(d) {
-              Object.assign(d, getFieldModalVals());
+              let newFieldVals = validateFieldModal();
+              if(null === newFieldVals) return false;
+              
+              Object.assign(d, newFieldVals);
               renderFieldTable();
               return true;
             }, delFn = function(d) {
@@ -787,7 +891,7 @@ $(function() {
         renderFieldTable();
         return true;
       });
-      //$('#edit-detail-modal').addClass('is-active');
+      
     });
   });
 
