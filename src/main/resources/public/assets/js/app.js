@@ -601,6 +601,12 @@ function getFieldModalVals(newVals = null) {
 }
 
 $(function() {
+  toast_setToast_Defaults({
+    duration: 5000,
+    position: 'top-center',
+    closeOnClick: true,
+  });
+  
   const urlParams = new URLSearchParams(window.location.search);
   if(urlParams.has('event')) {
     console.log(urlParams.get('event'));
@@ -626,6 +632,7 @@ $(function() {
   viewTableSliderObserver.observe(viewTableSliderOutput[0], { childList: true, subtree: true, characterData: true });
 
   $('#magic-button').on('click', () => {
+    /*
     mkDetail({
       data: {
         type: 'STRING',
@@ -639,6 +646,8 @@ $(function() {
     });
     renderFieldTable();
     $('#view-event-section').show();
+    */
+    toast({ message: 'I eat pez.', type: 'is-success' });
   });
 
   // for when someone hits the 'create event' nav item
