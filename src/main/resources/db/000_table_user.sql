@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS ${database}.${prefix}user (
   id BINARY(16) NOT NULL,
   pubkey BINARY(32) NOT NULL,
   mfakey VARBINARY(255),
-  email VARCHAR(255) NOT NULL,
+  email VARCHAR(255),
   pending_email VARCHAR(255),
   access_level TINYINT UNSIGNED NOT NULL,
   last_update TIMESTAMP

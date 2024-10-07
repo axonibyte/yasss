@@ -11,6 +11,7 @@
     <script src="/assets/js/bulma-calendar.min.js" defer></script>
     <script src="/assets/js/bulma-slider.min.js" defer></script>
     <script src="/assets/js/bulma-toast.js" defer></script>
+    <script src="/assets/js/axb-sig-req.min.js" defer></script>
     <script src="/assets/js/app.js" defer></script>
   </head>
   <body>
@@ -22,7 +23,8 @@
       </div>
       <div class="navbar-end">
         <a id="create-event-btn" class="navbar-item">Create Event</a>
-        <a id="log-in-btn" class="navbar-item">Log In</a>
+        <a id="login-btn" class="navbar-item">Log In</a>
+        <a id="logout-btn" class="navbar-item" style="display: none;">Log Out</a>
       </div>
     </nav>
     
@@ -37,7 +39,7 @@
     </section>
 
     <!-- announcements section? -->
-    <section class="section">
+    <section id="announcements-section" class="section">
       <div class="card">
         <div class="card-content">
           <div class="content has-text-centered">
@@ -99,20 +101,6 @@
                               <em>No custom details specified.</em>
                             </td>
                           </tr>
-                          <!--
-                          <tr>
-                            <td>Name</td>
-                            <td>text (required)</td>
-                          </tr>
-                          <tr>
-                            <td>Email</td>
-                            <td>email</td>
-                          </tr>
-                          <tr>
-                            <td>Cell Phone</td>
-                            <td>phone number (required)</td>
-                          </tr>
-                          -->
                         </tbody>
                       </table>
                     </div>
@@ -202,13 +190,13 @@
           <div class="field">
             <div class="label">Email Address</div>
             <div class="control">
-              <input class="input" type="email" placeholder="What's your email address?" />
+              <input id="auth-modal-email" class="input" type="email" placeholder="What's your email address?" />
             </div>
           </div>
           <div class="field">
             <div class="label">Password</div>
             <div class="control">
-              <input class="input" type="password" />
+              <input id="auth-modal-password" class="input" type="password" />
             </div>
           </div>
           <div class="field">
@@ -220,14 +208,14 @@
           </div>
           <div class="field toggle-auth-confirm-pass hide-on-load" style="display: none;">
             <div class="control">
-              <input id="auth-modal-confirm-pass" class="input" type="text" placeholder="Please confirm your password." />
+              <input id="auth-modal-confirm-pass" class="input" type="password" placeholder="Please confirm your password." />
             </div>
           </div>
         </section>
         <footer class="modal-card-foot">
           <div class="buttons">
-            <button class="button is-info toggle-auth-confirm-pass">Log In!</button>
-            <button class="button is-info toggle-auth-confirm-pass" style="display: none;">Register!</button>
+            <button id="auth-modal-login-btn" class="button is-info toggle-auth-confirm-pass">Log In!</button>
+            <button id="auth-modal-register-btn" class="button is-info toggle-auth-confirm-pass" style="display: none;">Register!</button>
           </div>
         </footer>
       </div>

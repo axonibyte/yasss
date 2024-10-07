@@ -7,10 +7,6 @@
  */
 package com.crowdease.yasss.api;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-
 import com.axonibyte.lib.http.rest.AuthStatus;
 
 public class Authorization implements AuthStatus {
@@ -18,11 +14,11 @@ public class Authorization implements AuthStatus {
   public static final Object IS_AUTHENTICATED = new Object();
   public static final Object IS_HUMAN = new Object();
 
-  private final Set<UUID> events;
+  private final boolean isAuthenticated;
   private final boolean isHuman;
 
-  Authorization(Set<UUID> events, boolean isHuman) {
-    this.events = null == events ? new HashSet<>() : events;
+  Authorization(boolean isAuthenticated, boolean isHuman) {
+    this.isAuthenticated = isAuthenticated;
     this.isHuman = isHuman;
   }
 
@@ -38,13 +34,10 @@ public class Authorization implements AuthStatus {
    */
   @Override public boolean atLeast(Object permission) {
     if(IS_AUTHENTICATED == permission)
-      return !events.isEmpty();
+      return isAuthenticated;
     
     else if(IS_HUMAN == permission)
       return isHuman;
-    
-    else if(permission instanceof UUID)
-      return events.contains((UUID)permission);
     
     else return false;
   }

@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import com.axonibyte.lib.auth.Credentialed;
 import com.axonibyte.lib.auth.CryptoException;
 import com.axonibyte.lib.db.SQLBuilder;
 import com.axonibyte.lib.db.Comparison.ComparisonOp;
+import com.axonibyte.lib.db.SQLBuilder.Order;
 import com.crowdease.yasss.YasssCore;
 
 public class User extends Credentialed implements Comparable<User> {
@@ -85,7 +87,9 @@ public class User extends Credentialed implements Comparable<User> {
     ResultSet res = null;
     
     SQLBuilder query = new SQLBuilder()
-        .count("user_count");
+        .select(
+            YasssCore.getDB().getPrefix() + "user")
+        .count("*", "user_count");
     
     if(null != level)
       query.where("access_level");
@@ -123,9 +127,10 @@ public class User extends Credentialed implements Comparable<User> {
                   "email",
                   "pending_email",
                   "access_level")
-              .where("id", SQLBuilder.uuidToBytes(userID))
+              .where("id")
               .limit(1)
               .toString());
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(userID));
       res = stmt.executeQuery();
       
       if(res.next())
@@ -156,7 +161,7 @@ public class User extends Credentialed implements Comparable<User> {
       stmt = con.prepareStatement(
           new SQLBuilder()
               .select(
-                  YasssCore.getDB().getPrefix(),
+                  YasssCore.getDB().getPrefix() + "user",
                   "id",
                   "pubkey",
                   "mfakey",
@@ -164,8 +169,10 @@ public class User extends Credentialed implements Comparable<User> {
                   "pending_email",
                   "access_level")
               .where("email", ComparisonOp.LIKE)
+              .order("last_update", Order.DESC)
               .limit(1)
               .toString());
+      stmt.setString(1, email);
       res = stmt.executeQuery();
       
       if(res.next())
@@ -197,7 +204,7 @@ public class User extends Credentialed implements Comparable<User> {
     this.accessLevel = accessLevel;
   }
   
-  public User(String email, AccessLevel accessLevel, String pubkey) throws CryptoException {
+  public User(String pendingEmail, AccessLevel accessLevel, String pubkey) throws CryptoException {
     super(null, null, null, null);
     this.pendingEmail = email;
     this.accessLevel = accessLevel;
@@ -234,7 +241,6 @@ public class User extends Credentialed implements Comparable<User> {
   public void commit() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
-    ResultSet res = null;
     
     if(null == getID()) {
       do {
@@ -249,7 +255,7 @@ public class User extends Credentialed implements Comparable<User> {
               .update(
                   YasssCore.getDB().getPrefix() + "user",
                   "pubkey",
-                  "mfa",
+                  "mfakey",
                   "email",
                   "pending_email",
                   "access_level")
@@ -283,11 +289,43 @@ public class User extends Credentialed implements Comparable<User> {
         stmt.setInt(6, accessLevel.ordinal());
         stmt.executeUpdate();
       }
+
+      if(null != email) {
+        // clean up any users with the same pending email
+        // first, by deleting pending emails for any user with an existing email
+        
+        YasssCore.getDB().close(null, stmt, null);
+        stmt = con.prepareStatement(
+            new SQLBuilder()
+                .update(
+                    YasssCore.getDB().getPrefix() + "user",
+                    "pending_email")
+                .where("email", ComparisonOp.IS_NOT_NULL)
+                .where("pending_email", ComparisonOp.EQUAL_TO)
+                .toString());
+        stmt.setNull(1, Types.VARCHAR);
+        stmt.setString(2, email);
+        stmt.executeUpdate();
+        
+        // then, by outright deleting any users with out an email with that pending
+        // email
+        
+        YasssCore.getDB().close(null, stmt, null);
+        stmt = con.prepareStatement(
+            new SQLBuilder()
+                .delete(
+                    YasssCore.getDB().getPrefix() + "user")
+                .where("email", ComparisonOp.IS_NULL)
+                .where("pending_email", ComparisonOp.EQUAL_TO)
+                .toString());
+        stmt.setString(1, email);
+        stmt.executeUpdate();
+      }
       
     } catch(SQLException e) {
       throw e;
     } finally {
-      YasssCore.getDB().close(con, stmt, res);
+      YasssCore.getDB().close(con, stmt, null);
     }
   }
   

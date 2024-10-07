@@ -49,12 +49,12 @@ public final class TicketEngine implements Runnable {
         Credentialed signer = new Credentialed(UUID.randomUUID(), null, null, null);
         try {
           signer.regenerateKeypair();
+          logger.info("Generated new signer.");
         } catch(CryptoException e) {
           logger.error("Failed to generate signer: {}", e.getMessage());
           e.printStackTrace();
         }
         signers.add(signer);
-        
         Thread.sleep(refreshInterval);
       }
     } catch(InterruptedException e) { }
@@ -85,7 +85,7 @@ public final class TicketEngine implements Runnable {
   public boolean verify(String message, String signature) {
     for(var signer : signers)
       if(signer.verifySig(message, signature))
-         return true;
+        return true;
     return false;
   }
   

@@ -20,6 +20,8 @@ import com.axonibyte.lib.cfg.Config.BadParamException;
 import com.axonibyte.lib.cfg.FileConfig.FileReadException;
 import com.axonibyte.lib.db.Database;
 import com.axonibyte.lib.http.APIDriver;
+import com.crowdease.yasss.api.APIEndpoint;
+import com.crowdease.yasss.api.APIInfoEndpoint;
 import com.crowdease.yasss.api.AddActivityEndpoint;
 import com.crowdease.yasss.api.AddDetailEndpoint;
 import com.crowdease.yasss.api.AddVolunteerEndpoint;
@@ -61,6 +63,7 @@ import org.slf4j.LoggerFactory;
 public class YasssCore {
 
   private static final Logger logger = LoggerFactory.getLogger(YasssCore.class);
+  private static final long launchTime = System.currentTimeMillis();
 
   private static APIDriver apiDriver = null;
   private static Config config = null;
@@ -112,38 +115,47 @@ public class YasssCore {
           config.getInteger(ParamEnum.TICKET_MAX_HISTORY.param().toString()));
       ticketEngine.start();
 
-      spark.Spark.staticFiles.location("/public");
-      apiDriver = APIDriver.build(
-          config.getInteger(ParamEnum.API_PORT.param().toString()),
-          config.getString(ParamEnum.API_ALLOWED_ORIGINS.param().toString()),
-          null,
-          new AddActivityEndpoint(),
-          new AddDetailEndpoint(),
-          new AddVolunteerEndpoint(),
-          new AddWindowEndpoint(),
-          new CreateEventEndpoint(),
-          new CreateUserEndpoint(),
-          new ListEventsEndpoint(),
-          new ListUsersEndpoint(),
-          new ModifyActivityEndpoint(),
-          new ModifyDetailEndpoint(),
-          new ModifyEventEndpoint(),
-          new ModifyUserEndpoint(),
-          new ModifyVolunteerEndpoint(),
-          new ModifyWindowEndpoint(),
-          new RemoveActivityEndpoint(),
-          new RemoveDetailEndpoint(),
-          new RemoveEventEndpoint(),
-          new RemoveUserEndpoint(),
-          new RemoveVolunteerEndpoint(),
-          new RemoveWindowEndpoint(),
-          new ResetUserEndpoint(),
-          new RetrieveEventEndpoint(),
-          new SetRSVPEndpoint(),
-          new SetSlotEndpoint(),
-          new UnsetRSVPEndpoint(),
-          new UnsetSlotEndpoint(),
-          new VerifyUserEndpoint());
+      apiDriver = new APIDriver.Builder()
+          .setPort(
+              config.getInteger(
+                  ParamEnum.API_PORT.param().toString()))
+          .setPublicFolder("/public")
+          .addAllowedOrigins(
+              config.getString(
+                  ParamEnum.API_ALLOWED_ORIGINS.param().toString()))
+          .addExposedHeaders(
+              APIEndpoint.ACCOUNT_HEADER,
+              APIEndpoint.SESSION_HEADER)
+          .addEndpoints(
+              new APIInfoEndpoint(),
+              new AddActivityEndpoint(),
+              new AddDetailEndpoint(),
+              new AddVolunteerEndpoint(),
+              new AddWindowEndpoint(),
+              new CreateEventEndpoint(),
+              new CreateUserEndpoint(),
+              new ListEventsEndpoint(),
+              new ListUsersEndpoint(),
+              new ModifyActivityEndpoint(),
+              new ModifyDetailEndpoint(),
+              new ModifyEventEndpoint(),
+              new ModifyUserEndpoint(),
+              new ModifyVolunteerEndpoint(),
+              new ModifyWindowEndpoint(),
+              new RemoveActivityEndpoint(),
+              new RemoveDetailEndpoint(),
+              new RemoveEventEndpoint(),
+              new RemoveUserEndpoint(),
+              new RemoveVolunteerEndpoint(),
+              new RemoveWindowEndpoint(),
+              new ResetUserEndpoint(),
+              new RetrieveEventEndpoint(),
+              new SetRSVPEndpoint(),
+              new SetSlotEndpoint(),
+              new UnsetRSVPEndpoint(),
+              new UnsetSlotEndpoint(),
+              new VerifyUserEndpoint())
+          .build();
 
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override public void run() {
@@ -196,6 +208,16 @@ public class YasssCore {
    */
   public static TicketEngine getTicketEngine() {
     return ticketEngine;
+  }
+
+  /**
+   * Retrieves the UNIX epoch timestamp associated with the time during which
+   * this program was executed.
+   *
+   * @return the launch time
+   */
+  public static long getLaunchTime() {
+    return launchTime;
   }
 
 }

@@ -1,3 +1,5 @@
+var userData = null;
+
 const maxTableCols = 5;
 
 var eventTableData;
@@ -402,9 +404,7 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
 
 function renderEventWindowModal(newWindow = true, savFn = null, delFn = null, window = {
   startDate: '',
-  //startTime: '',
   endDate: ''
-  //endTime: ''
 }) {
   $('#edit-window-sav').unbind('click');
   $('#edit-window-del').unbind('click');
@@ -561,6 +561,8 @@ function fmtDateRange(begin, end) {
   return `Begin: ${beginStr}<br />End: ${endStr}`;
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function validateSummaryModal() {
   let data = {
     title: $('#edit-event-short-descr').val().trim(),
@@ -679,6 +681,193 @@ function validateFieldModal(newVals = null) {
   return null != newVals ? Object.assign(data, newVals) : data;
 }
 
+function setLoaderBtn(parent, loading) {
+  let modifiers = parent
+      .attr('class')
+      .split(/\s+/)
+      .filter(
+        elem => elem.startsWith('is-') && ['primary link info success warning danger']
+          .some(e => elem.endsWith(e)))
+  
+  if(loading) {
+    modifiers.forEach(
+      m => parent.addClass(
+        m.replace('is-', 'has-text-')));
+    parent.addClass('is-loading');
+  } else {
+    modifiers.forEach(
+      m => parent.removeClass(
+        m.replace('is-', 'has-text-')));
+    parent.removeClass('is-loading');
+  }
+}
+
+function resetAuthModal() {
+  $('#auth-modal-email').val('');
+  $('#auth-modal-password').val('');
+  $('#auth-modal-confirm-pass').val('');
+}
+
+function registerUser() {
+  let userEmail = $('#auth-modal-email').val().trim();
+  let userPass = $('#auth-modal-password').val();
+
+  setLoaderBtn($('#auth-modal-register-btn'), true);
+
+  try {
+    if(!emailRegex.test(userEmail))
+      throw 'Please specify a valid email address.';
+    if(0 == userPass.length)
+      throw 'Your password should be at least one character in length';
+    if(userPass !== $('#auth-modal-confirm-pass').val())
+      throw 'Oops! You might have mistyped your password confirmation.';
+  
+    (async () => {
+      let sigReq = await genCreds(userEmail, userPass, '', '');
+      console.log(sigReq);
+
+      $.ajax({
+        url: '/v1/users',
+        type: 'POST',
+        data: JSON.stringify({
+          email: userEmail,
+          pubkey: sigReq.pubkey,
+          generateMFA: false
+        }),
+        dataType: 'json'
+      }).done(function(data) {
+        console.log(data);
+        toast({
+          message: 'Your new account was successfully created :)',
+          type: 'is-success'
+        });
+        $('#authentication-modal').removeClass('is-active');
+      }).fail(function(data) {
+        console.error(data);
+        toast({
+          message: `We ran into an issue creating your account: "${data.responseJSON.info}"`,
+          type: 'is-danger'
+        });
+      }).always(function(data) {
+        setLoaderBtn($('#auth-modal-register-btn'), false);
+      });
+    })();
+    
+  } catch(e) {
+    console.log(e);
+    toast({ message: e, type: 'is-danger' });
+    setLoaderBtn($('#auth-modal-register-btn'), false);
+  }
+}
+
+function userLogin() {
+  let userEmail = $('#auth-modal-email').val().trim();
+  let userPass = $('#auth-modal-password').val();
+
+  setLoaderBtn($('#auth-modal-login-btn'), true);
+
+  try {
+    if(!emailRegex.test(userEmail))
+      throw 'Please specify a valid email address.';
+
+    (async () => {
+      let sigReq = await genCreds(userEmail, userPass, '', '');
+
+      $.ajax({
+        url: '/v1',
+        type: 'GET',
+        headers: {
+          'Authorization': `AXB-SIG-REQ ${sigReq.payload}`
+        },
+        complete: function(res) {
+          let userAccount = res.getResponseHeader('axb-account');
+          let userSession = res.getResponseHeader('axb-session');
+          if(userAccount && userSession) {
+            $('#login-btn').hide();
+            $('#logout-btn').show();
+            userData = {
+              account: userAccount,
+              session: userSession
+            };
+            toast({
+              message: 'Logged in!',
+              type: 'is-success'
+            });
+            $('#authentication-modal').removeClass('is-active');
+          } else {
+            toast({
+              message: 'Invalid credentials. Try again?',
+              type: 'is-danger'
+            });
+          }
+        }
+      }).fail(function(data) {
+        console.error(data);
+        toast({
+          message: `Failed to log in: "${data.responseJSON.info}"`,
+          type: 'is-danger'
+        });
+        $('#authentication-modal').removeClass('is-active');
+      }).always(function(data) {
+        setLoaderBtn($('#auth-modal-login-btn'), false);
+      });
+      
+    })();
+  
+  } catch(e) {
+    console.log(e);
+    toast({ message: e, type: 'is-danger' });
+    setLoaderBtn($('#auth-modal-login-btn'), false);
+  }
+}
+
+function userLogout() {
+  userData = null;
+  toast({
+    message: 'You\'ve been logged out!',
+    type: 'is-warning'
+  });
+  $('#logout-btn').hide();
+  $('#login-btn').show();
+}
+
+function refreshUserSession() {
+  if(null != userData && null != userData.session) {
+    $.ajax({
+      url: '/v1',
+      type: 'GET',
+      headers: {
+        'Authorization': `AXB-SIG-REQ ${userData.session}`
+      },
+      complete: function(res) {
+        let userSession = res.getResponseHeader('axb-session');
+        if(userSession) userData.session = userSession;
+        else {
+          $('#logout-btn').hide();
+          $('#login-btn').show();
+          toast({
+            message: 'Your user session was lost! Please log in again.',
+            type: 'is-danger'
+          });
+          userData = null;
+        }
+      }
+    }).done(function(data) {
+      console.log('Refreshed user session.');
+    }).fail(function(data) {
+      console.error('Failed to refresh user session.');
+      console.error(data);
+      $('#logout-btn').hide();
+      $('#login-btn').show();
+      toast({
+        message: 'Your user session was lost! Please log in again.',
+        type: 'is-danger'
+      });
+      userData = null;
+    });
+  }
+}
+
 $(function() {
   toast_setToast_Defaults({
     duration: 5000,
@@ -710,12 +899,15 @@ $(function() {
 
   viewTableSliderObserver.observe(viewTableSliderOutput[0], { childList: true, subtree: true, characterData: true });
 
-  $('#magic-button').on('click', () => {
+  $('#magic-button').on('click', function() {
+    registerUser();
     toast({ message: 'I eat pez.', type: 'is-success' });
   });
 
   // for when someone hits the 'create event' nav item
   $('#create-event-btn').on('click', () => {
+
+    $('#announcements-section').hide();
     
     renderEventSummaryModal(newEvent = true, savFn = function(summary) {
       let s = validateSummaryModal();
@@ -896,10 +1088,22 @@ $(function() {
   });
 
   // for when someone wants to log in or register
-  $('#log-in-btn, #guest-auth-prompt-open-auth').on('click', () => {
+  $('#auth-modal-login-btn').on('click', () => {
+    userLogin();
+  });
+  
+  $('#auth-modal-register-btn').on('click', () => {
+    registerUser();
+  });
+
+  $('#login-btn, #guest-auth-prompt-open-auth').on('click', () => {
+    resetAuthModal();
     $('#guest-auth-prompt-modal').removeClass('is-active');
     $('#authentication-modal').addClass('is-active');
   });
+
+  // for users that want to log out
+  $('#logout-btn').on('click', userLogout);
 
   // for when someone's ready to publish their event
   $('#view-event-publish-event').on('click', () => {
@@ -925,5 +1129,6 @@ $(function() {
     }
   });
 
-});
+  setInterval(refreshUserSession, 1000 * 60 * 10); // TODO make configurable
 
+});

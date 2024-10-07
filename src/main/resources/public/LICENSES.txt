@@ -1,7 +1,7 @@
 The following software is included in the web UI:
 
 - bulma ; Copyright (c) 2023 Jeremy Thomas
-  https://bulma.io/
+  https://bulma.io
 
 - bulma-block-list ; Copyright (c) 2019 CS Rhymes
   https://github.com/chrisrhymes/bulma-block-list
@@ -45,6 +45,39 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+===
+
+The software also contains the following library:
+
+- axb-sig-req ; Copyright (c) 2023-2024 Axonibyte Innovations, LLC.
+  https://axonibyte.com
+
+  The axb-sig-req library, in its minified form, further contains the following
+  libraries, which have been released under the MIT License (see above):
+
+  - @noble/ed25519 ; Copyright (c) 2019 Paul Miller
+    https://paulmillr.com
+    https://github.com/paulmillr/noble-ed25519
+    https://www.npmjs.com/package/@noble/ed25519
+
+  - scrypt-js ; Copyright (c) 2016 Richard Moore
+    https://github.com/ricmoo/scrypt-js
+    https://www.npmjs.com/package/scrypt-js
+
+  axb-sig-req is released under the Apache 2.0 License:
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       https://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
 
 ===
 

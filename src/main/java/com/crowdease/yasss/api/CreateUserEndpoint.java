@@ -60,9 +60,11 @@ public final class CreateUserEndpoint extends APIEndpoint {
       final User user;
       try {
         user = new User(
-            email,
+            AccessLevel.UNVERIFIED == accessLevel ? email : "",
             accessLevel,
             deserializer.getString("pubkey"));
+        if(AccessLevel.UNVERIFIED != accessLevel)
+          user.setEmail(email);
       } catch(CryptoException e) {
         throw new EndpointException(req, "malformed argument (pubkey)", 400);
       }

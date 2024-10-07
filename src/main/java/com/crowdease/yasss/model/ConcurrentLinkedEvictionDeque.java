@@ -76,12 +76,12 @@ public class ConcurrentLinkedEvictionDeque<E> extends ConcurrentLinkedDeque<E> {
   }
 
   private void evictHead() {
-    while(capacity > size())
+    while(capacity < size())
       poll();
   }
 
   private void evictTail() {
-    while(capacity > size())
+    while(capacity < size())
       pop();
   }
   
