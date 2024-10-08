@@ -72,6 +72,12 @@ public final class SetSlotEndpoint extends APIEndpoint {
               ? deserializer.getInt("maxSlotVolunteers")
               : activity.getMaxSlotVolunteersDefault());
 
+      if(0 > slot.getMaxSlotVolunteers() || 255 < slot.getMaxSlotVolunteers())
+        throw new EndpointException(
+            req,
+            "malformed argument (int: maxSlotVolunteers)",
+            400);
+
       slot.commit();
 
       res.status(201);

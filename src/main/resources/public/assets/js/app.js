@@ -187,7 +187,7 @@ function renderEventTable(parent, step = 1) {
 
   let grid = $('<div/>').addClass('grid');
 
-  if(0 == sz) {
+  if(0 == sz && 0 == eventTableData.windows.length) {
     cols = 1;
     addCell(
       grid,
@@ -353,8 +353,8 @@ function renderEventSummaryModal(newEvent = true, savFn = null, summary = {
 function renderEventActivityModal(newActivity = true, savFn = null, delFn = null, activity = {
   label: '',
   description: '',
-  activityVolunteerCap: -1,
-  slotVolunteerCapDefault: -1
+  activityVolunteerCap: 0,
+  slotVolunteerCapDefault: 0
 }) {
   console.log(activity);
 
@@ -366,7 +366,7 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
 
   $('#edit-activity-short-descr').val(activity.label);
   $('#edit-activity-long-descr').val(activity.description);
-  if(-1 == activity.activityVolunteerCap) {
+  if(0 == activity.activityVolunteerCap) {
     $('#edit-activity-vol-cap-switch').prop('checked', true);
     $('#edit-activity-vol-cap-field').val('');
     $('.toggle-activity-vol-cap').not('.toggle').hide();
@@ -375,7 +375,7 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
     $('#edit-activity-vol-cap-field').val(activity.activityVolunteerCap);
     $('.toggle-activity-vol-cap').not('.toggle').show();
   }
-  if(-1 == activity.slotVolunteerCapDefault) {
+  if(0 == activity.slotVolunteerCapDefault) {
     $('#edit-activity-slot-vol-cap-def-switch').prop('checked', true);
     $('#edit-activity-slot-vol-cap-def-field').val('');
     $('.toggle-slot-vol-def-cap').not('.toggle').hide();
@@ -478,11 +478,11 @@ function renderEventDetailModal(newDetail = true, savFn = null, delFn = null, de
   $('#edit-detail-modal').addClass('is-active');
 }
 
-function renderEventSlotModal(newSlot = true, savFn = null, slot = {
+function renderEventSlotModal(savFn = null, slot = {
   activity: -1,
   window: -1,
   slotEnabled: true,
-  slotVolunteerCap: -1
+  slotVolunteerCap: 0
 }) {
   $('#edit-slot-sav').unbind('click');
   
@@ -521,7 +521,7 @@ function renderEventSlotModal(newSlot = true, savFn = null, slot = {
     $('#edit-slot-cap-fields').hide();
   }
 
-  if(-1 == slot.slotVolunteerCap) {
+  if(0 == slot.slotVolunteerCap) {
     $('#edit-slot-vol-cap-switch').prop('checked', true);
     $('#edit-slot-vol-cap-field').val('');
     $('.toggle-slot-vol-cap').not('.toggle').hide();
@@ -591,23 +591,29 @@ function validateActivityModal(newVals = null) {
     label: $('#edit-activity-short-descr').val().trim(),
     description: $('#edit-activity-long-descr').val().trim(),
     activityVolunteerCap: avcChecked
-      ? -1
-      : Number($('#edit-activity-vol-cap-field').val()),
+      ? 0 : Number($('#edit-activity-vol-cap-field').val()),
     slotVolunteerCapDefault: svcdChecked
-      ? -1
-      : Number($('#edit-activity-slot-vol-cap-def-field').val())
+      ? 0 : Number($('#edit-activity-slot-vol-cap-def-field').val())
   }
 
   try {
     if('' == data.label)
       throw 'The label for your activity cannot be blank.';
-    
-    if(!Number.isInteger(data.activityVolunteerCap)
-        || !avcChecked && 1 > data.activityVolunteerCap)
-      throw 'The activity volunteer cap needs to be number larger than 0.';
-    if(!Number.isInteger(data.slotVolunteerCapDefault)
-        || !svcdChecked && 1 > data.slotVolunteerCapDefault)
-      throw 'The default slot volunteer cap needs to be a number larger than 0.';
+
+    if(
+      !avcChecked && (
+        !Number.isInteger(data.activityVolunteerCap)
+          || 1 > data.activityVolunteerCap
+          || 255 < data.activityVolunteerCap))
+      throw 'The activity volunteer cap needs to be number between 1 and 255';
+       
+    if(
+      !svcdChecked && (
+        !Number.isInteger(data.slotVolunteerCapDefault)
+          || 1 > data.slotVolunteerCapDefault
+          || 255 < data.slotVolunteerCapDefault))
+      throw 'The default slot volunteer cap needs to be a number between 1 and 255.';
+
   } catch(e) {
     console.error(e);
     toast({ message: e, type: 'is-danger' });
@@ -637,19 +643,23 @@ function validateWindowModal(newVals = null) {
 }
 
 function validateSlotModal(newVals = null) {
-  let esvcChecked = $('#edit-slot-vol-cap-switch').prop('checked')
+  let eseChecked = $('#edit-slot-enable-switch').prop('checked');
+  let esvcChecked = $('#edit-slot-vol-cap-switch').prop('checked');
   
   let data = {
-    slotEnabled: $('#edit-slot-enable-switch').prop('checked'),
+    slotEnabled: eseChecked,
     slotVolunteerCap: esvcChecked
-      ? -1
+      ? 0
       : Number($('#edit-slot-vol-cap-field').val())
   }
 
   try {
-    if(!Number.isInteger(data.slotVolunteerCap)
-        || !esvcChecked && 1 > data.slotVolunteerCap)
-      throw 'The volunteer cap needs to be a number larger than 0.';
+    if(
+      eseChecked && esvcChecked && (
+        !Number.isInteger(data.slotVolunteerCap)
+          || 1 > data.slotVolunteerCap
+          || 255 < data.slotVolunteerCap))
+      throw 'The volunteer cap needs to be a number between 1 and 255.';
   } catch(e) {
     console.error(e);
     toast({ message: e, type: 'is-danger' });
@@ -760,6 +770,32 @@ function registerUser() {
   }
 }
 
+function injectAuth(options) {
+  if(userData && userData.session)
+    options.headers = {
+      'Authorization': `AXB-SIG-REQ ${userData.session}`
+    };
+  return options;
+}
+
+function saveSession(res, fn = null) {
+  let userSession = res.getResponseHeader('axb-session');
+  if(userData) {
+    if(userSession) userData.session = userSession;
+    else {
+      $('#logout-btn').hide();
+      $('#login-btn').show();
+      toast({
+        message: 'Your user session was lost! Please log in again.',
+        type: 'is-danger'
+      });
+      userData = null;
+    }
+  }
+
+  if('function' === typeof fn) fn(res);
+}
+
 function userLogin() {
   let userEmail = $('#auth-modal-email').val().trim();
   let userPass = $('#auth-modal-password').val();
@@ -833,26 +869,11 @@ function userLogout() {
 
 function refreshUserSession() {
   if(null != userData && null != userData.session) {
-    $.ajax({
+    $.ajax(injectAuth({
       url: '/v1',
       type: 'GET',
-      headers: {
-        'Authorization': `AXB-SIG-REQ ${userData.session}`
-      },
-      complete: function(res) {
-        let userSession = res.getResponseHeader('axb-session');
-        if(userSession) userData.session = userSession;
-        else {
-          $('#logout-btn').hide();
-          $('#login-btn').show();
-          toast({
-            message: 'Your user session was lost! Please log in again.',
-            type: 'is-danger'
-          });
-          userData = null;
-        }
-      }
-    }).done(function(data) {
+      complete: res => saveSession(res)
+    })).done(function(data) {
       console.log('Refreshed user session.');
     }).fail(function(data) {
       console.error('Failed to refresh user session.');
@@ -866,6 +887,83 @@ function refreshUserSession() {
       userData = null;
     });
   }
+}
+
+function publishNewEvent() {
+  console.log('publishing new event probably');
+
+  eventData = {
+    activities: [],
+    windows: [],
+    details: []
+  };
+  
+  if(userData && userData.account)
+    eventData.admin = userData.account;
+  eventData.shortDescription = eventTableData.summary.title;
+  eventData.longDescription = eventTableData.summary.description;
+  eventData.allowMultiUserSignups = eventTableData.summary.allowMultiuserSignups;
+  eventData.emailOnSubmission = eventTableData.summary.notifyOnSignup;
+
+  for(let i = 0, activity; activity = eventTableData.activities[i]; i++) {
+    let activityObj = {
+      shortDescription: activity.data.label,
+    };
+    if(activity.data.description)
+      activityObj.longDescription = activity.data.description;
+    if(0 < activity.data.activityVolunteerCap)
+      activityObj.maxActivityVolunteers = activity.data.activityVolunteerCap;
+    if(0 < activity.data.slotVolunteerCapDefault)
+      activityObj.maxSlotVolunteersDefault = activity.data.slotVolunteerCapDefault;
+
+    if(eventTableData.slots.length)
+      activityObj.slots = [];
+    
+    for(let j = i, slot; slot = eventTableData.slots[j]; j += eventTableData.windows.length) {
+      let slotObj = {
+        enabled: slot.data.slotEnabled,
+        window: slot.data.window
+      };
+      if(slot.data.slotEnabled)
+        slotObj.maxSlotVolunteers = slot.data.slotVolunteerCap;
+      activityObj.slots.push(slotObj);
+    }
+
+    eventData.activities.push(activityObj);
+  }
+
+  for(let i = 0, window; window = eventTableData.windows[i]; i++) {
+    eventData.windows.push({
+      beginTime: window.data.startDate,
+      endTime: window.data.endDate
+    });
+  }
+
+  for(let i = 0, detail; detail = eventTableData.details[i]; i++) {
+    let detailObj = {
+      type: detail.data.type,
+      label: detail.data.field
+    };
+    if(detail.data.description)
+      detailObj.hint = detail.data.description;
+    if(detail.data.required)
+      detailObj.required = detail.data.required;
+    eventData.details.push(detailObj);
+  }
+
+  console.log(eventData);
+  
+  $.ajax(injectAuth({
+    url: '/v1/events',
+    type: 'POST',
+    data: JSON.stringify(eventData),
+    dataType: 'json',
+    complete: res => saveSession(res)
+  })).done(function(data) {
+    console.log(data);
+  }).fail(function(data) {
+    console.log(data);
+  });
 }
 
 $(function() {
@@ -900,7 +998,6 @@ $(function() {
   viewTableSliderObserver.observe(viewTableSliderOutput[0], { childList: true, subtree: true, characterData: true });
 
   $('#magic-button').on('click', function() {
-    registerUser();
     toast({ message: 'I eat pez.', type: 'is-success' });
   });
 
@@ -981,7 +1078,7 @@ $(function() {
           return {
             label: 'Slot',
             fn: (d) => {
-              renderEventSlotModal(newSlot = true, saveFn = function(s) {
+              renderEventSlotModal(saveFn = function(s) {
                 let newSlotVals = validateSlotModal();
                 if(null === newSlotVals) return false;
                 
@@ -1037,7 +1134,7 @@ $(function() {
           return {
             label: 'Slot',
             fn: (d) => {
-              renderEventSlotModal(newSlot = true, saveFn = function(s) {
+              renderEventSlotModal(saveFn = function(s) {
                 let newSlotVals = validateSlotModal();
                 if(null === newSlotVals) return false;
                 
@@ -1107,10 +1204,12 @@ $(function() {
 
   // for when someone's ready to publish their event
   $('#view-event-publish-event').on('click', () => {
-    // TODO more processing here to see if the user is logged in, etc.
-    $('#guest-auth-prompt-modal').addClass('is-active');
+    if(userData) publishNewEvent();
+    else $('#guest-auth-prompt-modal').addClass('is-active');
   });
 
+  $('#guest-auth-prompt-publish-now').on('click', publishNewEvent);
+  
   // close any modal when their respective 'x' is clicked
   $('.modal .modal-close, .modal button.delete').on('click', function() {
     $(this).closest('.modal.is-active').removeClass('is-active');
@@ -1126,6 +1225,19 @@ $(function() {
           $(`.${elem}`).not('.toggle').toggle();
         }
       });
+    }
+  });
+
+  // validate numeric fields on the fly
+  $('.integer-validation').on('keyup focusout', function() {
+    let min = Number($(this).attr('min'));
+    let max = Number($(this).attr('max'))
+    let val = Number($(this).val());
+    if(null !== val) {
+      if(isNaN(val) || null !== min && val < min)
+        $(this).val(null !== min ? min : 0);
+      else if(null !== max && val > max)
+        $(this).val(max);
     }
   });
 

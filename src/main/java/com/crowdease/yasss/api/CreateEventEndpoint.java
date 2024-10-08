@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -107,16 +106,22 @@ public final class CreateEventEndpoint extends APIEndpoint {
               "malformed argument (string: activities[].shortDescription)",
               400);
         
-        if(0 > activity.getMaxActivityVolunteers())
+        if(0 > activity.getMaxActivityVolunteers() || 255 < activity.getMaxActivityVolunteers())
           throw new EndpointException(
               req,
               "malformed argument (int: activities[].maxActivityVolunteers)",
               400);
         
-        if(0 > activity.getMaxSlotVolunteersDefault())
+        if(0 > activity.getMaxSlotVolunteersDefault() || 255 < activity.getMaxSlotVolunteersDefault())
           throw new EndpointException(
               req,
               "malformed argument (int: activities[].maxSlotVolunteersDefault)",
+              400);
+
+        if(0 > activity.getPriority() || 255 < activity.getPriority())
+          throw new EndpointException(
+              req,
+              "malformed argument (int: activities[].priority)",
               400);
 
         activities.put(
@@ -203,7 +208,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
             .tokenize("maxSlotVolunteers", false)
             .check();
           int wIdx = slotDeserializer.getInt("window");
-          TempSlot tempSlot = new TempSlot(aIdx, wIdx);
+          TempSlot tempSlot = new TempSlot();
           tempSlot.setEnabled(
               slotDeserializer.getBool("enabled"));
           if(tempSlot.isEnabled())
@@ -211,6 +216,14 @@ public final class CreateEventEndpoint extends APIEndpoint {
                 slotDeserializer.has("maxSlotVolunteers")
                 ? slotDeserializer.getInt("maxSlotVolunteers")
                 : activity.getKey().getMaxSlotVolunteersDefault());
+          
+          if(null != tempSlot.getMaxSlotVolunteers()
+              && (0 > tempSlot.getMaxSlotVolunteers() || 255 < tempSlot.getMaxSlotVolunteers()))
+            throw new EndpointException(
+                req,
+                "malformed argument (int: activities[].slots[].maxSlotVolunteers)",
+                400);
+          
           slots[aIdx][wIdx] = tempSlot;
         }
         aIdx++;
@@ -311,7 +324,13 @@ public final class CreateEventEndpoint extends APIEndpoint {
                               .put("label", d.getLabel())
                               .put("hint", d.getHint())
                               .put("priority", d.getPriority())
-                              .put("required", d.isRequired()))));
+                              .put("required", d.isRequired()))
+                      .collect(
+                          JSONArray::new,
+                          JSONArray::put,
+                          (a, b) -> {
+                            for(final Object o : b) a.put(o);
+                          })));
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
@@ -322,16 +341,8 @@ public final class CreateEventEndpoint extends APIEndpoint {
 
   private static final class TempSlot {
     
-    private final int activity;
-    private final int window;
-    
     private boolean enabled;
     private Integer maxSlotVolunteers;
-
-    private TempSlot(int activity, int window) {
-      this.activity = activity;
-      this.window = window;
-    }
 
     private boolean isEnabled() {
       return enabled;

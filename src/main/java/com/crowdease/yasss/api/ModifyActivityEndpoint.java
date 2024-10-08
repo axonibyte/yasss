@@ -74,7 +74,8 @@ public final class ModifyActivityEndpoint extends APIEndpoint {
       if(deserializer.has("maxActivityVolunteers")) {
         activity.setMaxActivityVolunteers(
             deserializer.getInt("maxActivityVolunteers"));
-        if(0 > activity.getMaxActivityVolunteers())
+        if(0 > activity.getMaxActivityVolunteers()
+            || 255 < activity.getMaxActivityVolunteers())
           throw new EndpointException(
               req,
               "malformed argument (int: maxActivityVolunteers)",
@@ -84,16 +85,23 @@ public final class ModifyActivityEndpoint extends APIEndpoint {
       if(deserializer.has("maxSlotVolunteersDefault")) {
         activity.setMaxSlotVolunteersDefault(
             deserializer.getInt("maxSlotVolunteersDefault"));
-        if(0 > activity.getMaxSlotVolunteersDefault())
+        if(0 > activity.getMaxSlotVolunteersDefault()
+           || 255 < activity.getMaxActivityVolunteers())
           throw new EndpointException(
               req,
               "malformed argument (int: maxSlotVolunteerDefault)",
               400);
       }
       
-      if(deserializer.has("priority"))
+      if(deserializer.has("priority")) {
         activity.setPriority(
             deserializer.getInt("priority"));
+        if(0 > activity.getPriority() || 255 < activity.getPriority())
+          throw new EndpointException(
+              req,
+              "malformed argument (int: priority)",
+              400);
+      }
       
       activity.commit();
 

@@ -200,7 +200,6 @@ public class Window implements Comparable<Window> {
                     "event",
                     "begin_time",
                     "end_time")
-                .where("id")
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
         stmt.setBytes(2, SQLBuilder.uuidToBytes(event));

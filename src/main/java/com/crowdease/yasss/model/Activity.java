@@ -133,7 +133,7 @@ public class Activity implements Comparable<Activity> {
             new Slot(
                 id,
                 SQLBuilder.bytesToUUID(
-                    res.getBytes("s.window")),
+                    res.getBytes("s.event_window")),
                 res.getInt("s.max_slot_volunteers")));
       return slots;
       

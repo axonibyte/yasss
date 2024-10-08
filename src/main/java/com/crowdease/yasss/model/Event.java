@@ -300,7 +300,7 @@ public class Event {
             res.getTimestamp("first_draft"),
             res.getBoolean("email_on_submission"),
             res.getBoolean("allow_multiuser_signups"),
-            res.getBoolean("e.published"));
+            res.getBoolean("published"));
       
     } catch(SQLException e) {
       throw e;

@@ -68,7 +68,9 @@
                   Here's some information about your event! Blah blah blah blah and stuff.
                 </p>
                 <div class="buttons is-left">
-                  <button id="view-event-edit-summary" class="button is-light is-outlined is-primary is-small">Edit Summary</button>
+                  <button
+                    id="view-event-edit-summary"
+                    class="button is-light is-outlined is-primary is-small">Edit Summary</button>
                 </div>
               </div>
 
@@ -128,7 +130,14 @@
               </div>
             </div>
           </div>
-          <input id="view-event-slider" class="slider is-fullwidth is-small" step="1" min="0" max="100" value="50" type="range" />
+          <input
+            id="view-event-slider"
+            class="slider is-fullwidth is-small"
+            step="1"
+            min="0"
+            max="100"
+            value="50"
+            type="range" />
         </div>
       </div>
 
@@ -137,10 +146,18 @@
         <div class="card-content">
           <div class="content">
             <div class="buttons is-centered">
-              <button id="view-event-add-activity" class="button is-light is-outlined is-primary">Add an Activity</button>
-              <button id="view-event-add-window" class="button is-light is-outlined is-primary">Add a Window</button>
-              <button id="view-event-add-field" class="button is-light is-outlined is-primary">Add a Field</button>
-              <button id="view-event-publish-event" class="button is-primary">Publish Event</button>
+              <button
+                id="view-event-add-activity"
+                class="button is-light is-outlined is-primary">Add an Activity</button>
+              <button
+                id="view-event-add-window"
+                class="button is-light is-outlined is-primary">Add a Window</button>
+              <button
+                id="view-event-add-field"
+                class="button is-light is-outlined is-primary">Add a Field</button>
+              <button
+                id="view-event-publish-event"
+                class="button is-primary">Publish Event</button>
             </div>
           </div>
         </div>
@@ -170,8 +187,12 @@
         </section>
         <footer class="modal-card-foot">
           <div class="buttons">
-           <button id="guest-auth-prompt-open-auth" class="button is-success">Yes please!</button>
-           <button id="guest-auth-prompt-publish-now" class="button is-danger">No thanks, I'm good!</button>
+            <button
+              id="guest-auth-prompt-open-auth"
+              class="button is-success">Yes please!</button>
+            <button
+              id="guest-auth-prompt-publish-now"
+              class="button is-danger">No thanks, I'm good!</button>
           </div>
         </footer>
       </div>
@@ -190,32 +211,53 @@
           <div class="field">
             <div class="label">Email Address</div>
             <div class="control">
-              <input id="auth-modal-email" class="input" type="email" placeholder="What's your email address?" />
+              <input
+                id="auth-modal-email"
+                class="input"
+                type="email"
+                placeholder="What's your email address?" />
             </div>
           </div>
           <div class="field">
             <div class="label">Password</div>
             <div class="control">
-              <input id="auth-modal-password" class="input" type="password" />
+              <input
+                id="auth-modal-password"
+                class="input"
+                type="password" />
             </div>
           </div>
           <div class="field">
             <div class="label">Is this a new account?</div>
             <div class="control toggle toggle-auth-confirm-pass">
-              <input id="auth-modal-new-account-switch" type="checkbox" class="switch" />
-              <label for="auth-modal-new-account-switch" class="switch toggle toggle-auth-confirm-pass">Click here if you'd like to register!</label>
+              <input
+                id="auth-modal-new-account-switch"
+                type="checkbox"
+                class="switch" />
+              <label
+                for="auth-modal-new-account-switch"
+                class="switch toggle toggle-auth-confirm-pass">Click here if you'd like to register!</label>
             </div>
           </div>
           <div class="field toggle-auth-confirm-pass hide-on-load" style="display: none;">
             <div class="control">
-              <input id="auth-modal-confirm-pass" class="input" type="password" placeholder="Please confirm your password." />
+              <input
+                id="auth-modal-confirm-pass"
+                class="input"
+                type="password"
+                placeholder="Please confirm your password." />
             </div>
           </div>
         </section>
         <footer class="modal-card-foot">
           <div class="buttons">
-            <button id="auth-modal-login-btn" class="button is-info toggle-auth-confirm-pass">Log In!</button>
-            <button id="auth-modal-register-btn" class="button is-info toggle-auth-confirm-pass" style="display: none;">Register!</button>
+            <button
+              id="auth-modal-login-btn"
+              class="button is-info toggle-auth-confirm-pass">Log In!</button>
+            <button
+              id="auth-modal-register-btn"
+              class="button is-info toggle-auth-confirm-pass"
+              style="display: none;">Register!</button>
           </div>
         </footer>
       </div>
@@ -233,25 +275,44 @@
           <div class="field">
             <div class="label">Event Title</div>
             <div class="control">
-              <input id="edit-event-short-descr" class="input" type="text" placeholder="What's the name of your event?" />
+              <input
+                id="edit-event-short-descr"
+                class="input"
+                type="text"
+                placeholder="What's the name of your event?" />
             </div>
           </div>
           <div class="field">
             <div class="label">Description</div>
             <div class="control">
-              <textarea id="edit-event-long-descr" class="textarea" placeholder="Describe your event!" rows=4></textarea>
+              <textarea
+                id="edit-event-long-descr"
+                class="textarea"
+                placeholder="Describe your event!"
+                rows="4"></textarea>
             </div>
           </div>
           <div class="field">
             <div class="control set-output edit-event-notify-out">
-              <input id="edit-event-notify-switch" type="checkbox" class="switch" checked="checked" />
-              <label for="edit-event-notify-switch" class="set-output edit-event-notify-out">Do you want to be notified when someone signs up?</label>
+              <input
+                id="edit-event-notify-switch"
+                type="checkbox"
+                class="switch"
+                checked="checked" />
+              <label
+                for="edit-event-notify-switch"
+                class="set-output edit-event-notify-out">Do you want to be notified when someone signs up?</label>
             </div>            
           </div>
           <div class="field">
             <div class="control set-output edit-event-multiuser-out">
-              <input id="edit-event-multiuser-switch" type="checkbox" class="switch" />
-              <label for="edit-event-multiuser-switch" class="set-output edit-event-multuser-out">Allow multiple volunteers per signup?</label>
+              <input
+                id="edit-event-multiuser-switch"
+                type="checkbox"
+                class="switch" />
+              <label
+                for="edit-event-multiuser-switch"
+                class="set-output edit-event-multuser-out">Allow multiple volunteers per signup?</label>
             </div>
           </div>
         </section>
@@ -273,37 +334,69 @@
           <div class="field">
             <div class="label">Activity</div>
             <div class="control">
-              <input id="edit-activity-short-descr" class="input" type="text" placeholder="What's the activity?" />
+              <input
+                id="edit-activity-short-descr"
+                class="input"
+                type="text"
+                placeholder="What's the activity?" />
             </div>
           </div>
           <div class="field">
             <div class="label">Description</div>
             <div class="control">
-              <textarea id="edit-activity-long-descr" class="textarea" placeholder="Describe the activity!" rows=4></textarea>
+              <textarea
+                id="edit-activity-long-descr"
+                class="textarea"
+                placeholder="Describe the activity!"
+                rows="4"></textarea>
             </div>
           </div>
           <div class="field">
             <div class="label">Acitvity Volunteer Cap</div>
             <div class="control toggle toggle-activity-vol-cap">
-              <input id="edit-activity-vol-cap-switch" type="checkbox" class="switch" checked="checked" />
-              <label for="edit-activity-vol-cap-switch" class="switch toggle toggle-activity-vol-cap">Unlimited volunteers for this activity?</label>
+              <input
+                id="edit-activity-vol-cap-switch"
+                type="checkbox"
+                class="switch"
+                checked="checked" />
+              <label
+                for="edit-activity-vol-cap-switch"
+                class="switch toggle toggle-activity-vol-cap">Unlimited volunteers for this activity?</label>
             </div>
           </div>
           <div class="field toggle-activity-vol-cap" style="display: none;">
             <div class="control">
-              <input id="edit-activity-vol-cap-field" class="input" type="text" placeholder="How many volunteers do you need for this event?" />
+              <input
+                id="edit-activity-vol-cap-field"
+                class="input integer-validation"
+                type="number"
+                min="1"
+                max="255"
+                placeholder="How many volunteers do you need for this event?" />
             </div>
           </div>
           <div class="field">
             <div class="label">Slot Volunteer Cap Default</div>
             <div class="control toggle toggle-slot-vol-def-cap">
-              <input id="edit-activity-slot-vol-cap-def-switch" type="checkbox" class="switch" checked="checked" />
-              <label for="edit-activity-slot-vol-cap-def-switch" class="switch toggle toggle-slot-vol-def-cap">Unlimited volunteers per slot by default?</label>
+              <input
+                id="edit-activity-slot-vol-cap-def-switch"
+                type="checkbox"
+                class="switch"
+                checked="checked" />
+              <label
+                for="edit-activity-slot-vol-cap-def-switch"
+                class="switch toggle toggle-slot-vol-def-cap">Unlimited volunteers per slot by default?</label>
             </div>
           </div>
           <div class="field toggle-slot-vol-def-cap" style="display: none;">
             <div class="control">
-              <input id="edit-activity-slot-vol-cap-def-field" class="input" type="text" placeholder="How many volunteers per slot by default?" />
+              <input
+                id="edit-activity-slot-vol-cap-def-field"
+                class="input integer-validation"
+                type="number"
+                min="1"
+                max="255"
+                placeholder="How many volunteers per slot by default?" />
             </div>
           </div>
         </section>
@@ -368,19 +461,31 @@
           <div class="field">
             <div class="label">Field</div>
             <div class="control">
-              <input id="edit-detail-field" class="input" type="text" placeholder="What do you need from your volunteers?" />
+              <input
+                id="edit-detail-field"
+                class="input"
+                type="text"
+                placeholder="What do you need from your volunteers?" />
             </div>
           </div>
           <div class="field">
             <div class="label">Description</div>
             <div class="control">
-              <textarea id="edit-detail-descr" class="textarea" placeholder="You can put additional instructions or requirements here if you want." rows=4></textarea>
+              <textarea
+                id="edit-detail-descr"
+                class="textarea"
+                placeholder="You can put additional instructions or requirements here if you want."
+                rows="4"></textarea>
             </div>
           </div>
           <div class="field">
             <div class="control">
-              <input id="edit-detail-required-switch" type="checkbox" class="switch" />
-              <label for="edit-detail-required-switch">Should users be required to answer this?</label>
+              <input
+                id="edit-detail-required-switch"
+                type="checkbox"
+                class="switch" />
+              <label
+                for="edit-detail-required-switch">Should users be required to answer this?</label>
             </div>
           </div>
         </section>
@@ -408,7 +513,12 @@
               <button id="edit-slot-activity-btn" class="tag is-warning">Edit</span>
             </div>
             <div class="control">
-              <input id="edit-slot-activity-field" class="input" type="text" value="Activity goes here." disabled="disabled" />
+              <input
+                id="edit-slot-activity-field"
+                class="input"
+                type="text"
+                value="Activity goes here."
+                disabled="disabled" />
             </div>
           </div>
           <div class="field">
@@ -417,27 +527,50 @@
               <button id="edit-slot-window-btn" class="tag is-warning">Edit</span>
             </div>
             <div class="control">
-              <input id="edit-slot-window-field" class="input" type="text" value="Window goes here." disabled="disabled" />
+              <input
+                id="edit-slot-window-field"
+                class="input"
+                type="text"
+                value="Window goes here."
+                disabled="disabled" />
             </div>
           </div>
           <div class="field">
             <div class="label">Enable Slot</div>
             <div class="control toggle toggle-slot-cap-fields">
-              <input id="edit-slot-enable-switch" type="checkbox" class="switch is-warning" checked="checked" />
-              <label for="edit-slot-enable-switch" class="switch toggle toggle-slot-cap-fields">Enable this slot?</label>
+              <input
+                id="edit-slot-enable-switch"
+                type="checkbox"
+                class="switch is-warning"
+                checked="checked" />
+              <label
+                for="edit-slot-enable-switch"
+                class="switch toggle toggle-slot-cap-fields">Enable this slot?</label>
             </div>
           </div>
           <div id="edit-slot-cap-fields" class="toggle-slot-cap-fields">
             <div class="field">
               <div class="label">Slot Volunteer Cap</div>
               <div class="control toggle toggle-slot-vol-cap">
-                <input id="edit-slot-vol-cap-switch" type="checkbox" class="switch" checked="checked" />
-                <label for="edit-slot-vol-cap-switch" class="switch toggle toggle-slot-vol-cap">Unlimited volunteers for this slot?</label>
+                <input
+                  id="edit-slot-vol-cap-switch"
+                  type="checkbox"
+                  class="switch"
+                  checked="checked" />
+                <label
+                  for="edit-slot-vol-cap-switch"
+                  class="switch toggle toggle-slot-vol-cap">Unlimited volunteers for this slot?</label>
               </div>
             </div>
             <div class="field toggle-slot-vol-cap" style="display: none;">
               <div class="control">
-                <input id="edit-slot-vol-cap-field" class="input" type="text" placeholder="How many volunteers for this slot?" />
+                <input
+                  id="edit-slot-vol-cap-field"
+                  class="input integer-validation"
+                  type="number"
+                  min="1"
+                  max="255"
+                  placeholder="How many volunteers for this slot?" />
               </div>
             </div>
           </div>

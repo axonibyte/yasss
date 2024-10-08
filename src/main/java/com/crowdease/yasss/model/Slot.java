@@ -100,45 +100,47 @@ public class Slot {
                     res.getBytes("v.event")),
                 res.getBoolean("v.reminders_enabled")));
       }
-      
-      Map<UUID, Map<Detail, String>> details = new HashMap<>();
-      YasssCore.getDB().close(null, stmt, res);
-      stmt = con.prepareStatement(
-          new SQLBuilder()
-              .select(
-                  YasssCore.getDB().getPrefix() + "volunteer_detail",
-                  "volunteer",
-                  "detail_field",
-                  "detail_value")
-              .whereIn("volunteer", false, rsvps.size())
-              .order("volunteer", Order.ASC)
-              .toString());
-      
-      Event event = null;
-      int idx = 0;
-      for(var volunteer : rsvps.values()) {
-        if(null == event)
-          event = Event.getEvent(volunteer.getEvent());
-        details.put(volunteer.getID(), new HashMap<>());
-        stmt.setBytes(++idx, SQLBuilder.uuidToBytes(volunteer.getID()));
+
+      if(!rsvps.isEmpty()) {
+        Map<UUID, Map<Detail, String>> details = new HashMap<>();
+        YasssCore.getDB().close(null, stmt, res);
+        stmt = con.prepareStatement(
+            new SQLBuilder()
+                .select(
+                    YasssCore.getDB().getPrefix() + "volunteer_detail",
+                    "volunteer",
+                    "detail_field",
+                    "detail_value")
+                .whereIn("volunteer", false, rsvps.size())
+                .order("volunteer", Order.ASC)
+                .toString());
+        
+        Event event = null;
+        int idx = 0;
+        for(var volunteer : rsvps.values()) {
+          if(null == event)
+            event = Event.getEvent(volunteer.getEvent());
+          details.put(volunteer.getID(), new HashMap<>());
+          stmt.setBytes(++idx, SQLBuilder.uuidToBytes(volunteer.getID()));
+        }
+        res = stmt.executeQuery();
+        
+        while(res.next())
+          details
+              .get(
+                  SQLBuilder.bytesToUUID(
+                      res.getBytes("volunteer")))
+              .put(
+                  event.getDetail(
+                      SQLBuilder.bytesToUUID(
+                          res.getBytes("detail_field"))),
+                  res.getString("detail_value"));
+        
+        for(var volunteer : rsvps.values())
+          volunteer.setDetails(
+              details.get(
+                  volunteer.getID()));
       }
-      res = stmt.executeQuery();
-      
-      while(res.next())
-        details
-            .get(
-                SQLBuilder.bytesToUUID(
-                    res.getBytes("volunteer")))
-            .put(
-                event.getDetail(
-                    SQLBuilder.bytesToUUID(
-                        res.getBytes("detail_field"))),
-                res.getString("detail_value"));
-      
-      for(var volunteer : rsvps.values())
-        volunteer.setDetails(
-            details.get(
-                volunteer.getID()));
       
       return rsvps;
       

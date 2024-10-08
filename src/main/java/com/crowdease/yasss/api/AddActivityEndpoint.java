@@ -73,16 +73,22 @@ public final class AddActivityEndpoint extends APIEndpoint {
             "malformed argument (string: shortDescription)",
             400);
 
-      if(0 > activity.getMaxActivityVolunteers())
+      if(0 > activity.getMaxActivityVolunteers() || 255 < activity.getMaxActivityVolunteers())
         throw new EndpointException(
             req,
             "malformed argument (int: maxActivityVolunteers)",
             400);
 
-      if(0 > activity.getMaxSlotVolunteersDefault())
+      if(0 > activity.getMaxSlotVolunteersDefault() || 255 < activity.getMaxSlotVolunteersDefault())
         throw new EndpointException(
             req,
             "malformed argument (int: maxSlotVolunteerDefault)",
+            400);
+
+      if(0 > activity.getPriority() || 255 < activity.getPriority())
+        throw new EndpointException(
+            req,
+            "malformed argument (int: priority)",
             400);
 
       activity.commit();
