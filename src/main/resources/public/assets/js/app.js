@@ -172,10 +172,12 @@ function renderEventTableMeta(title, description, editable) {
   $('#view-event-short-descr').text(title);
   $('#view-event-long-descr').text(description);
   if(editable) {
+    $('#view-event-volunteer').hide();
     $('#view-event-details').show();
     $('#view-event-edit-summary').parent().show();
   } else {
     $('#view-event-details').hide();
+    $('#view-event-volunteer').show();
     $('#view-event-edit-summary').parent().hide();
   }
 }
@@ -991,6 +993,118 @@ function publishNewEvent() {
   });
 }
 
+function retrieveEvent(eventID) {
+  console.log(`retrieving ${eventID} probably`);
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventID}`,
+    type: 'GET',
+    complete: res => saveSession(res)
+  })).done(function(data) {
+    console.log('Successfully etrieved event data.');
+    console.log(data);
+
+    clearTable();
+
+    eventTableData.summary = {
+      title: data.event.shortDescription,
+      description: data.event.longDescription,
+      notifyOnSignup: data.event.emailOnSubmission,
+      allowMultiuserSignups: data.event.allowMultiUserSignups
+    }
+    renderEventTableMeta(
+      eventTableData.summary.title,
+      eventTableData.summary.description,
+      false);
+
+    let wins = {};
+    
+    for(let w = 0, win; win = data.event.windows[w]; w++) {
+      let startDate = new Date(win.begin);
+      let endDate = new Date(win.end);
+      wins[win.id] = w;
+      mkWindow({
+        label: fmtDateRange(startDate, endDate),
+        fn: (d) => {
+          console.log('clicked a window');
+          console.log(d);
+        },
+        data: {
+          id: win.id,
+          startDate: startDate,
+          endDate: endDate
+        }
+      }, []);
+    }
+
+    console.log(wins);
+
+    for(let a = 0, act; act = data.event.activities[a]; a++) {
+      let slots = new Array(Object.keys(wins).length).fill(undefined);
+      for(let s = 0, slot; slot = act.slots[s]; s++) {
+        console.log(`slot window = ${slot.window}`);
+        console.log(`wins = ${wins[slot.window]}`);
+        slots[wins[slot.window]] = {
+          id: slot.id,
+          slotEnabled: true,
+          slotVolunteerCap: slot.maxSlotVolunteers
+        };
+      }
+      console.log(`slots no 1 len ${slots.length}`);
+      console.log(slots);
+      slots = slots.map((s) => {
+        return {
+          label: undefined === s ? 'Unavailable' : 'Available',
+          fn: (d) => {
+            console.log('clicked a slot');
+            console.log(d);
+          },
+          data: undefined === s ? {
+            slotEnabled: false,
+            slotVolunteerCap: 0
+          } : s
+        };
+      });
+      console.log(`slots no 2 len ${slots.length}`);
+      console.log(slots);
+      mkActivity({
+        label: act.shortDescription,
+        fn: (d) => {
+          console.log('clicked an activity');
+          console.log(d);
+        },
+        data: act
+      }, slots);
+    }
+
+    for(let dt = 0, detail; detail = data.event.details[dt]; dt++) {
+      mkDetail({
+        data: {
+          type: detail.type,
+          field: detail.label,
+          description: detail.hint,
+          required: detail.required
+        }, fn: (d) => {
+          console.log('clicked a detail');
+          console.log(d);
+        }
+      });
+    }
+
+    console.log(eventTableData);
+    refreshTable();
+    $('#announcements-section').hide();
+    $('#view-event-section').show();
+    
+  }).fail(function(data) {
+    console.error(data);
+    toast({
+      message: 'Failed to retrieve the event.',
+      type: 'is-danger'
+    });
+  });
+}
+
 $(function() {
   toast_setToast_Defaults({
     duration: 5000,
@@ -999,8 +1113,8 @@ $(function() {
   });
   
   const urlParams = new URLSearchParams(window.location.search);
-  if(urlParams.has('event')) {
-    console.log(urlParams.get('event'));
+  if(urlParams.has('event') && urlParams.get('event')) {
+    retrieveEvent(urlParams.get('event'));
   }
 
   const viewTableSliderObserver = new MutationObserver(function(mutationsList) {
@@ -1018,7 +1132,7 @@ $(function() {
   );
 
   $('#magic-button').on('click', function() {
-    toast({ message: 'I eat pez.', type: 'is-success' });
+    retrieveEvent('6f9a0fce-bdc7-419c-801f-670d1add733a');
   });
 
   // for when someone hits the 'create event' nav item
