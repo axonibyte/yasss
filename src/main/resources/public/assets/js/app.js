@@ -402,7 +402,7 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
   $('#edit-activity-modal').addClass('is-active');
 }
 
-function renderEventWindowModal(newWindow = true, savFn = null, delFn = null, window = {
+function renderEventWindowModal(newWindow = true, savFn = null, delFn = null, win = {
   startDate: '',
   endDate: ''
 }) {
@@ -412,28 +412,48 @@ function renderEventWindowModal(newWindow = true, savFn = null, delFn = null, wi
   $('#edit-window-modal p.modal-card-title').text(
       newWindow ? 'Add a Window' : 'Update a Window');
 
-  let cal = $('#edit-window-range')[0].bulmaCalendar;
-  //if('' == startDate || '' == startTime || '' == endDate || '' == endTime)
-  if('' == window.startDate || '' == window.startTime)
-    cal.clear();
-  else {
-    cal.startDate = window.startDate;
-    //cal.startTime = window.startTime;
-    cal.endDate = window.endDate;
-    //cal.endTime = window.endTime;
-    cal.save();
+  $('#edit-window-control').empty().append(
+    $('<input/>').addClass('input').attr('type', 'date').attr('id', 'edit-window-range')
+  );
+  
+  var tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  let calOpts = {
+    displayMode: 'dialog',
+    isRange: true,
+    timeFormat: 'hh:mm a',
+    type: 'datetime',
+    validateLabel: 'Save',
+    minDate: tomorrow
+  };
+  
+  if(newWindow || '' == win.startDate || '' == win.startTime) {
+    calOpts.startDate = new Date(tomorrow);
+    calOpts.startTime = calOpts.startDate;
+    calOpts.startTime.setHours(8, 0, 0, 0);
+    calOpts.endDate = new Date(tomorrow);
+    calOpts.endTime = calOpts.endDate;
+    calOpts.endTime.setHours(17, 0, 0, 0);
+  } else {
+    calOpts.startDate = win.startDate;
+    calOpts.startTime = win.startDate;
+    calOpts.endDate = win.endDate;
+    calOpts.endTime = win.endDate;
   }
+
+  bulmaCalendar.attach('#edit-window-range', calOpts);
 
   if('function' === typeof savFn)
     $('#edit-window-sav').on('click', function() {
-      if(savFn(window))
+      if(savFn(win))
         $('#edit-window-modal').removeClass('is-active');
     }).show();
   else $('#edit-window-sav').hide();
 
   if('function' === typeof delFn)
     $('#edit-window-del').on('click', function() {
-      if(delFn(window))
+      if(delFn(win))
         $('#edit-window-modal').removeClass('is-active');
     }).show();
   else $('#edit-window-del').hide();
@@ -492,7 +512,10 @@ function renderEventSlotModal(savFn = null, slot = {
       : 'N/A');
   $('#edit-slot-window-field').val(
     0 <= slot.window
-      ? eventTableData.windows[slot.window].label
+      ? fmtDateRange(
+          eventTableData.windows[slot.window].data.startDate,
+          eventTableData.windows[slot.window].data.endDate,
+          true)
       : 'N/A');
   
   $('#edit-slot-activity-btn').unbind('click');
@@ -547,7 +570,7 @@ function refreshTable() {
   renderFieldTable();
 }
 
-function fmtDateRange(begin, end) {
+function fmtDateRange(begin, end, oneLiner = false) {
   let options = {
     day: '2-digit',
     year: '2-digit',
@@ -558,7 +581,9 @@ function fmtDateRange(begin, end) {
   };
   let beginStr = begin.toLocaleDateString('en-us', options);
   let endStr = end.toLocaleDateString('en-us', options);
-  return `Begin: ${beginStr}<br />End: ${endStr}`;
+  return oneLiner
+    ? `${beginStr} - ${endStr}`
+    : `Begin: ${beginStr}<br />End: ${endStr}`;
 }
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -934,8 +959,8 @@ function publishNewEvent() {
 
   for(let i = 0, window; window = eventTableData.windows[i]; i++) {
     eventData.windows.push({
-      beginTime: window.data.startDate,
-      endTime: window.data.endDate
+      beginTime: `${window.data.startDate.valueOf()}`,
+      endTime: `${window.data.endDate.valueOf()}`
     });
   }
 
@@ -978,14 +1003,6 @@ $(function() {
     console.log(urlParams.get('event'));
   }
 
-  const calendars = bulmaCalendar.attach('[type="date"]', {
-    displayMode: 'dialog',
-    isRange: true,
-    timeFormat: 'hh:mm a',
-    type: 'datetime',
-    validateLabel: 'Save'
-  });
-
   const viewTableSliderObserver = new MutationObserver(function(mutationsList) {
     mutationsList.forEach(function(mutation) {
       if('characterData' === mutation.type || 'childList' === mutation.type) {
@@ -995,7 +1012,10 @@ $(function() {
     });
   });
 
-  viewTableSliderObserver.observe(viewTableSliderOutput[0], { childList: true, subtree: true, characterData: true });
+  viewTableSliderObserver.observe(
+    viewTableSliderOutput[0],
+    { childList: true, subtree: true, characterData: true }
+  );
 
   $('#magic-button').on('click', function() {
     toast({ message: 'I eat pez.', type: 'is-success' });

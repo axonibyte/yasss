@@ -84,7 +84,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
                 .put("begin", window.getBeginTime().getTime())
                 .put(
                     "end",
-                    null == window.getEndTime()
+                    null != window.getEndTime()
                         ? window.getEndTime().getTime()
                         : JSONObject.NULL));
 
