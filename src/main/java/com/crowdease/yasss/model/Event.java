@@ -214,6 +214,8 @@ public class Event {
     ResultSet res = null;
     
     SQLBuilder query = new SQLBuilder()
+        .select(
+            YasssCore.getDB().getPrefix() + "event")
         .count("e.id", "event_count")
         .tableAlias("e")
         .join(

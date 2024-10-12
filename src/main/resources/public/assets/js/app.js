@@ -14,7 +14,8 @@ function clearTable() {
     windows: [],
     slots: [],
     details: [],
-    step: 1
+    step: 1,
+    editing: false
   }
 }
 
@@ -745,6 +746,26 @@ function resetAuthModal() {
   $('#auth-modal-confirm-pass').val('');
 }
 
+function retrieveUserOwnedEvents(uId) {
+  if(!userData || !userData.account) return;
+
+  $.ajax(injectAuth({
+    url: '/v1/events',
+    type: 'GET',
+    data: {
+      admin: userData.account
+    },
+    success: function(res) {
+      userData.ownedEvents = [];
+      for(let i = 0, event; event = res.events[i]; i++)
+        userData.ownedEvents.push(event.id);
+      console.log(`user ${userData.account} owns events ${JSON.stringify(userData.ownedEvents)}`);
+    }
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
 function registerUser() {
   let userEmail = $('#auth-modal-email').val().trim();
   let userPass = $('#auth-modal-password').val();
@@ -857,6 +878,11 @@ function userLogin() {
               type: 'is-success'
             });
             $('#authentication-modal').removeClass('is-active');
+
+            retrieveUserOwnedEvents(userAccount);
+            if(eventTableData.summary.id)
+              retrieveEvent(eventTableData.summary.id);
+            
           } else {
             toast({
               message: 'Invalid credentials. Try again?',
@@ -916,7 +942,39 @@ function refreshUserSession() {
   }
 }
 
-function publishNewEvent() {
+function onPubdActivityClick(d) {
+  if(eventTableData.editing) {
+    console.log('editing an activity');
+  } else {
+    console.log('clicked an activity (view-only)');
+  }
+  console.log(d);
+}
+
+function onPubdWindowClick(d) {
+  if(eventTableData.editing) {
+    console.log('editing a window');
+  } else {
+    console.log('clicked a window (view-only)');
+  }
+  console.log(d);
+}
+
+function onPubdSlotClick(d) {
+  if(eventTableData.editing) {
+    console.log('editing a slot');
+  } else {
+    console.log('volunteering for a slot');
+  }
+  console.log(d);
+}
+
+function onPubdDetailClick(d) {
+  console.log('editing a detail');
+  console.log(d);
+}
+
+function pubEventCreation() {
   console.log('publishing new event probably');
 
   eventData = {
@@ -988,8 +1046,295 @@ function publishNewEvent() {
     complete: res => saveSession(res)
   })).done(function(data) {
     console.log(data);
+    toast({ message: 'Successfully published event!', type: 'is-success' });
+    if(userData && userData.account)
+      retrieveUserOwnedEvents(userData.account);
+    // TODO redirect to event
   }).fail(function(data) {
     console.log(data);
+    toast({ message: 'Couldn\'t create your event... sorry.', type: 'is-danger' });
+  });
+}
+
+function pubEventSummaryUpdate(summary, onComplete) {
+  let changes = {};
+  if(eventTableData.summary.admin !== summary.admin)
+    changes.admin = summary.admin;
+  if(eventTableData.summary.title !== summary.title)
+    changes.shortDescription = summary.title;
+  if(eventTableData.summary.description !== summary.description)
+    changes.shortDescription = summary.description;
+  if(eventTableData.summary.notifyOnSignup !== summary.notifyOnSignup)
+    changes.emailOnSubmission = summary.notifyOnSignup;
+  if(eventTableData.summary.allowMultiuserSignups !== summary.allowMultiuserSignups)
+    changes.allowMultiUserSignups = summary.allowMultiuserSignups;
+
+  if(!Object.keys(changes).length) return;
+  
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}`,
+    type: 'PATCH',
+    data: JSON.stringify(changes),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      Object.assign(eventTableData.summary, summary);
+      console.log(`event summary ${eventTableData.summary.id} updated`);
+      console.log(r);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubActivityCreation(activity) {
+  $.ajax(injectAuth({
+    url: '/v1/events/${eventTableData.summary.id}/activities',
+    type: 'POST',
+    data: JSON.stringify({
+      shortDescription: activity.label,
+      longDescription: activity.description,
+      maxActivityVolunteers: activity.activityVolunteerCap,
+      maxSlotVolunteersDefault: activity.slotVolunteerCapDefault,
+    }),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      let slots = [];
+      for(let i = 0; i < eventTableData.windows.length; i++) {
+        slots.push({
+          label: 'Unavailable',
+          fn: onPubdSlotClick,
+          data: {
+            slotEnabled: false,
+            slotVolunteerCap: 0
+          }
+        });
+      }
+      mkActivity({
+        label: activity.label,
+        fn: onPubdActivityClick,
+        data: activity
+      }, slots);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubActivityUpdate(activity) {
+  let current = eventTableData.activities[activity.idx].data;
+  let changes = {};
+  if(current.label !== activity.label)
+    changes.shortDescription = activity.label;
+  if(current.description !== activity.description)
+    changes.longDescription = activity.description;
+  if(current.activityVolunteerCap !== activity.activityVolunteerCap)
+    changes.maxActivityVolunteers = activity.activityVolunteerCap;
+  if(current.slotVolunteerCapDefault !== activity.slotVolunteerCapDefault)
+    changes.slotVolunteerCapDefault = activity.slotVolunteerCapDefault;
+
+  if(!Object.keys(changes).length) return;
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/activities/${current.id}`,
+    type: 'PATCH',
+    data: JSON.stringify(changes),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      Object.assign(current, activity);
+      console.log(`activity ${current.id} updated`);
+      console.log(r);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubActivityDeletion(aIdx) {
+  let aId = eventTableData.activities[aIdx].data.id;
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/activities/${aId}`,
+    type: 'DELETE',
+    complete: res => saveSession(res, r => {
+      rmActivity(aIdx);
+      console.log(`activity ${aId} deleted`);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubWindowCreation(win) {
+  $.ajax(injectAuth({
+    url: '/v1/events/${eventTableData.summary.id}/windows',
+    type: 'POST',
+    data: JSON.stringify({
+      beginTime: `${win.startDate.valueOf()}`,
+      endTime: `${win.endDate.valueOf()}`
+    }),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      let slots = [];
+      for(let i = 0; i < eventTableData.activities.length; i++) {
+        slots.push({
+          label: 'Unavailable',
+          fn: onPubdSlotClick,
+          data: {
+            slotEnabled: false,
+            slotVolunteerCap: 0
+          }
+        });
+      }
+      mkWindow({
+        label: fmtDateRange(win.startDate, win.endDate),
+        fn: onPubdWindowClick,
+        data: win
+      }, slots);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubWindowUpdate(win) {
+  let current = eventTableData.windows[win.idx].data;
+  let changes = {};
+  if(current.startDate !== win.startDate)
+    changes.beginTime = `${win.startDate.valueOf()}`;
+  if(current.endDate !== win.endDate)
+    changes.endTime = `${win.endDate.valueOf()}`;
+
+  if(!Object.keys(changes).length) return;
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/windows/${current.id}`,
+    type: 'PATCH',
+    data: JSON.stringify(changes),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      Object.assign(current, win);
+      console.log(`window ${current.id} updated`);
+      console.log(r);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubWindowDeletion(wIdx) {
+  let wId = eventTableData.windows[wIdx].data.id;
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/windows/${wId}`,
+    type: 'DELETE',
+    complete: res => saveSession(res, r => {
+      rmWindow(wIdx);
+      console.log(`window ${wId} deleted`);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubSlotUpdate(slot) {
+  let aId = eventTableData.activities[slot.activity].data.id;
+  let wId = eventTableData.windows[slot.window].data.id;
+  let current = eventTableData.slots[slot.window * eventTableData.activities.length + slot.activity].data;
+
+  if(current.slotEnabled && !slot.slotEnabled) { // delete
+    $.ajax(injectAuth({
+      url: `/v1/events/${eventTableData.summary.id}/activities/${aId}/windows/${wId}`,
+      type: 'DELETE',
+      complete: res => saveSession(res, r => {
+        Object.assign(current, slot);
+        console.log(`deleted slot for activity ${aId}, window ${wId}`);
+        console.log(r);
+      })
+    })).fail(function(data) {
+      console.error(data);
+    });
+    
+  } else if(
+    !current.slotEnabled && slot.slotEnabled
+      || current.slotVolunteerCap !== slot.slotVolunteerCap) { // update
+    $.ajax(injectAuth({
+      url: `/v1/events/${eventTableData.summary.id}/activities/${aId}/windows/${wId}`,
+      type: `PUT`,
+      data: JSON.stringify({
+        maxSlotVolunteers: slot.slotVolunteerCap
+      }),
+      dataType: 'json',
+      complete: res => saveSession(res, r => {
+        Object.assign(current, slot);
+        console.log(`updated slot for activity ${aId}, window ${wId}`);
+        console.log(r);
+      })
+    })).fail(function(data) {
+      console.error(data);
+    });
+  }
+}
+
+function pubDetailCreation(detail) {
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/details`,
+    type: 'POST',
+    data: JSON.stringify({
+      type: detail.type,
+      label: detail.field,
+      hint: detail.description,
+      required: detail.required
+    }),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      mkDetail({
+        data: detail,
+        fn: onPubdDetailClick
+      });
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubDetailUpdate(detail) {
+  let current = eventTableData.details[detail.idx].data;
+  let changes = {};
+  if(current.type !== detail.type)
+    changes.type = detail.type;
+  if(current.field !== detail.field)
+    changes.label = detail.field;
+  if(current.description !== detail.description)
+    changes.hint = detail.description;
+  if(current.required !== detail.required)
+    changes.required = detail.required;
+
+  if(!Object.keys(changes).length) return;
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/details/${current.id}`,
+    type: 'PATCH',
+    data: JSON.stringify(changes),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      Object.assign(current, detail);
+      console.log(`detail ${current.id} updated`);
+      console.log(r);
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubDetailDeletion(dIdx) {
+  let dId = eventTableData.details[dIdx].data.id;
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/details/${dId}`,
+    type: 'DELETE',
+    complete: res => saveSession(res, r => {
+      rmDetail(dIdx);
+      console.log(`detail ${dId} deleted`);
+    })
+  })).fail(function(data) {
+    console.error(data);
   });
 }
 
@@ -1007,6 +1352,7 @@ function retrieveEvent(eventID) {
     clearTable();
 
     eventTableData.summary = {
+      id: data.event.id,
       title: data.event.shortDescription,
       description: data.event.longDescription,
       notifyOnSignup: data.event.emailOnSubmission,
@@ -1025,10 +1371,7 @@ function retrieveEvent(eventID) {
       wins[win.id] = w;
       mkWindow({
         label: fmtDateRange(startDate, endDate),
-        fn: (d) => {
-          console.log('clicked a window');
-          console.log(d);
-        },
+        fn: onPubdWindowClick,
         data: {
           id: win.id,
           startDate: startDate,
@@ -1055,10 +1398,7 @@ function retrieveEvent(eventID) {
       slots = slots.map((s) => {
         return {
           label: undefined === s ? 'Unavailable' : 'Available',
-          fn: (d) => {
-            console.log('clicked a slot');
-            console.log(d);
-          },
+          fn: onPubdSlotClick,
           data: undefined === s ? {
             slotEnabled: false,
             slotVolunteerCap: 0
@@ -1069,10 +1409,7 @@ function retrieveEvent(eventID) {
       console.log(slots);
       mkActivity({
         label: act.shortDescription,
-        fn: (d) => {
-          console.log('clicked an activity');
-          console.log(d);
-        },
+        fn: onPubdActivityClick,
         data: act
       }, slots);
     }
@@ -1084,10 +1421,8 @@ function retrieveEvent(eventID) {
           field: detail.label,
           description: detail.hint,
           required: detail.required
-        }, fn: (d) => {
-          console.log('clicked a detail');
-          console.log(d);
-        }
+        },
+        fn: onPubdDetailClick
       });
     }
 
@@ -1095,6 +1430,42 @@ function retrieveEvent(eventID) {
     refreshTable();
     $('#announcements-section').hide();
     $('#view-event-section').show();
+    $('#view-event-add-activity').unbind('click');
+    $('#view-event-add-activity').hide();
+    $('#view-event-add-window').unbind('click');
+    $('#view-event-add-window').hide();
+    $('#view-event-add-field').unbind('click');
+    $('#view-event-add-field').hide();
+    $('#view-event-publish-event').unbind('click');
+    $('#view-event-publish-event').hide();
+
+    $('#view-event-modify-event').unbind('click');
+    $('#view-event-modify-event').on('click', function() {
+      eventTableData.editing = true;
+      $('#view-event-edit-summary').parent().show();
+      $('#view-event-modify-event').hide();
+      $('#view-event-close-editor').show();
+    });
+    
+    $('#view-event-close-editor').unbind('click');
+    $('#view-event-close-editor').on('click', function() {
+      eventTableData.editing = false;
+      $('#view-event-edit-summary').parent().hide();
+      $('#view-event-close-editor').hide();
+      $('#view-event-modify-event').show();
+    });
+    
+    if(userData && userData.ownedEvents
+       && userData.ownedEvents.includes(eventTableData.summary.id)) {
+      $('#view-event-buttons').show();
+      if(eventTableData.editing) {
+        $('#view-event-modify-event').hide();
+        $('#view-event-close-editor').show();
+      } else {
+        $('#view-event-close-editor').hide();
+        $('#view-event-modify-event').show();
+      }
+    }
     
   }).fail(function(data) {
     console.error(data);
@@ -1138,12 +1509,14 @@ $(function() {
   // for when someone hits the 'create event' nav item
   $('#create-event-btn').on('click', () => {
 
-    $('#announcements-section').hide();
+    $('#view-event-modify-event').unbind('click');
+    $('#view-event-close-editor').unbind('click');
     
     renderEventSummaryModal(newEvent = true, savFn = function(summary) {
       let s = validateSummaryModal();
       if(null === s) return false;
-      
+
+      $('#announcements-section').hide();
       $('#view-event-volunteer').hide();
       clearTable();
 
@@ -1154,10 +1527,18 @@ $(function() {
       eventTableData.summary = s;
       refreshTable();
       $('#view-event-section').show();
+      $('#view-event-modify-event').hide();
+      $('#view-event-close-editor').hide();
+      $('#view-event-add-activity').show();
+      $('#view-event-add-window').show();
+      $('#view-event-add-field').show();
+      $('#view-event-publish-event').show();
+      $('#view-event-buttons').show();
       return true;
     });
     
     // for when someone wants to go back and edit the event summary
+    $('#view-event-edit-summary').unbind('click');
     $('#view-event-edit-summary').on('click', () => {
       renderEventSummaryModal(newEvent = false, savFn = function(summary) {
         let s = validateSummaryModal();
@@ -1175,6 +1556,7 @@ $(function() {
     });
 
     // for when someone wants to add or modify event activities
+    $('#view-event-add-activity').unbind('click');
     $('#view-event-add-activity').on('click', () => {
       renderEventActivityModal(newActivity = true, savFn = function(activity) {
 
@@ -1231,6 +1613,7 @@ $(function() {
     });
 
     // for when someone wants to add or modify event windows
+    $('#view-event-add-window').unbind('click');
     $('#view-event-add-window').on('click', () => {
       renderEventWindowModal(newWindow = true, savFn = function(activity) {
 
@@ -1287,6 +1670,7 @@ $(function() {
     });
 
     // for when someone wants to add or modify event details
+    $('#view-event-add-field').unbind('click');
     $('#view-event-add-field').on('click', () => {
       renderEventDetailModal(newDetail = true, savFn = function(detail) {
 
@@ -1338,11 +1722,11 @@ $(function() {
 
   // for when someone's ready to publish their event
   $('#view-event-publish-event').on('click', () => {
-    if(userData) publishNewEvent();
+    if(userData) pubEventCreation();
     else $('#guest-auth-prompt-modal').addClass('is-active');
   });
 
-  $('#guest-auth-prompt-publish-now').on('click', publishNewEvent);
+  $('#guest-auth-prompt-publish-now').on('click', pubEventCreation);
   
   // close any modal when their respective 'x' is clicked
   $('.modal .modal-close, .modal button.delete').on('click', function() {

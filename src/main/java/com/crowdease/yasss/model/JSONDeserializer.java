@@ -252,6 +252,8 @@ public class JSONDeserializer {
    */
   public Timestamp getTimestamp(String token) throws DeserializationException {
     var value = getString(token);
+    if(null == value) return null;
+
     final SimpleDateFormat[] sdfArr = {
         new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"),
         new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"),

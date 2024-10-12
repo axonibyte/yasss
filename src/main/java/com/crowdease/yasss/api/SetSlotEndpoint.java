@@ -36,10 +36,11 @@ public final class SetSlotEndpoint extends APIEndpoint {
 
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
-
+      
       Event event = null;
       Activity activity = null;
       Window window = null;
+      
       try {
         event = Event.getEvent(
             UUID.fromString(
