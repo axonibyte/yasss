@@ -800,7 +800,7 @@ function resetAuthModal() {
   $('#auth-modal-confirm-pass').val('');
 }
 
-function retrieveUserOwnedEvents(uId) {
+function retrieveUserOwnedEvents(uId, andThen) {
   if(!userData || !userData.account) return;
 
   $.ajax(injectAuth({
@@ -814,6 +814,9 @@ function retrieveUserOwnedEvents(uId) {
       for(let i = 0, event; event = res.events[i]; i++)
         userData.ownedEvents.push(event.id);
       console.log(`user ${userData.account} owns events ${JSON.stringify(userData.ownedEvents)}`);
+    },
+    complete: function(res) {
+      if('function' === typeof andThen) andThen();
     }
   })).fail(function(data) {
     console.error(data);
@@ -944,9 +947,10 @@ function userLogin() {
             });
             $('#authentication-modal').removeClass('is-active');
 
-            retrieveUserOwnedEvents(userAccount);
-            if(eventTableData.summary.id)
-              retrieveEvent(eventTableData.summary.id);
+            retrieveUserOwnedEvents(userAccount, () => {
+              if(eventTableData.summary.id)
+                retrieveEvent(eventTableData.summary.id);
+            });
             
           } else {
             toast({
@@ -1169,7 +1173,7 @@ function pubEventCreation() {
   });
 }
 
-function pubEventSummaryUpdate(summary, onComplete) {
+function pubEventSummaryUpdate(summary) {
   let changes = {};
   if(eventTableData.summary.admin !== summary.admin)
     changes.admin = summary.admin;
@@ -1182,6 +1186,9 @@ function pubEventSummaryUpdate(summary, onComplete) {
   if(eventTableData.summary.allowMultiuserSignups !== summary.allowMultiuserSignups)
     changes.allowMultiUserSignups = summary.allowMultiuserSignups;
 
+  console.log('changes:');
+  console.log(changes);
+
   if(!Object.keys(changes).length) return;
   
   $.ajax(injectAuth({
@@ -1191,6 +1198,11 @@ function pubEventSummaryUpdate(summary, onComplete) {
     dataType: 'json',
     complete: res => saveSession(res, r => {
       Object.assign(eventTableData.summary, summary);
+      renderEventTableMeta(
+        summary.title,
+        summary.description,
+        true);
+      refreshTable();
       console.log(`event summary ${eventTableData.summary.id} updated`);
       console.log(r);
     })
@@ -1562,6 +1574,16 @@ function retrieveEvent(eventID) {
       });
     }
 
+    $('#view-event-edit-summary').unbind('click');
+    $('#view-event-edit-summary').on('click', () => {
+      renderEventSummaryModal(false, function(summary) {
+        let s = validateSummaryModal({ id: summary.id });
+        if(null === s) return false;
+        pubEventSummaryUpdate(s);
+        return true;
+      }, eventTableData.summary);
+    });
+
     console.log(eventTableData);
     refreshTable();
     $('#announcements-section').hide();
@@ -1586,6 +1608,17 @@ function retrieveEvent(eventID) {
       
       $('#view-event-add-activity').unbind('click');
       $('#view-event-add-activity').on('click', () => {
+        renderEventActivityModal(true, function(activity) {
+
+          let data = validateActivityModal({ idx: eventTableData.activities.length });
+          if(null == data) return false;
+
+          
+          
+        });
+      });
+        
+        
       });
       $('#view-event-add-activity').show();
 
