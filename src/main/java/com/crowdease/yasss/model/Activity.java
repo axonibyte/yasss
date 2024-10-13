@@ -157,7 +157,7 @@ public class Activity implements Comparable<Activity> {
                   YasssCore.getDB().getPrefix() + "slot",
                   "max_slot_volunteers")
               .where("activity")
-              .where("window")
+              .where("event_window")
               .limit(1)
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));

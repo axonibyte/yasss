@@ -19,7 +19,15 @@ function clearTable() {
   }
 }
 
-function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null, data = {}, tblIdx = null) {
+function addCell(
+    parent,
+    label,
+    hint = '',
+    aesthetics = 'is-outlined is-primary',
+    fn = null,
+    data = {},
+    tblIdx = null) {
+
   let cell = $('<div/>')
     .addClass('cell event-cell')
     .append(
@@ -31,6 +39,8 @@ function addCell(parent, label, aesthetics = 'is-outlined is-primary', fn = null
                 .html(label)
           )
     );
+
+  if(hint) cell.attr('data-tooltip', hint);
 
   parent.append(cell);
 
@@ -195,12 +205,13 @@ function renderEventTable(parent, step = 1) {
     addCell(
       grid,
       'You haven\'t added any windows or activities to your event yet!',
+      '',
       'is-warning');
   } else {
     console.log(`render ${cols}-column table at step ${step}`);
   
     let idx = 0;
-    addCell(grid, '', ''); // this is the space in the top-left part of the grid
+    addCell(grid, '', '', ''); // this is the space in the top-left part of the grid
     console.log(eventTableData);
     
     for(let a = step - 1; a < cols + step - 2; ++a) {
@@ -208,6 +219,7 @@ function renderEventTable(parent, step = 1) {
       addCell(
         grid,
         eventTableData.activities[a].label,
+        eventTableData.activities[a].data.description,
         'is-primary',
         eventTableData.activities[a].fn,
         eventTableData.activities[a].data,
@@ -219,6 +231,7 @@ function renderEventTable(parent, step = 1) {
       addCell(
         grid,
         eventTableData.windows[w].label,
+        '',
         'is-primary',
         eventTableData.windows[w].fn,
         eventTableData.windows[w].data,
@@ -228,6 +241,7 @@ function renderEventTable(parent, step = 1) {
         addCell(
           grid,
           eventTableData.slots[s].label,
+          '',
           eventTableData.slots[s].data.slotEnabled
             ? 'is-outlined is-primary'
             : 'is-outlined is-light',
@@ -335,19 +349,38 @@ function renderEventSummaryModal(newEvent = true, savFn = null, summary = {
 }) {
   $('#edit-event-submit').unbind('click');
 
-  $('#edit-event-modal p.modal-card-title').text(
-      newEvent ? 'Create an Event' : 'Update an Event');
-
   $('#edit-event-short-descr').val(summary.title);
   $('#edit-event-long-descr').val(summary.description);
   $('#edit-event-notify-switch').prop('checked', summary.notifyOnSignup);
   $('#edit-event-multiuser-switch').prop('checked', summary.allowMultiuserSignups);
 
   if('function' === typeof savFn) {
+
+    $('#edit-event-modal p.modal-card-title').text(
+      newEvent ? 'Create an Event' : 'Update an Event');
+    
     $('#edit-event-submit').on('click', function() {
       if(savFn(summary))
         $('#edit-event-modal').removeClass('is-active');
     });
+    $('#edit-event-short-descr').attr('readonly', false);
+    $('#edit-event-long-descr').attr('readonly', false);
+    $('#edit-event-notify-switch').attr('disabled', false);
+    $('#edit-event-notify-switch').parent().show();
+    $('#edit-event-multiuser-switch').attr('disabled', false);
+    $('#edit-event-multiuser-switch').parent().show();
+    $('#edit-event-submit').show();
+  } else {
+    
+    $('#edit-event-modal p.modal-card-title').text('View Event');
+    
+    $('#edit-event-short-descr').attr('readonly', true);
+    $('#edit-event-long-descr').attr('readonly', true);
+    $('#edit-event-notify-switch').attr('disabled', true);
+    $('#edit-event-notify-switch').parent().hide();
+    $('#edit-event-multiuser-switch').attr('disabled', true);
+    $('#edit-event-multiuser-switch').parent().hide();
+    $('#edit-event-submit').hide();
   }
 
   $('#edit-event-modal').addClass('is-active');  
@@ -363,9 +396,6 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
 
   $('#edit-activity-sav').unbind('click');
   $('#edit-activity-del').unbind('click');
-
-  $('#edit-activity-modal p.modal-card-title').text(
-      newActivity ? 'Add an Activity' : 'Update an Activity');
 
   $('#edit-activity-short-descr').val(activity.label);
   $('#edit-activity-long-descr').val(activity.description);
@@ -388,12 +418,36 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
     $('.toggle-slot-vol-def-cap').not('.toggle').show();
   }
 
-  if('function' === typeof savFn)
+  if('function' === typeof savFn) {
+
+    $('#edit-activity-modal p.modal-card-title').text(
+      newActivity ? 'Add an Activity' : 'Update an Activity');
+    
     $('#edit-activity-sav').on('click', function() {
       if(savFn(activity))
         $('#edit-activity-modal').removeClass('is-active');
     }).show();
-  else $('#edit-activity-sav').hide();
+
+    $('#edit-activity-short-descr').attr('readonly', false);
+    $('#edit-activity-long-descr').attr('readonly', false);
+    $('#edit-activity-vol-cap-switch').prop('disabled', false);
+    $('#edit-activity-vol-cap-field').prop('readonly', false);
+    $('#edit-activity-vol-cap-def-switch').prop('disabled', false);
+    $('#edit-activity-vol-cap-def-field').prop('readonly', false);
+  
+  } else {
+
+    $('#edit-activity-modal p.modal-card-title').text('View Activity');
+
+    $('#edit-activity-short-descr').attr('readonly', true);
+    $('#edit-activity-long-descr').attr('readonly', true);
+    $('#edit-activity-vol-cap-switch').prop('disabled', true);
+    $('#edit-activity-vol-cap-field').prop('readonly', true);
+    $('#edit-activity-slot-vol-cap-def-switch').prop('disabled', true);
+    $('#edit-activity-slot-vol-cap-def-field').prop('readonly', true);
+    
+    $('#edit-activity-sav').hide();
+  }
 
   if('function' === typeof delFn)
     $('#edit-activity-del').on('click', function() {
@@ -683,7 +737,7 @@ function validateSlotModal(newVals = null) {
 
   try {
     if(
-      eseChecked && esvcChecked && (
+      eseChecked && !esvcChecked && (
         !Number.isInteger(data.slotVolunteerCap)
           || 1 > data.slotVolunteerCap
           || 255 < data.slotVolunteerCap))
@@ -826,7 +880,7 @@ function injectAuth(options) {
   return options;
 }
 
-function saveSession(res, fn = null) {
+function saveSession(res, onSuccess = null, onFailure = null) {
   let userSession = res.getResponseHeader('axb-session');
   if(userData) {
     if(userSession) userData.session = userSession;
@@ -841,7 +895,18 @@ function saveSession(res, fn = null) {
     }
   }
 
-  if('function' === typeof fn) fn(res);
+  if('function' === typeof onSuccess) {
+    console.log(res);
+    if('ok' == res.responseJSON.status)
+      onSuccess(res);
+    else if('function' !== typeof onFailure) toast({
+      message: `Couldn't do what you asked, sorry. Error: ${res.responseJSON.info}`,
+      type: 'is-danger'
+    });
+  }
+
+  if('ok' != res.responseJSON.status && 'function' === typeof onFailure)
+    onFailure(res);
 }
 
 function userLogin() {
@@ -912,6 +977,8 @@ function userLogin() {
 
 function userLogout() {
   userData = null;
+  if(eventTableData.summary.id)
+    retrieveEvent(eventTableData.summary.id);
   toast({
     message: 'You\'ve been logged out!',
     type: 'is-warning'
@@ -943,34 +1010,80 @@ function refreshUserSession() {
 }
 
 function onPubdActivityClick(d) {
-  if(eventTableData.editing) {
-    console.log('editing an activity');
-  } else {
-    console.log('clicked an activity (view-only)');
-  }
-  console.log(d);
+  if(!eventTableData.editing) return;
+  console.log('editing an activity');
+
+  renderEventActivityModal(newActivity = false, savFn = function(activity) { // on save
+    let a = validateActivityModal({ idx: activity.idx });
+    if(null === a) return false;
+
+    pubActivityUpdate(a);
+    return true;
+    
+  }, delFn = function(activity) { // on delete
+    pubActivityDeletion(activity.idx);
+    return true;
+  }, d);
 }
 
 function onPubdWindowClick(d) {
-  if(eventTableData.editing) {
-    console.log('editing a window');
-  } else {
-    console.log('clicked a window (view-only)');
-  }
+  if(!eventTableData.editing) return;
+  console.log('editing a window');
+
+  renderEventWindowModal(newWindow = false, savFn = function(window) { // on save
+    let w = validateWindowModal({ idx: window.idx });
+    if(null === w) return false;
+
+    pubWindowUpdate(w);
+    return true;
+    
+  }, delFn = function(window) { // on delete
+    pubWindowDeletion(window.idx);
+    return true;
+  }, d);
+  
   console.log(d);
 }
 
 function onPubdSlotClick(d) {
   if(eventTableData.editing) {
     console.log('editing a slot');
+
+    renderEventSlotModal(function(slot) {
+      let s = validateSlotModal({
+        activity: slot.activity,
+        window: slot.window
+      });
+      if(null == s) return false;
+
+      pubSlotUpdate(s);
+      return true;
+      
+    }, d);
+    
   } else {
-    console.log('volunteering for a slot');
+    console.log('volunteering for a slot'); // TODO
   }
+  
   console.log(d);
 }
 
 function onPubdDetailClick(d) {
+  if(!eventTableData.editing) return;
   console.log('editing a detail');
+
+  renderEventDetailModal(false, function(detail) {
+    let f = validateFieldModal({ tblIdx: detail.tblIdx });
+    if(null == f) return false;
+
+    pubDetailUpdate(f);
+    return true;
+    
+  }, function(detail) {
+    pubDetailDeletion(detail.idx);
+    return true;
+  }, d);
+  
   console.log(d);
 }
 
@@ -1114,6 +1227,7 @@ function pubActivityCreation(activity) {
         fn: onPubdActivityClick,
         data: activity
       }, slots);
+      refreshTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1121,6 +1235,8 @@ function pubActivityCreation(activity) {
 }
 
 function pubActivityUpdate(activity) {
+  console.log(activity);
+  
   let current = eventTableData.activities[activity.idx].data;
   let changes = {};
   if(current.label !== activity.label)
@@ -1141,8 +1257,10 @@ function pubActivityUpdate(activity) {
     dataType: 'json',
     complete: res => saveSession(res, r => {
       Object.assign(current, activity);
+      eventTableData.activities[activity.idx].label = activity.label;
       console.log(`activity ${current.id} updated`);
       console.log(r);
+      refreshTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1157,6 +1275,7 @@ function pubActivityDeletion(aIdx) {
     complete: res => saveSession(res, r => {
       rmActivity(aIdx);
       console.log(`activity ${aId} deleted`);
+      refreshTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1189,6 +1308,7 @@ function pubWindowCreation(win) {
         fn: onPubdWindowClick,
         data: win
       }, slots);
+      refreshTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1212,8 +1332,10 @@ function pubWindowUpdate(win) {
     dataType: 'json',
     complete: res => saveSession(res, r => {
       Object.assign(current, win);
+      eventTableData.windows[win.idx].label = fmtDateRange(win.startDate, win.endDate);
       console.log(`window ${current.id} updated`);
       console.log(r);
+      refreshTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1228,6 +1350,7 @@ function pubWindowDeletion(wIdx) {
     complete: res => saveSession(res, r => {
       rmWindow(wIdx);
       console.log(`window ${wId} deleted`);
+      refreshTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1237,24 +1360,24 @@ function pubWindowDeletion(wIdx) {
 function pubSlotUpdate(slot) {
   let aId = eventTableData.activities[slot.activity].data.id;
   let wId = eventTableData.windows[slot.window].data.id;
-  let current = eventTableData.slots[slot.window * eventTableData.activities.length + slot.activity].data;
+  let current = eventTableData.slots[slot.window * eventTableData.activities.length + slot.activity];
 
-  if(current.slotEnabled && !slot.slotEnabled) { // delete
+  if(current.data.slotEnabled && !slot.slotEnabled) { // delete
     $.ajax(injectAuth({
       url: `/v1/events/${eventTableData.summary.id}/activities/${aId}/windows/${wId}`,
       type: 'DELETE',
       complete: res => saveSession(res, r => {
-        Object.assign(current, slot);
+        Object.assign(current.data, slot);
+        current.label = 'Unavailable';
         console.log(`deleted slot for activity ${aId}, window ${wId}`);
         console.log(r);
+        refreshTable();
       })
     })).fail(function(data) {
       console.error(data);
     });
     
-  } else if(
-    !current.slotEnabled && slot.slotEnabled
-      || current.slotVolunteerCap !== slot.slotVolunteerCap) { // update
+  } else if(slot.slotEnabled) { // update
     $.ajax(injectAuth({
       url: `/v1/events/${eventTableData.summary.id}/activities/${aId}/windows/${wId}`,
       type: `PUT`,
@@ -1263,9 +1386,11 @@ function pubSlotUpdate(slot) {
       }),
       dataType: 'json',
       complete: res => saveSession(res, r => {
-        Object.assign(current, slot);
+        Object.assign(current.data, slot);
+        current.label = 'Available'; // TODO maybe change label if cap reached
         console.log(`updated slot for activity ${aId}, window ${wId}`);
         console.log(r);
+        refreshTable();
       })
     })).fail(function(data) {
       console.error(data);
@@ -1289,6 +1414,7 @@ function pubDetailCreation(detail) {
         data: detail,
         fn: onPubdDetailClick
       });
+      renderFieldTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1296,7 +1422,8 @@ function pubDetailCreation(detail) {
 }
 
 function pubDetailUpdate(detail) {
-  let current = eventTableData.details[detail.idx].data;
+  console.log(`tbl idx is ${detail.tblIdx}`);
+  let current = eventTableData.details[detail.tblIdx].data;
   let changes = {};
   if(current.type !== detail.type)
     changes.type = detail.type;
@@ -1318,6 +1445,7 @@ function pubDetailUpdate(detail) {
       Object.assign(current, detail);
       console.log(`detail ${current.id} updated`);
       console.log(r);
+      renderFieldTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1332,6 +1460,7 @@ function pubDetailDeletion(dIdx) {
     complete: res => saveSession(res, r => {
       rmDetail(dIdx);
       console.log(`detail ${dId} deleted`);
+      renderFieldTable();
     })
   })).fail(function(data) {
     console.error(data);
@@ -1410,13 +1539,20 @@ function retrieveEvent(eventID) {
       mkActivity({
         label: act.shortDescription,
         fn: onPubdActivityClick,
-        data: act
+        data: {
+          id: act.id,
+          label: act.shortDescription,
+          description: act.longDescription,
+          activityVolunteerCap: act.maxActivityVolunteers,
+          slotVolunteerCapDefault: act.maxSlotVolunteersDefault
+        }
       }, slots);
     }
 
     for(let dt = 0, detail; detail = data.event.details[dt]; dt++) {
       mkDetail({
         data: {
+          id: detail.id,
           type: detail.type,
           field: detail.label,
           description: detail.hint,
@@ -1442,21 +1578,46 @@ function retrieveEvent(eventID) {
     $('#view-event-modify-event').unbind('click');
     $('#view-event-modify-event').on('click', function() {
       eventTableData.editing = true;
-      $('#view-event-edit-summary').parent().show();
+      renderEventTableMeta(
+        eventTableData.summary.title,
+        eventTableData.summary.description,
+        true);
       $('#view-event-modify-event').hide();
+      
+      $('#view-event-add-activity').unbind('click');
+      $('#view-event-add-activity').on('click', () => {
+      });
+      $('#view-event-add-activity').show();
+
+      $('#view-event-add-window').unbind('click');
+      $('#view-event-add-window').on('click', () => {
+      });
+      $('#view-event-add-window').show();
+
+      $('#view-event-add-field').unbind('click');
+      $('#view-event-add-window').on('click', () => {
+      });
+      $('#view-event-add-field').show();
+      
       $('#view-event-close-editor').show();
     });
     
     $('#view-event-close-editor').unbind('click');
     $('#view-event-close-editor').on('click', function() {
       eventTableData.editing = false;
-      $('#view-event-edit-summary').parent().hide();
+      renderEventTableMeta(
+        eventTableData.summary.title,
+        eventTableData.summary.description,
+        false);
+      $('#view-event-add-activity').hide();
+      $('#view-event-add-window').hide();
+      $('#view-event-add-field').hide();
       $('#view-event-close-editor').hide();
       $('#view-event-modify-event').show();
     });
     
     if(userData && userData.ownedEvents
-       && userData.ownedEvents.includes(eventTableData.summary.id)) {
+        && userData.ownedEvents.includes(eventTableData.summary.id)) {
       $('#view-event-buttons').show();
       if(eventTableData.editing) {
         $('#view-event-modify-event').hide();
@@ -1465,7 +1626,7 @@ function retrieveEvent(eventID) {
         $('#view-event-close-editor').hide();
         $('#view-event-modify-event').show();
       }
-    }
+    } else $('#view-event-buttons').hide();
     
   }).fail(function(data) {
     console.error(data);
@@ -1734,20 +1895,20 @@ $(function() {
   });
 
   // certain switches hide elements
-  $('.toggle').on('click keyup', function(e) {
-    if("keyup" != e.type || " " == e.which) {
-      let elems = [];
-      $(this).attr('class').split(/\s+/).forEach((elem) => {
-        if(elem.startsWith('toggle-')) {
-          console.log(`toggle ${elem}`);
-          $(`.${elem}`).not('.toggle').toggle();
-        }
-      });
-    }
+  $('.toggle').on('change', function(e) {
+    let elems = [];
+    $(this).attr('class').split(/\s+/).forEach((elem) => {
+      if(elem.startsWith('toggle-')) {
+        console.log(`toggle ${elem}`);
+        $(`.${elem}`).not('.toggle').toggle();
+      }
+    });
   });
 
   // validate numeric fields on the fly
   $('.integer-validation').on('keyup focusout', function() {
+    if($(this).attr('readonly')) return;
+    
     let min = Number($(this).attr('min'));
     let max = Number($(this).attr('max'))
     let val = Number($(this).val());

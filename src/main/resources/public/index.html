@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/assets/css/bulma-calendar.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-slider.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-switch.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-tooltip.min.css" />
     <link rel="stylesheet" href="/assets/css/style.css" />
     <script src="/assets/js/jquery-3.7.1.min.js" defer></script>
     <script src="/assets/js/bulma-calendar.min.js" defer></script>
@@ -47,7 +48,7 @@
               Create an event or log in to see any of the events you've signed up for.
             </p>
             <div class="buttons is-centered">
-              <button id="magic-button" class="button is-warning">Magic Test Button</button>
+              <button id="magic-button" class="button is-warning" data-tooltip="Suscipit omnis vero velit ex velit nulla. Necessitatibus et totam non qui repudiandae. Deleniti dolorem vel magni et quam consequuntur. Voluptatem quasi dolorem cum modi.">Magic Test Button</button>
             </div>
           </div>
         </div>
@@ -237,17 +238,17 @@
           </div>
           <div class="field">
             <div class="label">Is this a new account?</div>
-            <div class="control toggle toggle-auth-confirm-pass">
+            <div class="control">
               <input
                 id="auth-modal-new-account-switch"
                 type="checkbox"
-                class="switch" />
+                class="switch toggle toggle-auth-confirm-pass" />
               <label
                 for="auth-modal-new-account-switch"
-                class="switch toggle toggle-auth-confirm-pass">Click here if you'd like to register!</label>
+                class="switch">Click here if you'd like to register!</label>
             </div>
           </div>
-          <div class="field toggle-auth-confirm-pass hide-on-load" style="display: none;">
+          <div class="field toggle-auth-confirm-pass" style="display: none;">
             <div class="control">
               <input
                 id="auth-modal-confirm-pass"
@@ -361,15 +362,15 @@
           </div>
           <div class="field">
             <div class="label">Acitvity Volunteer Cap</div>
-            <div class="control toggle toggle-activity-vol-cap">
+            <div class="control">
               <input
                 id="edit-activity-vol-cap-switch"
                 type="checkbox"
-                class="switch"
+                class="switch toggle toggle-activity-vol-cap"
                 checked="checked" />
               <label
                 for="edit-activity-vol-cap-switch"
-                class="switch toggle toggle-activity-vol-cap">Unlimited volunteers for this activity?</label>
+                class="switch">Unlimited volunteers for this activity?</label>
             </div>
           </div>
           <div class="field toggle-activity-vol-cap" style="display: none;">
@@ -385,15 +386,15 @@
           </div>
           <div class="field">
             <div class="label">Slot Volunteer Cap Default</div>
-            <div class="control toggle toggle-slot-vol-def-cap">
+            <div class="control">
               <input
                 id="edit-activity-slot-vol-cap-def-switch"
                 type="checkbox"
-                class="switch"
+                class="switch toggle toggle-slot-vol-def-cap"
                 checked="checked" />
               <label
                 for="edit-activity-slot-vol-cap-def-switch"
-                class="switch toggle toggle-slot-vol-def-cap">Unlimited volunteers per slot by default?</label>
+                class="switch">Unlimited volunteers per slot by default?</label>
             </div>
           </div>
           <div class="field toggle-slot-vol-def-cap" style="display: none;">
@@ -545,29 +546,29 @@
           </div>
           <div class="field">
             <div class="label">Enable Slot</div>
-            <div class="control toggle toggle-slot-cap-fields">
+            <div class="control">
               <input
                 id="edit-slot-enable-switch"
                 type="checkbox"
-                class="switch is-warning"
+                class="switch is-warning toggle toggle-slot-cap-fields"
                 checked="checked" />
               <label
                 for="edit-slot-enable-switch"
-                class="switch toggle toggle-slot-cap-fields">Enable this slot?</label>
+                class="switch">Enable this slot?</label>
             </div>
           </div>
           <div id="edit-slot-cap-fields" class="toggle-slot-cap-fields">
             <div class="field">
               <div class="label">Slot Volunteer Cap</div>
-              <div class="control toggle toggle-slot-vol-cap">
+              <div class="control">
                 <input
                   id="edit-slot-vol-cap-switch"
                   type="checkbox"
-                  class="switch"
+                  class="switch toggle toggle-slot-vol-cap"
                   checked="checked" />
                 <label
                   for="edit-slot-vol-cap-switch"
-                  class="switch toggle toggle-slot-vol-cap">Unlimited volunteers for this slot?</label>
+                  class="switch">Unlimited volunteers for this slot?</label>
               </div>
             </div>
             <div class="field toggle-slot-vol-cap" style="display: none;">
