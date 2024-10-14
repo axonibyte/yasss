@@ -148,7 +148,10 @@ public class JSONDeserializer {
   public Object get(String token) throws DeserializationException {
     Entry<String[], Boolean> entry = requirements.get(token);
     if(null == entry)
-      throw new RuntimeException("unregistered token");
+      throw new RuntimeException(
+          String.format(
+              "unregistered token: \"%1$s\"",
+              token));
     
     String[] arr = entry.getKey();
     boolean required = entry.getValue();

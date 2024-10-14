@@ -58,7 +58,7 @@ public final class AddActivityEndpoint extends APIEndpoint {
               ? deserializer.getString("longDescription")
               : "",
           deserializer.has("maxActivityVolunteers")
-              ? deserializer.getInt("activityVolunteers")
+              ? deserializer.getInt("maxActivityVolunteers")
               : 0,
           deserializer.has("maxSlotVolunteersDefault")
               ? deserializer.getInt("maxSlotVolunteersDefault")

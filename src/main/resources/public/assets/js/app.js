@@ -1084,7 +1084,7 @@ function onPubdDetailClick(d) {
     return true;
     
   }, function(detail) {
-    pubDetailDeletion(detail.idx);
+    pubDetailDeletion(detail.tblIdx);
     return true;
   }, d);
   
@@ -1110,6 +1110,7 @@ function pubEventCreation() {
   for(let i = 0, activity; activity = eventTableData.activities[i]; i++) {
     let activityObj = {
       shortDescription: activity.data.label,
+      priority: i
     };
     if(activity.data.description)
       activityObj.longDescription = activity.data.description;
@@ -1213,16 +1214,18 @@ function pubEventSummaryUpdate(summary) {
 
 function pubActivityCreation(activity) {
   $.ajax(injectAuth({
-    url: '/v1/events/${eventTableData.summary.id}/activities',
+    url: `/v1/events/${eventTableData.summary.id}/activities`,
     type: 'POST',
     data: JSON.stringify({
       shortDescription: activity.label,
       longDescription: activity.description,
       maxActivityVolunteers: activity.activityVolunteerCap,
       maxSlotVolunteersDefault: activity.slotVolunteerCapDefault,
+      priority: eventTableData.activities.length
     }),
     dataType: 'json',
     complete: res => saveSession(res, r => {
+      activity.id = res.responseJSON.activity.id;
       let slots = [];
       for(let i = 0; i < eventTableData.windows.length; i++) {
         slots.push({
@@ -1296,7 +1299,7 @@ function pubActivityDeletion(aIdx) {
 
 function pubWindowCreation(win) {
   $.ajax(injectAuth({
-    url: '/v1/events/${eventTableData.summary.id}/windows',
+    url: `/v1/events/${eventTableData.summary.id}/windows`,
     type: 'POST',
     data: JSON.stringify({
       beginTime: `${win.startDate.valueOf()}`,
@@ -1304,6 +1307,7 @@ function pubWindowCreation(win) {
     }),
     dataType: 'json',
     complete: res => saveSession(res, r => {
+      win.id = res.responseJSON.window.id;
       let slots = [];
       for(let i = 0; i < eventTableData.activities.length; i++) {
         slots.push({
@@ -1422,6 +1426,7 @@ function pubDetailCreation(detail) {
     }),
     dataType: 'json',
     complete: res => saveSession(res, r => {
+      detail.id = res.responseJSON.detail.id;
       mkDetail({
         data: detail,
         fn: onPubdDetailClick
@@ -1609,26 +1614,33 @@ function retrieveEvent(eventID) {
       $('#view-event-add-activity').unbind('click');
       $('#view-event-add-activity').on('click', () => {
         renderEventActivityModal(true, function(activity) {
-
           let data = validateActivityModal({ idx: eventTableData.activities.length });
           if(null == data) return false;
-
-          
-          
+          pubActivityCreation(data);
+          return true;
         });
-      });
-        
-        
       });
       $('#view-event-add-activity').show();
 
       $('#view-event-add-window').unbind('click');
       $('#view-event-add-window').on('click', () => {
+        renderEventWindowModal(true, function(activity) {
+          let data = validateWindowModal({ idx: eventTableData.windows.length });
+          if(null == data) return false;
+          pubWindowCreation(data);
+          return true;
+        });
       });
       $('#view-event-add-window').show();
 
       $('#view-event-add-field').unbind('click');
-      $('#view-event-add-window').on('click', () => {
+      $('#view-event-add-field').on('click', () => {
+        renderEventDetailModal(true, function(activity) {
+          let data = validateFieldModal({ idx: eventTableData.details.length });
+          if(null == data) return false;
+          pubDetailCreation(data);
+          return true;
+        });
       });
       $('#view-event-add-field').show();
       
