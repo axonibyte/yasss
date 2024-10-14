@@ -69,6 +69,7 @@ public class Slot {
                   "v.id",
                   "v.user",
                   "v.event",
+                  "v.name",
                   "v.reminders_enabled")
               .tableAlias("r")
               .join(
@@ -98,6 +99,7 @@ public class Slot {
                     res.getBytes("v.user")),
                 SQLBuilder.bytesToUUID(
                     res.getBytes("v.event")),
+                res.getString("v.name"),
                 res.getBoolean("v.reminders_enabled")));
       }
 
@@ -201,6 +203,7 @@ public class Slot {
               .select(
                   "v.user",
                   "v.event",
+                  "v.name",
                   "v.reminders_enabled")
               .tableAlias("r")
               .join(
@@ -231,7 +234,8 @@ public class Slot {
                     res.getBytes("v.user")),
                 SQLBuilder.bytesToUUID(
                     res.getBytes("v.event")),
-                res.getBoolean("reminders_enabled")));
+                res.getString("v.name"),
+                res.getBoolean("v.reminders_enabled")));
       
     } catch(SQLException e) {
       throw e;

@@ -49,6 +49,7 @@ public class RSVP {
                   YasssCore.getDB().getPrefix() + "volunteer",
                   "user",
                   "event",
+                  "name",
                   "reminders_enabled")
               .where("id")
               .limit(1)
@@ -63,6 +64,7 @@ public class RSVP {
                 res.getBytes("user")),
             SQLBuilder.bytesToUUID(
                 res.getBytes("event")),
+            res.getString("name"),
             res.getBoolean("reminders_enabled"));
       
     } catch(SQLException e) {

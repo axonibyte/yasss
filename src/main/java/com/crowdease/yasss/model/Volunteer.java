@@ -23,13 +23,15 @@ public class Volunteer {
   
   private UUID id;
   private UUID user;
+  private String name;
   private Map<Detail, String> details = new HashMap<>();
   private boolean remindersEnabled;
   
-  public Volunteer(UUID id, UUID user, UUID event, boolean remindersEnabled) {
+  public Volunteer(UUID id, UUID user, UUID event, String name, boolean remindersEnabled) {
     this.id = id;
     this.user = user;
     this.event = event;
+    this.name = name;
     this.remindersEnabled = remindersEnabled;
   }
   
@@ -47,6 +49,15 @@ public class Volunteer {
   
   public Volunteer setUser(UUID user) {
     this.user = user;
+    return this;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public Volunteer setName(String name) {
+    this.name = name;
     return this;
   }
   
@@ -80,13 +91,15 @@ public class Volunteer {
                   YasssCore.getDB().getPrefix() + "volunteer",
                   "user",
                   "event",
+                  "name",
                   "reminders_enabled")
               .where("id")
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(user));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(event));
-      stmt.setBoolean(3, remindersEnabled);
-      stmt.setBytes(4, SQLBuilder.uuidToBytes(id));
+      stmt.setString(3, name);
+      stmt.setBoolean(4, remindersEnabled);
+      stmt.setBytes(5, SQLBuilder.uuidToBytes(id));
       
       boolean updated = 0 == stmt.executeUpdate();
       YasssCore.getDB().close(null, stmt, null);
@@ -100,12 +113,14 @@ public class Volunteer {
                     "id",
                     "user",
                     "event",
+                    "name",
                     "reminders_enabled")
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
         stmt.setBytes(2, SQLBuilder.uuidToBytes(user));
         stmt.setBytes(3, SQLBuilder.uuidToBytes(event));
-        stmt.setBoolean(4, remindersEnabled);
+        stmt.setString(4, name);
+        stmt.setBoolean(5, remindersEnabled);
         stmt.executeUpdate();
         
       } else { // record existed, so wipe stale deets

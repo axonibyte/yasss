@@ -665,6 +665,7 @@ public class Event {
               YasssCore.getDB().getPrefix() + "volunteer",
               "id",
               "user",
+              "name",
               "reminders_enabled")
           .where("event")
           .toString());
@@ -680,6 +681,7 @@ public class Event {
                 SQLBuilder.bytesToUUID(
                     res.getBytes("user")),
                 id,
+                res.getString("name"),
                 res.getBoolean("reminders_enabled")));
       return volunteers;
       
@@ -702,6 +704,7 @@ public class Event {
           .select(
               YasssCore.getDB().getPrefix() + "volunteer",
               "user",
+              "name",
               "reminders_enabled")
           .where("id", "event")
           .limit(1)
@@ -716,6 +719,7 @@ public class Event {
             SQLBuilder.bytesToUUID(
                 res.getBytes("user")),
             id,
+            res.getString("name"),
             res.getBoolean("reminders_enabled"));
 
     } catch(SQLException e) {

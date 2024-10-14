@@ -102,6 +102,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
         volunteerArr.put(
             new JSONObject()
                 .put("id", volunteer.getID())
+                .put("name", volunteer.getName())
                 .put(
                     "details",
                     (JSONArray)volunteer.getDetails()

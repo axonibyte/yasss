@@ -50,6 +50,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
         throw new EndpointException(req, "event not found", 404);
 
       JSONDeserializer deserializer = new JSONDeserializer(req.body())
+        .tokenize("name", true)
         .tokenize("remindersEnabled", false)
         .tokenize("details", true)
         .tokenize("user", false)
@@ -67,10 +68,15 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           throw new EndpointException(req, "user not found", 404);
       }
 
+      String name = deserializer.getString("name").strip();
+      if(name.isBlank())
+        throw new EndpointException(req, "malformed argument (name)", 400);
+
       Volunteer volunteer = new Volunteer(
           null,
           user.getID(),
           event.getID(),
+          deserializer.getString("name"),
           deserializer.has("remindersEnabled")
               ? deserializer.getBool("remindersEnabled")
               : false);
@@ -117,6 +123,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
               .put("id", volunteer.getID())
               .put("user", volunteer.getUser())
               .put("event", volunteer.getEvent())
+              .put("name", volunteer.getName())
               .put(
                   "details",
                   (JSONArray)details.entrySet()
