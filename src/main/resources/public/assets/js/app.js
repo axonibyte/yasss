@@ -621,6 +621,128 @@ function renderEventSlotModal(savFn = null, slot = {
   $('#edit-slot-modal').addClass('is-active');
 }
 
+function renderVolEditModal(newVol = true, savFn = null, delFn = null, vol = {
+  name: '',
+  details: []
+}) {
+  $('#edit-vol-sav').unbind('click');
+  $('#edit-vol-del').unbind('click');
+
+  $('#edit-vol-modal p.modal-card-title').text(
+    newVol ? 'Add a Volunteer' : 'Update a Volunteer');
+
+  $('#edit-vol-modal section.modal-card-body div.field').not(':first').remove();
+
+  for(let d = 0, detail; detail = eventTableData.details[d]; d++) {
+    let label = detail.data.field;
+    if(detail.data.required) label += ' (required)';
+
+    if('BOOLEAN' != detail.data.type)
+      label += '&ensp;'
+    
+    let field = $('<div/>')
+        .addClass('control')
+        .append(
+          $('<label/>')
+            .addClass('label')
+            .html(label));
+    let tblIdx = detail.data.tblIdx;
+    console.log(`detail type: ${detail.data.type} at tblIdx ${tblIdx}`);
+    
+    switch(detail.data.type) {
+    case 'BOOLEAN':
+      field
+        .children('label')
+        .attr('for', `vol-detail-${tblIdx}`)
+        .addClass('switch');
+      field
+        .prepend(
+          $('<input/>')
+            .attr('id', `vol-detail-${tblIdx}`)
+            .attr('type', 'checkbox')
+            .addClass('switch is-rtl'));
+      break;
+      
+    case 'STRING':
+      field.append(
+        $('<input/>')
+          .attr('id', `vol-detail-${tblIdx}`)
+          .attr('type', 'text')
+          .attr('placeholder', detail.data.description)
+          .addClass('input'));
+      break;
+      
+    case 'INTEGER':
+      field.append(
+        $('<input/>')
+          .attr('id', `vol-detail-${tblIdx}`)
+          .attr('type', 'number')
+          .attr('min', '0')
+          .attr('placeholder', detail.data.description)
+          .addClass('input integer-validation'));
+      break;
+      
+    case 'EMAIL':
+      field.append(
+        $('<input/>')
+          .attr('id', `vol-detail-${tblIdx}`)
+          .attr('type', 'text')
+          .attr('placeholder', detail.data.description)
+          .addClass('input'));
+      break;
+      
+    case 'PHONE':
+      field.append(
+        $('<input/>')
+          .attr('id', `vol-detail-${tblIdx}`)
+          .attr('type', 'text')
+          .attr('placeholder', detail.data.description)
+          .addClass('input'));
+      break;
+      
+    default:
+      continue;
+    }
+
+    $('#edit-vol-modal section.modal-card-body')
+      .append(
+        $('<div/>')
+          .addClass('field')
+          .append(field));
+
+    if(undefined !== vol.details[tblIdx]) {
+      console.log(`set #vol-detail-${tblIdx} to ${vol.details[tblIdx].value}`);
+      if('BOOLEAN' == detail.data.type) {
+        $(`#vol-detail-${tblIdx}`).prop('checked', vol.details[tblIdx].value);
+      } else {
+        $(`#vol-detail-${tblIdx}`).val(vol.details[tblIdx].value);
+      }
+    } else {
+      console.log(`scream internally on ${tblIdx}`);
+    }
+  }
+
+  console.log(vol.details);
+
+  $('#vol-detail-name').val(vol.name);
+
+  if('function' === typeof savFn)
+    $('#edit-vol-sav').on('click', function() {
+      if(savFn(vol))
+        $('#edit-vol-modal').removeClass('is-active');
+    }).show();
+  else $('#edit-vol-sav').hide();
+
+  if('function' === typeof delFn)
+    $('#edit-vol-del').on('click', function() {
+      if(delFn(vol))
+        $('#edit-vol-modal').removeClass('is-active');
+    }).show();
+  else $('#edit-vol-del').hide();
+
+  $('#edit-vol-modal').addClass('is-active');
+}
+
 function refreshTable() {
   renderEventTable($('#view-event-table'));
   renderEventTableSlider($('#view-event-table').parent());
@@ -643,7 +765,9 @@ function fmtDateRange(begin, end, oneLiner = false) {
     : `Begin: ${beginStr}<br />End: ${endStr}`;
 }
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailRegex = /[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/;
+const intRegex = /\d+(\.\d{0,9})?/;
+const phoneRegex = /(\+?( |-|\.)?\d{1,2}( |-|\.)?)?(\(?\d{3}\)?|\d{3})( |-|\.)?(\d{3}( |-|\.)?\d{4})/;
 
 function validateSummaryModal() {
   let data = {
@@ -771,6 +895,98 @@ function validateFieldModal(newVals = null) {
   }
   
   return null != newVals ? Object.assign(data, newVals) : data;
+}
+
+function setErrorTag(input, hint) {
+  if(null === hint) {
+    input.removeClass('is-danger');
+    input.siblings('label').find('.tag').remove();
+  } else {
+    input.addClass('is-danger');
+    input.siblings('label').append(
+      $('<button/>')
+        .addClass('tag is-danger has-tooltip-right')
+        .attr('data-tooltip', hint)
+        .text('Error'));
+  }
+}
+
+function validateVolEditModal(newVals = null) {
+  let deetVals = new Array(eventTableData.details.length).fill(undefined);
+
+  $('#edit-vol-modal').find('.tag').remove();
+  $('#edit-vol-modal').find('.is-danger').removeClass('is-danger');
+
+  var invalid = 0;
+
+  try {
+    var name = $('#vol-detail-name').val().trim();
+    if('' === name) {
+      setErrorTag($('#vol-detail-name'), 'Please provide a name.');
+      invalid++;
+    }
+    
+    $('#edit-vol-modal').find('input').not('#vol-detail-name').each(function() {
+      let idx = Number($(this).attr('id').substr(11));
+      let detail = eventTableData.details[idx];
+      console.log(`elem: ${$(this).attr('id')} = ${$(this).val()}`);
+      console.log(detail.data);
+      
+      if('BOOLEAN' == eventTableData.details[idx].data.type)
+        var deetVal = $(this).is(':checked');
+      else
+        var deetVal = $(this).val().trim();
+      
+      switch(eventTableData.details[idx].data.type) {
+      case 'INTEGER':
+        if('' !== deetVal && !intRegex.test(deetVal)) {
+          setErrorTag($(this), 'This needs to be an integer.');
+          invalid++;
+        }
+        break;
+      case 'EMAIL':
+        if('' !== deetVal && !emailRegex.test(deetVal)) {
+          setErrorTag($(this), 'This needs to be an email address.');
+          invalid++;
+        }
+        break;
+      case 'PHONE':
+        if('' !== deetVal && !phoneRegex.test(deetVal)) {
+          setErrorTag($(this), 'This needs to be a phone number.');
+          invalid++;
+        }
+        break;
+      default:
+      }
+
+      deetVals[idx] = {
+        detail: detail.data.id,
+        value: deetVal
+      };
+    });
+
+    for(let i = 0; i < deetVals.length; i++) {
+      if('' === deetVals[i].value && eventTableData.details[i].data.required) {
+        setErrorTag($(`#vol-detail-${i}`), 'This field is required.');
+        invalid++;
+      }
+    }
+
+    console.log(deetVals);
+    
+  } catch(e) {
+    console.error(e);
+    return null;
+  }
+
+  if(invalid) {
+    let s = 1 === invalid ? '' : 's';
+    toast({
+      message: `${invalid} field${s} must be updated to meet requirements.`,
+      type: 'is-danger'
+    });
+    return null;
+  }
 }
 
 function setLoaderBtn(parent, loading) {
@@ -1587,6 +1803,14 @@ function retrieveEvent(eventID) {
         pubEventSummaryUpdate(s);
         return true;
       }, eventTableData.summary);
+    });
+
+    $('#view-event-add-vol').unbind('click');
+    $('#view-event-add-vol').on('click', () => {
+      renderVolEditModal(true, function(vol) {
+        let data = validateVolEditModal();
+        return false;
+      });
     });
 
     console.log(eventTableData);

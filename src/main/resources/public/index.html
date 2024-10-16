@@ -83,7 +83,10 @@
                   </header>
                   <div class="card-content">
                     <div class="content">
-                      This is where volunteer stuff will go.
+                      This is where volunteer stuff will go.<br /><br />
+                      <div class="buttons is-centered">
+                        <button id="view-event-add-vol" class="button is-primary">Add Volunteer</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -592,7 +595,8 @@
       </div>
     </div>
 
-    <div id="edit-vol-modal" class="modal is-active">
+    <!-- volunteer editing modal -->
+    <div id="edit-vol-modal" class="modal">
       <div class="modal-background"></div>
       <div class="modal-card">
         <header class="modal-card-head">
@@ -601,12 +605,13 @@
         </header>
         <section class="modal-card-body">
           <div class="field">
-            <div class="label">Details</div>
             <div class="control">
+              <label class="label">Name&ensp;</label>
               <input
+                id="vol-detail-name"
                 class="input"
                 type="text"
-                placeholder="foo" />
+                placeholder="What's the volunteer's name?" />
             </div>
         </section>
         <footer class="modal-card-foot">
