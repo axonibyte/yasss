@@ -14,6 +14,8 @@ function clearTable() {
     windows: [],
     slots: [],
     details: [],
+    volunteers: [],
+    currentVol: -1,
     step: 1,
     editing: false
   }
@@ -179,6 +181,26 @@ function rmDetail(target) {
   eventTableData.details.splice(target, 1);
 }
 
+function mkVolunteer(vol) {
+  if(undefined === vol.rsvps)
+    vol.rsvps = [];
+  eventTableData.volunteers.push(vol);
+}
+
+function mvVolunteer(from, to) {
+  if(eventTableData.volunteers.length <= from || eventTableData.details.length <= to)
+    throw new 'volunteer idx out of bounds';
+  if(from == to) return;
+  eventTableData.volunteers.splice(
+    from < to ? to - 1 : to,
+    0,
+    eventTableData.volunteers.splice(from, 1)[0]);
+}
+
+function rmVolunteer(target) {
+  eventTableData.volunteers.splice(target, 1);
+}
+
 function renderEventTableMeta(title, description, editable) {
   $('#view-event-short-descr').text(title);
   $('#view-event-long-descr').text(description);
@@ -238,15 +260,22 @@ function renderEventTable(parent, step = 1) {
         ++idx);
       
       for(let s = w * sz + (step - 1); s < w * sz + (step - 2 + cols); ++s) {
+        let slot = eventTableData.slots[s];
         addCell(
           grid,
-          eventTableData.slots[s].label,
+          slot.label,
           '',
-          eventTableData.slots[s].data.slotEnabled
-            ? 'is-outlined is-primary'
-            : 'is-outlined is-light',
-          eventTableData.slots[s].fn,
-          eventTableData.slots[s].data,
+          !slot.data.slotEnabled
+            ? 'is-outlined is-light'
+            : -1 < eventTableData.currentVol
+                && -1 != eventTableData.volunteers[eventTableData.currentVol].rsvps.findIndex(
+                  elem => elem.activity == slot.data.activity
+                    && elem.window == slot.data.window
+                )
+            ? 'is-outlined is-warning'
+            : 'is-outlined is-primary',
+          slot.fn,
+          slot.data,
           ++idx);
       }
     }
@@ -339,6 +368,61 @@ function renderFieldTable() {
 
     $('#view-event-details tbody').append(row);
   }
+}
+
+function updateSelectedVol() {
+  let idx = Number($('#view-event-volunteer option:selected').val());
+  if(undefined === idx) {
+    idx = -1;
+  } else {
+    let vol = eventTableData.volunteers[idx];
+    console.log(vol);
+  }
+  eventTableData.currentVol = idx;
+  let step = eventTableData.step;
+  refreshTable(step);
+}
+
+function renderVolDropdown() {
+  $('#view-event-volunteer select').unbind('change');
+  $('#view-event-volunteer option').remove();
+  if(!eventTableData.volunteers.length) {
+    $('#view-event-del-vol').hide();
+    $('#view-event-volunteer select').prop('disabled', true);
+    //$('#view-event-volunteer option').first().text('Add a volunteer!');
+    $('#view-event-volunteer select').append(
+      $('<option/>')
+        .text('Add a volunteer!'));
+  } else {
+    $('#view-event-del-vol').show();
+    $('#view-event-volunteer select').prop('disabled', false);
+    //$('#view-event-volunteer option').first().text('Select a volunteer...');
+    //$('#view-event-volunteer option').not(':first').remove();
+    for(let i = 0, vol; vol = eventTableData.volunteers[i]; i++)
+      $('#view-event-volunteer select').append(
+        $('<option/>')
+          .val(i)
+          .text(vol.name));
+    $('#view-event-volunteer select').on('change', function() {
+      updateSelectedVol();
+    });
+  }
+}
+
+function renderGuestAuthPrompt(visible, loginFn, proceedFn) {
+  $('#guest-auth-prompt-modal .modal-card-mody p').hide();
+  $(`#guest-auth-prompt-modal ${visible}`).show();
+  $('#guest-auth-prompt-open-auth').unbind('click');
+  $('#guest-auth-prompt-open-auth').on('click', () => {
+    $('#guest-auth-prompt-modal').removeClass('is-active');
+    loginFn();
+  });
+  $('#guest-auth-prompt-proceed-nologin').unbind('click');
+  $('#guest-auth-prompt-proceed-nologin').on('click', () => {
+    $('#guest-auth-prompt-modal').removeClass('is-active');
+    proceedFn();
+  });
+  $('#guest-auth-prompt-modal').addClass('is-active');
 }
 
 function renderEventSummaryModal(newEvent = true, savFn = null, summary = {
@@ -717,12 +801,8 @@ function renderVolEditModal(newVol = true, savFn = null, delFn = null, vol = {
       } else {
         $(`#vol-detail-${tblIdx}`).val(vol.details[tblIdx].value);
       }
-    } else {
-      console.log(`scream internally on ${tblIdx}`);
     }
   }
-
-  console.log(vol.details);
 
   $('#vol-detail-name').val(vol.name);
 
@@ -743,9 +823,9 @@ function renderVolEditModal(newVol = true, savFn = null, delFn = null, vol = {
   $('#edit-vol-modal').addClass('is-active');
 }
 
-function refreshTable() {
+function refreshTable(step = 1) {
   renderEventTable($('#view-event-table'));
-  renderEventTableSlider($('#view-event-table').parent());
+  renderEventTableSlider($('#view-event-table').parent(), step);
   renderFieldTable();
 }
 
@@ -971,8 +1051,6 @@ function validateVolEditModal(newVals = null) {
         invalid++;
       }
     }
-
-    console.log(deetVals);
     
   } catch(e) {
     console.error(e);
@@ -987,6 +1065,17 @@ function validateVolEditModal(newVals = null) {
     });
     return null;
   }
+
+  let data = {
+    name: name,
+    remindersEnabled: false,
+    details: deetVals
+  }
+
+  if(userData && userData.account)
+    data.user = userData.account;
+
+  return data;
 }
 
 function setLoaderBtn(parent, loading) {
@@ -1281,8 +1370,17 @@ function onPubdSlotClick(d) {
       
     }, d);
     
-  } else {
-    console.log('volunteering for a slot'); // TODO
+  } else if(eventTableData.volunteers.length && d.slotEnabled) {
+    console.log('volunteering for a slot');
+    let vol = eventTableData.volunteers[eventTableData.currentVol];
+    let idx = vol.rsvps.findIndex(elem => elem.activity == d.activity && elem.window == d.window);
+    if(-1 != idx)
+      vol.rsvps.splice(idx, 1);
+    else vol.rsvps.push({
+      activity: d.activity,
+      window: d.window
+    });
+    updateSelectedVol();
   }
   
   console.log(d);
@@ -1700,6 +1798,37 @@ function pubDetailDeletion(dIdx) {
   });
 }
 
+function pubVolunteerCreation(vol) {
+  console.log('publishing new volunteer');
+  console.log(vol);
+
+  volObj = structuredClone(vol);
+  for(let i = Object.keys(volObj.details).length - 1; i >= 0; i--) {
+    let deet = volObj.details[i];
+    if('string' != typeof deet.value) {
+      deet.value = `${deet.value}`;
+    } else if('' === deet.value) {
+      volObj.details.splice(i, 1);
+    }
+  }
+
+  console.log(JSON.stringify(volObj));
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/volunteers`,
+    type: 'POST',
+    data: JSON.stringify(volObj),
+    dataType: 'json',
+    complete: res => saveSession(res, r => {
+      vol.id = res.responseJSON.volunteer.id;
+      //mkVolunteer(vol);
+      //renderVolDropdown();
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
 function retrieveEvent(eventID) {
   console.log(`retrieving ${eventID} probably`);
 
@@ -1809,8 +1938,45 @@ function retrieveEvent(eventID) {
     $('#view-event-add-vol').on('click', () => {
       renderVolEditModal(true, function(vol) {
         let data = validateVolEditModal();
-        return false;
+
+        if(null == data) return false;
+        else if(!userData) {
+          renderGuestAuthPrompt(
+            '.guest-on-voladd-attempt',
+            () => {
+              resetAuthModal();
+              $('#guest-auth-prompt-modal').removeClass('is-active');
+              $('#authentication-modal').addClass('is-active');
+              return true;
+            },
+            () => {
+              $('#edit-vol-modal').removeClass('is-active');
+              //pubVolunteerCreation(data);
+              mkVolunteer(data);
+              renderVolDropdown();
+              $('#view-event-volunteer select option').last().prop('selected', true);
+              updateSelectedVol();
+              return true;
+            });
+          
+          return false;
+        }
+
+        //pubVolunteerCreation(data);
+        mkVolunteer(data);
+        renderVolDropdown();
+        $('#view-event-volunteer select option').last().prop('selected', true);
+        updateSelectedVol();
+        return true;
       });
+    });
+
+    $('#view-event-del-vol').unbind('click');
+    $('#view-event-del-vol').on('click', () => {
+      // TODO if already committed, remove from backend
+      rmVolunteer(Number($('#view-event-volunteer option:selected').val()));
+      renderVolDropdown();
+      updateSelectedVol();
     });
 
     console.log(eventTableData);
@@ -1823,7 +1989,6 @@ function retrieveEvent(eventID) {
     $('#view-event-add-window').hide();
     $('#view-event-add-field').unbind('click');
     $('#view-event-add-field').hide();
-    $('#view-event-publish-event').unbind('click');
     $('#view-event-publish-event').hide();
 
     $('#view-event-modify-event').unbind('click');
@@ -1834,6 +1999,7 @@ function retrieveEvent(eventID) {
         eventTableData.summary.description,
         true);
       $('#view-event-modify-event').hide();
+      $('#view-event-save-rsvps').hide();
       
       $('#view-event-add-activity').unbind('click');
       $('#view-event-add-activity').on('click', () => {
@@ -1883,11 +2049,11 @@ function retrieveEvent(eventID) {
       $('#view-event-add-field').hide();
       $('#view-event-close-editor').hide();
       $('#view-event-modify-event').show();
+      $('#view-event-save-rsvps').show();
     });
     
     if(userData && userData.ownedEvents
         && userData.ownedEvents.includes(eventTableData.summary.id)) {
-      $('#view-event-buttons').show();
       if(eventTableData.editing) {
         $('#view-event-modify-event').hide();
         $('#view-event-close-editor').show();
@@ -1895,7 +2061,9 @@ function retrieveEvent(eventID) {
         $('#view-event-close-editor').hide();
         $('#view-event-modify-event').show();
       }
-    } else $('#view-event-buttons').hide();
+    }
+
+    renderVolDropdown();
     
   }).fail(function(data) {
     console.error(data);
@@ -2141,7 +2309,7 @@ $(function() {
     registerUser();
   });
 
-  $('#login-btn, #guest-auth-prompt-open-auth').on('click', () => {
+  $('#login-btn').on('click', () => {
     resetAuthModal();
     $('#guest-auth-prompt-modal').removeClass('is-active');
     $('#authentication-modal').addClass('is-active');
@@ -2152,11 +2320,17 @@ $(function() {
 
   // for when someone's ready to publish their event
   $('#view-event-publish-event').on('click', () => {
+    console.log("8675309");
     if(userData) pubEventCreation();
-    else $('#guest-auth-prompt-modal').addClass('is-active');
+    else renderGuestAuthPrompt(
+      '.guest-on-publish-attempt',
+      () => {
+        resetAuthModal();
+        $('#guest-auth-prompt-modal').removeClass('is-active');
+        $('#authentication-modal').addClass('is-active');
+      },
+      pubEventCreation);
   });
-
-  $('#guest-auth-prompt-publish-now').on('click', pubEventCreation);
   
   // close any modal when their respective 'x' is clicked
   $('.modal .modal-close, .modal button.delete').on('click', function() {

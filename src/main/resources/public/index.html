@@ -83,9 +83,19 @@
                   </header>
                   <div class="card-content">
                     <div class="content">
-                      This is where volunteer stuff will go.<br /><br />
-                      <div class="buttons is-centered">
-                        <button id="view-event-add-vol" class="button is-primary">Add Volunteer</button>
+                      <div class="select is-fullwidth is-primary">
+                        <select>
+                          <option>Select a Volunteer</option>
+                        </select>
+                      </div>
+                      <div class="buttons is-centered mt-4">
+                        <button
+                          id="view-event-add-vol"
+                          class="button is-primary">Add Volunteer</button>
+                        <button
+                          id="view-event-del-vol"
+                          class="button is-danger"
+                          style="display: none;">Remove Volunteer</button>
                       </div>
                     </div>
                   </div>
@@ -167,6 +177,9 @@
                 class="button is-warning"
                 style="display: none;">Modify Event</button>
               <button
+                id="view-event-save-rsvps"
+                class="button is-primary">Submit RSVPs</button>
+              <button
                 id="view-event-close-editor"
                 class="button is-primary"
                 style="display: none;">Close Event Editor</button>
@@ -175,105 +188,6 @@
         </div>
       </div>
     </section>
-
-    <!-- modal for asking guests if they want to log in or register -->
-    <div id="guest-auth-prompt-modal" class="modal">
-      <div class="modal-background"></div>
-      <div class="modal-card">
-        <header class="modal-card-head">
-          <p class="modal-card-title">Hey there friend!</p>
-          <button class="delete" aria-label="close"></button>
-        </header>
-        <section class="modal-card-body">
-          <p class="mb-4">
-            Looks like you aren't logged in... but that's totally fine!
-          </p>
-          <p class="mb-4">
-            You can absolutely publish an event without creating an account. But, it
-            means you won't be able to go back and edit your event submission.
-          </p>
-          <p>
-            Would you like to sign in or create an account so you can go back and
-            edit your event later?
-          </p>
-        </section>
-        <footer class="modal-card-foot">
-          <div class="buttons">
-            <button
-              id="guest-auth-prompt-open-auth"
-              class="button is-success">Yes please!</button>
-            <button
-              id="guest-auth-prompt-publish-now"
-              class="button is-danger">No thanks, I'm good!</button>
-          </div>
-        </footer>
-      </div>
-    </div>
-
-    <!-- log in / register modal -->
-    <div id="authentication-modal" class="modal">
-      <div class="modal-background"></div>
-      <div class="modal-card">
-        <header class="modal-card-head">
-          <p class="modal-card-title toggle-auth-confirm-pass">Log In</p>
-          <p class="modal-card-title toggle-auth-confirm-pass" style="display: none;">Register</p>
-          <button class="delete" aria-label="close"></button>
-        </header>
-        <section class="modal-card-body">
-          <div class="field">
-            <div class="label">Email Address</div>
-            <div class="control">
-              <input
-                id="auth-modal-email"
-                class="input"
-                type="email"
-                placeholder="What's your email address?" />
-            </div>
-          </div>
-          <div class="field">
-            <div class="label">Password</div>
-            <div class="control">
-              <input
-                id="auth-modal-password"
-                class="input"
-                type="password" />
-            </div>
-          </div>
-          <div class="field">
-            <div class="label">Is this a new account?</div>
-            <div class="control">
-              <input
-                id="auth-modal-new-account-switch"
-                type="checkbox"
-                class="switch toggle toggle-auth-confirm-pass" />
-              <label
-                for="auth-modal-new-account-switch"
-                class="switch">Click here if you'd like to register!</label>
-            </div>
-          </div>
-          <div class="field toggle-auth-confirm-pass" style="display: none;">
-            <div class="control">
-              <input
-                id="auth-modal-confirm-pass"
-                class="input"
-                type="password"
-                placeholder="Please confirm your password." />
-            </div>
-          </div>
-        </section>
-        <footer class="modal-card-foot">
-          <div class="buttons">
-            <button
-              id="auth-modal-login-btn"
-              class="button is-info toggle-auth-confirm-pass">Log In!</button>
-            <button
-              id="auth-modal-register-btn"
-              class="button is-info toggle-auth-confirm-pass"
-              style="display: none;">Register!</button>
-          </div>
-        </footer>
-      </div>
-    </div>
 
     <!-- event modification form modal -->
     <div id="edit-event-modal" class="modal">
@@ -623,6 +537,110 @@
       </div>
     </div>
 
+    <!-- log in / register modal -->
+    <div id="authentication-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title toggle-auth-confirm-pass">Log In</p>
+          <p class="modal-card-title toggle-auth-confirm-pass" style="display: none;">Register</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Email Address</div>
+            <div class="control">
+              <input
+                id="auth-modal-email"
+                class="input"
+                type="email"
+                placeholder="What's your email address?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Password</div>
+            <div class="control">
+              <input
+                id="auth-modal-password"
+                class="input"
+                type="password" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Is this a new account?</div>
+            <div class="control">
+              <input
+                id="auth-modal-new-account-switch"
+                type="checkbox"
+                class="switch toggle toggle-auth-confirm-pass" />
+              <label
+                for="auth-modal-new-account-switch"
+                class="switch">Click here if you'd like to register!</label>
+            </div>
+          </div>
+          <div class="field toggle-auth-confirm-pass" style="display: none;">
+            <div class="control">
+              <input
+                id="auth-modal-confirm-pass"
+                class="input"
+                type="password"
+                placeholder="Please confirm your password." />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="auth-modal-login-btn"
+              class="button is-info toggle-auth-confirm-pass">Log In!</button>
+            <button
+              id="auth-modal-register-btn"
+              class="button is-info toggle-auth-confirm-pass"
+              style="display: none;">Register!</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- modal for asking guests if they want to log in or register -->
+    <div id="guest-auth-prompt-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Hey there friend!</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4">
+            Looks like you aren't logged in... but that's totally fine!
+          </p>
+          <p class="mb-4 guest-on-publish-attempt">
+            You can absolutely publish an event without creating an account. But, it
+            means you won't be able to go back and edit your event submission.
+          </p>
+          <p class="mb-4 guest-on-voladd-attempt">
+            You're more than welcome to add a volunteer without creating an account.
+            But, it means you won't be able to go back and edit details after you've
+            finished signing up.
+          </p>
+          <p>
+            Would you like to sign in or create an account so you can go back and
+            edit your event later?
+          </p>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="guest-auth-prompt-open-auth"
+              class="button is-success">Yes please!</button>
+            <button
+              id="guest-auth-prompt-proceed-nologin"
+              class="button is-danger">No thanks, I'm good!</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+      
     <footer class="footer">
       <div class="content has-text-centered">
         <p>

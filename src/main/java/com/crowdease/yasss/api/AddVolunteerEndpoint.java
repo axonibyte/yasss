@@ -74,7 +74,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
 
       Volunteer volunteer = new Volunteer(
           null,
-          user.getID(),
+          null == user ? null : user.getID(),
           event.getID(),
           deserializer.getString("name"),
           deserializer.has("remindersEnabled")

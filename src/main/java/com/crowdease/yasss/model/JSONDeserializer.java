@@ -46,6 +46,8 @@ import java.util.Map.Entry;
 import org.json.JSONException;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Assists in the retrieval of arguments from the body of a request.
@@ -53,6 +55,8 @@ import org.json.JSONObject;
  * @author Caleb L. Power <cpower@axonibyte.com>
  */
 public class JSONDeserializer {
+
+  private static final Logger logger = LoggerFactory.getLogger(JSONDeserializer.class);
 
   private JSONObject data = null;
   private Map<String, Entry<String[], Boolean>> requirements = new HashMap<>();
@@ -68,6 +72,7 @@ public class JSONDeserializer {
       throw new DeserializationException("null object");
 
     this.data = data;
+    logger.debug(data.toString());
   }
 
   /**
@@ -79,6 +84,8 @@ public class JSONDeserializer {
   public JSONDeserializer(String data) throws DeserializationException {
     if(null == data)
       throw new DeserializationException("null object");
+
+    logger.debug(data);
 
     try {
       this.data = new JSONObject(data);

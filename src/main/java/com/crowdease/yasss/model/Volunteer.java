@@ -9,6 +9,7 @@ package com.crowdease.yasss.model;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -85,6 +86,29 @@ public class Volunteer {
     
     try {
       con = YasssCore.getDB().connect();
+
+      if(null == id) {
+        ResultSet res = null;
+        stmt = con.prepareStatement(
+            new SQLBuilder()
+            .select(
+                YasssCore.getDB().getPrefix() + "volunteer",
+                "id")
+            .where("id")
+            .toString());
+
+        boolean found;
+        do {
+          id = UUID.randomUUID();
+          stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
+          res = stmt.executeQuery();
+          found = res.next();
+          YasssCore.getDB().close(null, null, res);
+        } while(found);
+
+        YasssCore.getDB().close(null, stmt, null);
+      }
+      
       stmt = con.prepareStatement(
           new SQLBuilder()
               .update(
