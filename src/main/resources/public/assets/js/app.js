@@ -261,19 +261,44 @@ function renderEventTable(parent, step = 1) {
       
       for(let s = w * sz + (step - 1); s < w * sz + (step - 2 + cols); ++s) {
         let slot = eventTableData.slots[s];
+        let hasRSVP = -1 < eventTableData.currentVol
+            && -1 != eventTableData.volunteers[eventTableData.currentVol].rsvps.findIndex(
+              elem => elem.activity == slot.data.activity
+                && elem.window == slot.data.window
+            );
+        let rsvpCount = slot.data.rsvpCount;
+        console.log(slot);
+        for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
+          console.log(vol);
+          if(-1 != vol.rsvps.findIndex( // if volunteer has non-committed rsvp on frontend
+            rsvp => rsvp.activity == slot.data.activity
+              && rsvp.window == slot.data.window
+          ) && (!vol.id || !slot.rsvps.includes(vol.id))) {
+            rsvpCount++;
+          }
+        }
+
+        console.log(`s = ${s} ; rsvpCount = ${rsvpCount} ; cap = ${slot.data.slotVolunteerCap}`);
+            
         addCell(
           grid,
-          slot.label,
+          !slot.data.slotEnabled
+            ? 'Unavailable'
+            : eventTableData.editing
+            ? `${slot.data.rsvpCount} / ${slot.data.slotVolunteerCap}`
+            : hasRSVP
+            ? 'Booked'
+            : 0 == slot.data.slotVolunteerCap || rsvpCount < slot.data.slotVolunteerCap
+            ? 'Available'
+            : 'At Capacity',
           '',
           !slot.data.slotEnabled
             ? 'is-outlined is-light'
-            : -1 < eventTableData.currentVol
-                && -1 != eventTableData.volunteers[eventTableData.currentVol].rsvps.findIndex(
-                  elem => elem.activity == slot.data.activity
-                    && elem.window == slot.data.window
-                )
+            : hasRSVP
             ? 'is-outlined is-warning'
-            : 'is-outlined is-primary',
+            : 0 == slot.data.slotVolunteerCap || rsvpCount < slot.data.slotVolunteerCap
+            ? 'is-outlined is-primary'
+            : 'is-outlined is-light',
           slot.fn,
           slot.data,
           ++idx);
@@ -410,7 +435,7 @@ function renderVolDropdown() {
 }
 
 function renderGuestAuthPrompt(visible, loginFn, proceedFn) {
-  $('#guest-auth-prompt-modal .modal-card-mody p').hide();
+  $('#guest-auth-prompt-modal .modal-card-body p').hide();
   $(`#guest-auth-prompt-modal ${visible}`).show();
   $('#guest-auth-prompt-open-auth').unbind('click');
   $('#guest-auth-prompt-open-auth').on('click', () => {
@@ -1543,7 +1568,6 @@ function pubActivityCreation(activity) {
       let slots = [];
       for(let i = 0; i < eventTableData.windows.length; i++) {
         slots.push({
-          label: 'Unavailable',
           fn: onPubdSlotClick,
           data: {
             slotEnabled: false,
@@ -1881,18 +1905,21 @@ function retrieveEvent(eventID) {
         slots[wins[slot.window]] = {
           id: slot.id,
           slotEnabled: true,
-          slotVolunteerCap: slot.maxSlotVolunteers
+          slotVolunteerCap: slot.maxSlotVolunteers,
+          rsvpCount: slot.rsvpCount,
+          rsvps: slot.rsvps ? slot.rsvps : []
         };
       }
       console.log(`slots no 1 len ${slots.length}`);
       console.log(slots);
       slots = slots.map((s) => {
         return {
-          label: undefined === s ? 'Unavailable' : 'Available',
           fn: onPubdSlotClick,
           data: undefined === s ? {
             slotEnabled: false,
-            slotVolunteerCap: 0
+            slotVolunteerCap: 0,
+            rsvpCount: 0,
+            rsvps: []
           } : s
         };
       });
@@ -1940,9 +1967,9 @@ function retrieveEvent(eventID) {
         let data = validateVolEditModal();
 
         if(null == data) return false;
-        else if(!userData) {
+        else if(!userData && !eventTableData.volunteers.length) {
           renderGuestAuthPrompt(
-            '.guest-on-voladd-attempt',
+            '.guest-on-voladd',
             () => {
               resetAuthModal();
               $('#guest-auth-prompt-modal').removeClass('is-active');
@@ -2127,6 +2154,7 @@ $(function() {
       $('#view-event-section').show();
       $('#view-event-modify-event').hide();
       $('#view-event-close-editor').hide();
+      $('#view-event-save-rsvps').hide();
       $('#view-event-add-activity').show();
       $('#view-event-add-window').show();
       $('#view-event-add-field').show();
@@ -2323,7 +2351,7 @@ $(function() {
     console.log("8675309");
     if(userData) pubEventCreation();
     else renderGuestAuthPrompt(
-      '.guest-on-publish-attempt',
+      '.guest-on-publish',
       () => {
         resetAuthModal();
         $('#guest-auth-prompt-modal').removeClass('is-active');

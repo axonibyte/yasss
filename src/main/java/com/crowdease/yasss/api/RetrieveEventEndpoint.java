@@ -64,7 +64,8 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
               new JSONObject()
                   .put("window", slot.getWindow())
                   .put("maxSlotVolunteers", slot.getMaxSlotVolunteers())
-                  .put("rsvps", rsvpArr));
+                  .put("rsvps", rsvpArr)
+                  .put("rsvpCount", rsvpArr.length()));
         }
         activityArr.put(
             new JSONObject()
