@@ -9,6 +9,9 @@ The following software is included in the web UI:
 - bulma-calendar ; Copyright (c) 2017 Wikiki
   https://github.com/michael-hack/bulma-calendar
 
+- bulma-pageloader ; Copyright (c) 2017 Wikiki
+  https://github.com/Wikiki/bulma-pageloader
+
 - bulma-slider ; Copyright (c) 2017 Wikiki
   https://github.com/Wikiki/bulma-slider
 
@@ -21,6 +24,9 @@ The following software is included in the web UI:
 - jQuery ; Copyright (c) OpenJS Foundation and other contributors
   https://openjsf.org
   https://github.com/jquery/jquery
+
+- js-cookie (JavaScript Cookie) ; Copyright (c) 2018 Klaus Hartl, Fagner Brack, GitHub Contributors
+  https://github.com/js-cookie/js-cookie
 
 The aforementioned software repositories are all licensed under 
 the MIT license, as follows:

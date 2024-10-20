@@ -4,11 +4,13 @@
     <link rel="stylesheet" href="/assets/css/bulma.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-block-list.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-calendar.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-pageloader.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-slider.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-switch.min.css" />
     <link rel="stylesheet" href="/assets/css/bulma-tooltip.min.css" />
     <link rel="stylesheet" href="/assets/css/style.css" />
     <script src="/assets/js/jquery-3.7.1.min.js" defer></script>
+    <script src="/assets/js/js.cookie.min.js" defer></script>
     <script src="/assets/js/bulma-calendar.min.js" defer></script>
     <script src="/assets/js/bulma-slider.min.js" defer></script>
     <script src="/assets/js/bulma-toast.js" defer></script>
@@ -24,10 +26,14 @@
       </div>
       <div class="navbar-end">
         <a id="create-event-btn" class="navbar-item">Create Event</a>
-        <a id="login-btn" class="navbar-item">Log In</a>
+        <a id="login-btn" class="navbar-item" style="display: none;">Log In</a>
         <a id="logout-btn" class="navbar-item" style="display: none;">Log Out</a>
       </div>
     </nav>
+
+    <div class="pageloader is-bottom-to-top is-active">
+      <span class="title">Hang on tight!</span>
+    </div>
     
     <!-- introduction section -->
     <section id="introduction-section" class="section">
@@ -93,9 +99,9 @@
                           id="view-event-add-vol"
                           class="button is-primary">Add Volunteer</button>
                         <button
-                          id="view-event-del-vol"
-                          class="button is-danger"
-                          style="display: none;">Remove Volunteer</button>
+                          id="view-event-chg-vol"
+                          class="button is-warning"
+                          style="display: none;">Update Volunteer</button>
                       </div>
                     </div>
                   </div>

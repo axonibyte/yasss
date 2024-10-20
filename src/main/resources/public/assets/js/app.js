@@ -412,14 +412,14 @@ function renderVolDropdown() {
   $('#view-event-volunteer select').unbind('change');
   $('#view-event-volunteer option').remove();
   if(!eventTableData.volunteers.length) {
-    $('#view-event-del-vol').hide();
+    $('#view-event-chg-vol').hide();
     $('#view-event-volunteer select').prop('disabled', true);
     //$('#view-event-volunteer option').first().text('Add a volunteer!');
     $('#view-event-volunteer select').append(
       $('<option/>')
         .text('Add a volunteer!'));
   } else {
-    $('#view-event-del-vol').show();
+    $('#view-event-chg-vol').show();
     $('#view-event-volunteer select').prop('disabled', false);
     //$('#view-event-volunteer option').first().text('Select a volunteer...');
     //$('#view-event-volunteer option').not(':first').remove();
@@ -1205,26 +1205,41 @@ function registerUser() {
   }
 }
 
-function injectAuth(options) {
-  if(userData && userData.session)
-    options.headers = {
-      'Authorization': `AXB-SIG-REQ ${userData.session}`
-    };
+function injectAuth(options, session = null) {
+  if(null == session && userData && userData.session)
+    session = userData.session;
+
+  if(null != session) {
+    let headers = { Authorization: `AXB-SIG-REQ ${session}` };
+    if(options.headers)
+      Object.assign(options.headers, headers);
+    else options.headers = headers;
+  }
+
+  console.log(`options are ${JSON.stringify(options)}`);
   return options;
 }
 
 function saveSession(res, onSuccess = null, onFailure = null) {
   let userSession = res.getResponseHeader('axb-session');
+  console.log('douche canoe response');
+  console.log(userSession);
+  
   if(userData) {
-    if(userSession) userData.session = userSession;
-    else {
+    if(userSession) {
+      userData.session = userSession;
+      $('#login-btn').hide();
+      $('#logout-btn').show();
+    } else {
       $('#logout-btn').hide();
       $('#login-btn').show();
+      console.log('BITCH TITS HERE');
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
       });
       userData = null;
+      Cookies.remove('user');
     }
   }
 
@@ -1271,6 +1286,7 @@ function userLogin() {
               account: userAccount,
               session: userSession
             };
+            Cookies.set('user', JSON.stringify(userData));
             toast({
               message: 'Logged in!',
               type: 'is-success'
@@ -1313,6 +1329,7 @@ function userLogout() {
   userData = null;
   if(eventTableData.summary.id)
     retrieveEvent(eventTableData.summary.id);
+  Cookies.remove('user');
   toast({
     message: 'You\'ve been logged out!',
     type: 'is-warning'
@@ -1321,15 +1338,20 @@ function userLogout() {
   $('#login-btn').show();
 }
 
-function refreshUserSession() {
+function refreshUserSession(session = null, fn = null) {
   if(null != userData && null != userData.session) {
     $.ajax(injectAuth({
       url: '/v1',
       type: 'GET',
-      complete: res => saveSession(res)
-    })).done(function(data) {
+      complete: res => saveSession(res, fn, fn)
+    }, session)).done(function(data) {
       console.log('Refreshed user session.');
+      Cookies.set('user', JSON.stringify(userData));
     }).fail(function(data) {
+      // this only fires if the API can't be reached
+      // if the API was successfully hit but the session is invalid,
+      // then saveSession() handles the failure
+      Cookies.remove('user');
       console.error('Failed to refresh user session.');
       console.error(data);
       $('#logout-btn').hide();
@@ -1340,7 +1362,9 @@ function refreshUserSession() {
       });
       userData = null;
     });
-  }
+  } else if('function' === typeof fn) fn();
+
+  setTimeout(refreshUserSession, 1000 * 60 * 10); // TODO make configurable
 }
 
 function onPubdActivityClick(d) {
@@ -1822,7 +1846,7 @@ function pubDetailDeletion(dIdx) {
   });
 }
 
-function pubVolunteerCreation(vol) {
+function pubVolCreation(vol) {
   console.log('publishing new volunteer');
   console.log(vol);
 
@@ -1847,6 +1871,18 @@ function pubVolunteerCreation(vol) {
       vol.id = res.responseJSON.volunteer.id;
       //mkVolunteer(vol);
       //renderVolDropdown();
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubVolDeletion(vId) {
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/volunteers/${vId}`,
+    type: 'DELETE',
+    complete: res => saveSession(res, r => {
+      console.log(`volunteer ${vId} deleted`);
     })
   })).fail(function(data) {
     console.error(data);
@@ -1978,7 +2014,7 @@ function retrieveEvent(eventID) {
             },
             () => {
               $('#edit-vol-modal').removeClass('is-active');
-              //pubVolunteerCreation(data);
+              //pubVolCreation(data);
               mkVolunteer(data);
               renderVolDropdown();
               $('#view-event-volunteer select option').last().prop('selected', true);
@@ -1989,7 +2025,7 @@ function retrieveEvent(eventID) {
           return false;
         }
 
-        //pubVolunteerCreation(data);
+        //pubVolCreation(data);
         mkVolunteer(data);
         renderVolDropdown();
         $('#view-event-volunteer select option').last().prop('selected', true);
@@ -1998,12 +2034,25 @@ function retrieveEvent(eventID) {
       });
     });
 
-    $('#view-event-del-vol').unbind('click');
-    $('#view-event-del-vol').on('click', () => {
-      // TODO if already committed, remove from backend
-      rmVolunteer(Number($('#view-event-volunteer option:selected').val()));
-      renderVolDropdown();
-      updateSelectedVol();
+    $('#view-event-chg-vol').unbind('click');
+    $('#view-event-chg-vol').on('click', () => {
+      renderVolEditModal(false, function(vol) {
+        let data = validateVolEditModal();
+        if(null == data) return fasle;
+
+        // update volunteer here
+        renderVolDropdown();
+        updateSelectedVol();
+        return true;
+        
+      }, function(vol) {
+        if(vol.id)
+          pubVolDeletion(vol.id);
+        rmVolunteer(Number($('#view-event-volunteer option:selected').val()));
+        renderVolDropdown();
+        updateSelectedVol();
+        return true;
+      });
     });
 
     console.log(eventTableData);
@@ -2101,18 +2150,13 @@ function retrieveEvent(eventID) {
   });
 }
 
-$(function() {
-  toast_setToast_Defaults({
-    duration: 5000,
-    position: 'top-center',
-    closeOnClick: true,
-  });
-  
+function loadSite() {
+
   const urlParams = new URLSearchParams(window.location.search);
   if(urlParams.has('event') && urlParams.get('event')) {
     retrieveEvent(urlParams.get('event'));
   }
-
+  
   const viewTableSliderObserver = new MutationObserver(function(mutationsList) {
     mutationsList.forEach(function(mutation) {
       if('characterData' === mutation.type || 'childList' === mutation.type) {
@@ -2391,6 +2435,28 @@ $(function() {
     }
   });
 
-  setInterval(refreshUserSession, 1000 * 60 * 10); // TODO make configurable
+  setTimeout(() => {
+    $('.pageloader').removeClass('is-active');
+  }, 1000);
+}
 
+$(function() {
+  toast_setToast_Defaults({
+    duration: 5000,
+    position: 'top-center',
+    closeOnClick: true,
+  });
+
+  try {
+    let userCookie = JSON.parse(Cookies.get('user'));
+    if(userCookie) userData = userCookie;
+  } catch(e) {
+    console.log('no auth cookie detected');
+    $('#login-btn').show();
+  }
+
+  refreshUserSession(
+    null == userData || null == userData.session ? null : userData.session,
+    loadSite);
+  
 });
