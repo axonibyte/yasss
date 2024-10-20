@@ -235,6 +235,9 @@ function renderEventTable(parent, step = 1) {
     let idx = 0;
     addCell(grid, '', '', ''); // this is the space in the top-left part of the grid
     console.log(eventTableData);
+
+    let aRSVPs = new Array(eventTableData.activities.length).fill(0);
+    let sRSVPs = [];
     
     for(let a = step - 1; a < cols + step - 2; ++a) {
       console.log(`add activity ${a} with label ${eventTableData.activities[a].label}`);
@@ -246,7 +249,35 @@ function renderEventTable(parent, step = 1) {
         eventTableData.activities[a].fn,
         eventTableData.activities[a].data,
         ++idx);
+
+      for(let s = a; s < eventTableData.slots.length; s += eventTableData.activities.length) {
+        let slot = eventTableData.slots[s];
+        let hasRSVP = -1 < eventTableData.currentVol
+            && -1 != eventTableData.volunteers[eventTableData.currentVol].rsvps.findIndex(
+              elem => elem.activity == slot.data.activity
+                && elem.window == slot.data.window
+            );
+        let rsvpCount = slot.data.rsvpCount;
+        for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
+          console.log(vol);
+          if(-1 != vol.rsvps.findIndex( // if volunteer has non-committed rsvp on frontend
+            rsvp => rsvp.activity == slot.data.activity
+              && rsvp.window == slot.data.window
+          ) && (!vol.id || !slot.rsvps.includes(vol.id))) {
+            rsvpCount++;
+          }
+        }
+
+        sRSVPs[s] = {
+          has: hasRSVP,
+          count: rsvpCount
+        }
+        aRSVPs[slot.data.activity] += rsvpCount;
+      }
     }
+
+    console.log(aRSVPs);
+    console.log(sRSVPs);
 
     for(let w = 0; w < eventTableData.windows.length; ++w) {
       console.log(`add window ${w} with label ${eventTableData.windows[w].label}`);
@@ -261,24 +292,9 @@ function renderEventTable(parent, step = 1) {
       
       for(let s = w * sz + (step - 1); s < w * sz + (step - 2 + cols); ++s) {
         let slot = eventTableData.slots[s];
-        let hasRSVP = -1 < eventTableData.currentVol
-            && -1 != eventTableData.volunteers[eventTableData.currentVol].rsvps.findIndex(
-              elem => elem.activity == slot.data.activity
-                && elem.window == slot.data.window
-            );
-        let rsvpCount = slot.data.rsvpCount;
-        console.log(slot);
-        for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
-          console.log(vol);
-          if(-1 != vol.rsvps.findIndex( // if volunteer has non-committed rsvp on frontend
-            rsvp => rsvp.activity == slot.data.activity
-              && rsvp.window == slot.data.window
-          ) && (!vol.id || !slot.rsvps.includes(vol.id))) {
-            rsvpCount++;
-          }
-        }
-
-        console.log(`s = ${s} ; rsvpCount = ${rsvpCount} ; cap = ${slot.data.slotVolunteerCap}`);
+        let act = eventTableData.activities[slot.data.activity].data;
+        rsvp = sRSVPs[s];
+        console.log(`s = ${s} ; rsvpCount = ${rsvp.count} ; cap = ${slot.data.slotVolunteerCap}`);
             
         addCell(
           grid,
@@ -286,19 +302,21 @@ function renderEventTable(parent, step = 1) {
             ? 'Unavailable'
             : eventTableData.editing
             ? `${slot.data.rsvpCount} / ${slot.data.slotVolunteerCap}`
-            : hasRSVP
+            : rsvp.has
             ? 'Booked'
-            : 0 == slot.data.slotVolunteerCap || rsvpCount < slot.data.slotVolunteerCap
-            ? 'Available'
-            : 'At Capacity',
+            : (0 != slot.data.slotVolunteerCap && rsvp.count >= slot.data.slotVolunteerCap)
+            || (0 != act.activityVolunteerCap && aRSVPs[slot.data.activity] >= act.activityVolunteerCap)
+            ? 'At Capacity'
+            : 'Available',
           '',
           !slot.data.slotEnabled
             ? 'is-outlined is-light'
-            : hasRSVP
+            : rsvp.has
             ? 'is-outlined is-warning'
-            : 0 == slot.data.slotVolunteerCap || rsvpCount < slot.data.slotVolunteerCap
-            ? 'is-outlined is-primary'
-            : 'is-outlined is-light',
+            : (0 != slot.data.slotVolunteerCap && rsvp.count >= slot.data.slotVolunteerCap)
+            || (0 != act.activityVolunteerCap && aRSVPs[slot.data.activity] >= act.activityVolunteerCap)
+            ? 'is-outlined is-light'
+            : 'is-outlined is-primary',
           slot.fn,
           slot.data,
           ++idx);
