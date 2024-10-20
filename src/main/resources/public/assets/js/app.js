@@ -2085,9 +2085,12 @@ function retrieveEvent(eventID) {
     $('#view-event-add-field').hide();
     $('#view-event-publish-event').hide();
 
+    if(null != userData)
+      $('#view-event-modify-event').show();
     $('#view-event-modify-event').unbind('click');
     $('#view-event-modify-event').on('click', function() {
       eventTableData.editing = true;
+      refreshTable(eventTableData.step);
       renderEventTableMeta(
         eventTableData.summary.title,
         eventTableData.summary.description,
@@ -2134,6 +2137,7 @@ function retrieveEvent(eventID) {
     $('#view-event-close-editor').unbind('click');
     $('#view-event-close-editor').on('click', function() {
       eventTableData.editing = false;
+      refreshTable(eventTableData.step);
       renderEventTableMeta(
         eventTableData.summary.title,
         eventTableData.summary.description,
