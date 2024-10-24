@@ -8,19 +8,25 @@
 package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.RSVP;
+import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
+import com.crowdease.yasss.model.Window;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 
 import org.json.JSONArray;
@@ -54,6 +60,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
         .tokenize("remindersEnabled", false)
         .tokenize("details", true)
         .tokenize("user", false)
+        .tokenize("rsvps", false)
         .check();
 
       User user = null;
@@ -113,7 +120,33 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
       
       volunteer.setDetails(details);
 
+      Set<Slot> slots = new HashSet<>();
+      
+      for(var rsvpDeserializer : deserializer.tokenizeJSONArray("rsvps", true)) {
+        rsvpDeserializer
+          .tokenize("activity", true)
+          .tokenize("window", true)
+          .check();
+        Activity activity = event.getActivity(
+            rsvpDeserializer.getUUID("activity"));
+        if(null == activity)
+          throw new EndpointException(req, "activity not found", 404);
+        Slot slot = activity.getSlot(
+            rsvpDeserializer.getUUID("window"));
+        if(null == slot)
+          throw new EndpointException(req, "window/slot not found", 404);
+        slots.add(slot);
+      }
+
       volunteer.commit();
+
+      for(var slot : slots) {
+        RSVP rsvp = new RSVP(
+            slot.getActivity(),
+            slot.getWindow(),
+            volunteer.getID());
+        rsvp.commit();
+      }
 
       res.status(201);
       return new JSONObject()

@@ -49,17 +49,15 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       JSONArray detailArr = new JSONArray();
       Map<UUID, Volunteer> volunteers = new HashMap<>();
 
+      for(var volunteer : event.getVolunteers())
+        volunteers.put(volunteer.getID(), volunteer);
+
       for(var activity : event.getActivities()) {
         JSONArray slotArr = new JSONArray();
         for(var slot : activity.getSlots()) {
           JSONArray rsvpArr = new JSONArray();
-          for(var rsvp : slot.getRSPVs().entrySet()) {
-            if(!volunteers.containsKey(rsvp.getValue().getID()))
-              volunteers.put(
-                  rsvp.getValue().getID(),
-                  rsvp.getValue());
+          for(var rsvp : slot.getRSVPs().entrySet())
             rsvpArr.put(rsvp.getValue().getID());
-          }
           slotArr.put(
               new JSONObject()
                   .put("window", slot.getWindow())
@@ -104,6 +102,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
             new JSONObject()
                 .put("id", volunteer.getID())
                 .put("name", volunteer.getName())
+                .put("remindersEnabled", volunteer.remindersEnabled())
                 .put(
                     "details",
                     (JSONArray)volunteer.getDetails()
@@ -123,7 +122,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       res.status(200);
       return new JSONObject()
         .put("status", "ok")
-        .put("info", "successfully created event")
+        .put("info", "successfully retrieved event")
         .put("event", new JSONObject()
              .put("id", event.getID())
              .put("admin", event.getAdmin())

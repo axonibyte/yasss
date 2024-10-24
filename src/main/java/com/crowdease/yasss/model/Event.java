@@ -12,8 +12,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -683,6 +685,46 @@ public class Event {
                 id,
                 res.getString("name"),
                 res.getBoolean("reminders_enabled")));
+
+      if(!volunteers.isEmpty()) {
+        Map<UUID, Map<Detail, String>> details = new HashMap<>();
+        YasssCore.getDB().close(null, stmt, res);
+        stmt = con.prepareStatement(
+            new SQLBuilder()
+                .select(
+                    YasssCore.getDB().getPrefix() + "volunteer_detail",
+                    "volunteer",
+                    "detail_field",
+                    "detail_value")
+                .whereIn("volunteer", false, volunteers.size())
+                .order("volunteer", Order.ASC)
+                .toString());
+        
+        int idx = 0;
+        for(var volunteer : volunteers) {
+          details.put(volunteer.getID(), new HashMap<>());
+          stmt.setBytes(++idx, SQLBuilder.uuidToBytes(volunteer.getID()));
+        }
+        res = stmt.executeQuery();
+        
+        while(res.next())
+          details
+              .get(
+                  SQLBuilder.bytesToUUID(
+                      res.getBytes("volunteer")))
+              .put(
+                  getDetail(
+                      SQLBuilder.bytesToUUID(
+                          res.getBytes("detail_field"))),
+                  res.getString("detail_value"));
+        
+        for(var volunteer : volunteers)
+          if(details.containsKey(volunteer.getID()))
+            volunteer.setDetails(
+                details.get(volunteer.getID()));
+        
+      }
+      
       return volunteers;
       
     } catch(SQLException e) {

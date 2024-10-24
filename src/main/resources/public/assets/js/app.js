@@ -235,9 +235,6 @@ function renderEventTable(parent, step = 1) {
     let idx = 0;
     addCell(grid, '', '', ''); // this is the space in the top-left part of the grid
     console.log(eventTableData);
-
-    let aRSVPs = new Array(eventTableData.activities.length).fill(0);
-    let sRSVPs = [];
     
     for(let a = step - 1; a < cols + step - 2; ++a) {
       console.log(`add activity ${a} with label ${eventTableData.activities[a].label}`);
@@ -249,36 +246,8 @@ function renderEventTable(parent, step = 1) {
         eventTableData.activities[a].fn,
         eventTableData.activities[a].data,
         ++idx);
-
-      for(let s = a; s < eventTableData.slots.length; s += eventTableData.activities.length) {
-        let slot = eventTableData.slots[s];
-        let hasRSVP = -1 < eventTableData.currentVol
-            && -1 != eventTableData.volunteers[eventTableData.currentVol].rsvps.findIndex(
-              elem => elem.activity == slot.data.activity
-                && elem.window == slot.data.window
-            );
-        let rsvpCount = slot.data.rsvpCount;
-        for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
-          console.log(vol);
-          if(-1 != vol.rsvps.findIndex( // if volunteer has non-committed rsvp on frontend
-            rsvp => rsvp.activity == slot.data.activity
-              && rsvp.window == slot.data.window
-          ) && (!vol.id || !slot.rsvps.includes(vol.id))) {
-            rsvpCount++;
-          }
-        }
-
-        sRSVPs[s] = {
-          has: hasRSVP,
-          count: rsvpCount
-        }
-        aRSVPs[slot.data.activity] += rsvpCount;
-      }
     }
-
-    console.log(aRSVPs);
-    console.log(sRSVPs);
-
+      
     for(let w = 0; w < eventTableData.windows.length; ++w) {
       console.log(`add window ${w} with label ${eventTableData.windows[w].label}`);
       addCell(
@@ -293,8 +262,8 @@ function renderEventTable(parent, step = 1) {
       for(let s = w * sz + (step - 1); s < w * sz + (step - 2 + cols); ++s) {
         let slot = eventTableData.slots[s];
         let act = eventTableData.activities[slot.data.activity].data;
-        rsvp = sRSVPs[s];
-        console.log(`s = ${s} ; rsvpCount = ${rsvp.count} ; cap = ${slot.data.slotVolunteerCap}`);
+
+        let state = getCurrentRSVPState(slot.data);
             
         addCell(
           grid,
@@ -302,19 +271,17 @@ function renderEventTable(parent, step = 1) {
             ? 'Unavailable'
             : eventTableData.editing
             ? `${slot.data.rsvpCount} / ${slot.data.slotVolunteerCap}`
-            : rsvp.has
+            : state.hasRSVP
             ? 'Booked'
-            : (0 != slot.data.slotVolunteerCap && rsvp.count >= slot.data.slotVolunteerCap)
-            || (0 != act.activityVolunteerCap && aRSVPs[slot.data.activity] >= act.activityVolunteerCap)
+            : state.atCapacity
             ? 'At Capacity'
             : 'Available',
           '',
           !slot.data.slotEnabled
             ? 'is-outlined is-light'
-            : rsvp.has
+            : state.hasRSVP
             ? 'is-outlined is-warning'
-            : (0 != slot.data.slotVolunteerCap && rsvp.count >= slot.data.slotVolunteerCap)
-            || (0 != act.activityVolunteerCap && aRSVPs[slot.data.activity] >= act.activityVolunteerCap)
+            : state.atCapacity
             ? 'is-outlined is-light'
             : 'is-outlined is-primary',
           slot.fn,
@@ -1240,8 +1207,6 @@ function injectAuth(options, session = null) {
 
 function saveSession(res, onSuccess = null, onFailure = null) {
   let userSession = res.getResponseHeader('axb-session');
-  console.log('douche canoe response');
-  console.log(userSession);
   
   if(userData) {
     if(userSession) {
@@ -1251,7 +1216,6 @@ function saveSession(res, onSuccess = null, onFailure = null) {
     } else {
       $('#logout-btn').hide();
       $('#login-btn').show();
-      console.log('BITCH TITS HERE');
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
@@ -1421,7 +1385,30 @@ function onPubdWindowClick(d) {
   console.log(d);
 }
 
+function getCurrentRSVPState(slot) {
+  return {
+    hasRSVP: -1 < eventTableData.currentVol
+      && -1 != eventTableData.volunteers[eventTableData.currentVol].rsvps.findIndex(
+        elem => elem.activity == slot.activity
+          && elem.window == slot.window
+      ),
+    atCapacity: 0 != slot.slotVolunteerCap
+      && slot.rsvpCount >= slot.slotVolunteerCap
+      || 0 != eventTableData.activities[slot.activity].data.activityVolunteerCap
+      && eventTableData.slots.filter(
+        s => s.data.activity == slot.activity
+      ).map(
+        s => s.data.rsvpCount
+      ).reduce(
+        (a, b) => a + b
+      ) >= eventTableData.activities[slot.activity].data.activityVolunteerCap,
+    count: slot.rsvpCount
+  }
+}
+
 function onPubdSlotClick(d) {
+  let rsvpState = getCurrentRSVPState(d);
+  
   if(eventTableData.editing) {
     console.log('editing a slot');
 
@@ -1437,17 +1424,78 @@ function onPubdSlotClick(d) {
       
     }, d);
     
-  } else if(eventTableData.volunteers.length && d.slotEnabled) {
-    console.log('volunteering for a slot');
+  } else if(
+    eventTableData.volunteers.length
+      && d.slotEnabled
+      && (rsvpState.hasRSVP || !rsvpState.atCapacity)) {
+    
+    console.log('(un)volunteering for a slot');
+    console.log(d);
     let vol = eventTableData.volunteers[eventTableData.currentVol];
     let idx = vol.rsvps.findIndex(elem => elem.activity == d.activity && elem.window == d.window);
-    if(-1 != idx)
-      vol.rsvps.splice(idx, 1);
-    else vol.rsvps.push({
-      activity: d.activity,
-      window: d.window
-    });
-    updateSelectedVol();
+    
+    if(-1 != idx) {
+      let actId = eventTableData.activities[vol.rsvps[idx].activity].data.id;
+      let winId = eventTableData.windows[vol.rsvps[idx].window].data.id;
+      
+      let delFn = () => {
+        eventTableData.slots.filter(
+          s => s.data.activity == eventTableData.activities.map(
+            a => a.data.id
+          ).indexOf(actId)
+            && s.data.window == eventTableData.windows.map(
+              w => w.data.id
+            ).indexOf(winId)
+        ).forEach(
+          s => {
+            s.data.rsvps.splice(
+              s.data.rsvps.indexOf(vol.id),
+              1
+            );
+            s.data.rsvpCount--;
+          }
+        );
+
+        vol.rsvps.splice(idx, 1);
+        updateSelectedVol();
+      };
+      
+      if(vol.id)
+        pubRSVPDeletion(actId, winId, vol.id, delFn);
+      else delFn();
+      
+    } else {
+      let actId = eventTableData.activities[d.activity].data.id;
+      let winId = eventTableData.windows[d.window].data.id;
+      
+      let mkFn = () => {
+        eventTableData.slots.filter(
+          s => s.data.activity == eventTableData.activities.map(
+            a => a.data.id
+          ).indexOf(actId)
+            && s.data.window == eventTableData.windows.map(
+              w => w.data.id
+            ).indexOf(winId)
+            && -1 == s.data.rsvps.indexOf(vol.id)
+        ).forEach(
+          s => {
+            if(vol.id)
+              s.data.rsvps.push(vol.id);
+            s.data.rsvpCount++;
+          }
+        );
+        
+        vol.rsvps.push({
+          activity: d.activity,
+          window: d.window
+        });
+        updateSelectedVol();
+      };
+      
+      if(vol.id)
+        pubRSVPCreation(actId, winId, vol.id, mkFn);
+      else mkFn();
+    }
   }
   
   console.log(d);
@@ -1864,7 +1912,7 @@ function pubDetailDeletion(dIdx) {
   });
 }
 
-function pubVolCreation(vol) {
+function pubVolCreation(vol, onComplete = null) {
   console.log('publishing new volunteer');
   console.log(vol);
 
@@ -1877,6 +1925,14 @@ function pubVolCreation(vol) {
       volObj.details.splice(i, 1);
     }
   }
+  if(volObj.rsvps) {
+    for(let i = 0, rsvp; rsvp = volObj.rsvps[i]; i++) {
+      if('number' === typeof rsvp.activity)
+        rsvp.activity = eventTableData.activities[rsvp.activity].data.id;
+      if('number' === typeof rsvp.window)
+        rsvp.window = eventTableData.windows[rsvp.window].data.id;
+    }
+  }
 
   console.log(JSON.stringify(volObj));
 
@@ -1887,9 +1943,37 @@ function pubVolCreation(vol) {
     dataType: 'json',
     complete: res => saveSession(res, r => {
       vol.id = res.responseJSON.volunteer.id;
-      //mkVolunteer(vol);
-      //renderVolDropdown();
+      if('function' === typeof onComplete)
+        onComplete();
     })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubVolUpdate(vol) {
+  console.log('publishing volunteer updates');
+  console.log(vol);
+
+  volObj = structuredClone(vol);
+  for(let i = Object.keys(volObj.details).length - 1; i >= 0; i--) {
+    let deet = volObj.details[i];
+    if('string' != typeof deet.value) {
+      deet.value = `${deet.value}`;
+    } else if('' === deet.value) {
+      volObj.details.splice(i, 1);
+    }
+    delete volObj.id;
+  }
+
+  console.log(JSON.stringify(volObj));
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/volunteers/${vol.id}`,
+    type: 'PATCH',
+    data: JSON.stringify(volObj),
+    dataType: 'json',
+    complete: res => saveSession(res)
   })).fail(function(data) {
     console.error(data);
   });
@@ -1907,6 +1991,40 @@ function pubVolDeletion(vId) {
   });
 }
 
+function pubRSVPCreation(activity, window, volunteer, fn = null) {
+  console.log(`publishing rsvp for activity ${activity}, window ${window} on behalf of ${volunteer}`);
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/activities/${activity}/windows/${window}/volunteers/${volunteer}`,
+    type: 'PUT',
+    complete: res => saveSession(res, () => {
+      if('function' === typeof fn) fn();
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubRSVPDeletion(activity, window, volunteer, fn = null) {
+  console.log(`removing rsvp from activity ${activity}, window ${window} on behalf of ${volunteer}`);
+
+  $.ajax(injectAuth({
+    url: `/v1/events/${eventTableData.summary.id}/activities/${activity}/windows/${window}/volunteers/${volunteer}`,
+    type: 'DELETE',
+    complete: res => saveSession(res, () => {
+      if('function' === typeof fn) fn();
+    })
+  })).fail(function(data) {
+    console.error(data);
+  });
+}
+
+function pubRSVPS() {
+  for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
+    if(!vol.id) pubVolCreation(vol);
+  }
+}
+
 function retrieveEvent(eventID) {
   console.log(`retrieving ${eventID} probably`);
 
@@ -1915,7 +2033,7 @@ function retrieveEvent(eventID) {
     type: 'GET',
     complete: res => saveSession(res)
   })).done(function(data) {
-    console.log('Successfully etrieved event data.');
+    console.log('Successfully retrieved event data.');
     console.log(data);
 
     clearTable();
@@ -2005,6 +2123,30 @@ function retrieveEvent(eventID) {
       });
     }
 
+    if(data.event.volunteers) {
+      let deetIDs = eventTableData.details.map(detail => detail.data.id);
+      for(let v = 0, vol; vol = data.event.volunteers[v]; v++) {
+        vol.rsvps = eventTableData.slots.filter(
+          slot => slot.data.rsvps.includes(vol.id)
+        ).map(slot => {
+          return {
+            activity: slot.data.activity,
+            window: slot.data.window
+          }
+        });
+        deetIDs.filter(id => !vol.details.map(d => d.detail).includes(id)).forEach(id => {
+          vol.details.push({
+            detail: id,
+            value: ''
+          });
+        });
+        vol.details.sort((a, b) => deetIDs.indexOf(a.detail) - deetIDs.indexOf(b.detail));
+        mkVolunteer(vol);
+      }
+      if(data.event.volunteers.length)
+        eventTableData.currentVol = 0;
+    }
+
     $('#view-event-edit-summary').unbind('click');
     $('#view-event-edit-summary').on('click', () => {
       renderEventSummaryModal(false, function(summary) {
@@ -2056,9 +2198,19 @@ function retrieveEvent(eventID) {
     $('#view-event-chg-vol').on('click', () => {
       renderVolEditModal(false, function(vol) {
         let data = validateVolEditModal();
-        if(null == data) return fasle;
+        if(null == data) return false;
 
-        // update volunteer here
+        let volunteer = eventTableData.volunteers[eventTableData.currentVol];
+        Object.assign(volunteer, data);
+
+        if(volunteer.id) {
+          if(volunteer.rsvps) {
+            volunteer = structuredClone(volunteer);
+            delete volunteer.rsvps;
+          }
+          pubVolUpdate(volunteer);
+        }
+        
         renderVolDropdown();
         updateSelectedVol();
         return true;
@@ -2070,7 +2222,13 @@ function retrieveEvent(eventID) {
         renderVolDropdown();
         updateSelectedVol();
         return true;
-      });
+        
+      }, eventTableData.volunteers[eventTableData.currentVol]);
+    });
+
+    $('#view-event-save-rsvps').unbind('click');
+    $('#view-event-save-rsvps').on('click', () => {
+      pubRSVPS();
     });
 
     console.log(eventTableData);
@@ -2090,6 +2248,7 @@ function retrieveEvent(eventID) {
     $('#view-event-modify-event').unbind('click');
     $('#view-event-modify-event').on('click', function() {
       eventTableData.editing = true;
+      eventTableData.currentVol = -1;
       refreshTable(eventTableData.step);
       renderEventTableMeta(
         eventTableData.summary.title,
@@ -2137,6 +2296,7 @@ function retrieveEvent(eventID) {
     $('#view-event-close-editor').unbind('click');
     $('#view-event-close-editor').on('click', function() {
       eventTableData.editing = false;
+      updateSelectedVol();
       refreshTable(eventTableData.step);
       renderEventTableMeta(
         eventTableData.summary.title,

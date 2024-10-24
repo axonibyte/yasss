@@ -123,6 +123,8 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
         volunteer.enableReminders(
             deserializer.getBool("remindersEnabled"));
 
+      volunteer.commit();
+
       res.status(200);
       return new JSONObject()
           .put("status", "ok")

@@ -64,8 +64,10 @@ public final class SetRSVPEndpoint extends APIEndpoint {
       if(null == slot)
         throw new EndpointException(req, "slot not found", 404);
 
-      if(activity.getMaxActivityVolunteers() >= activity.countRSVPs()
-          || slot.getMaxSlotVolunteers() >= slot.countRSVPs())
+      if(0 != activity.getMaxActivityVolunteers()
+          && activity.getMaxActivityVolunteers() <= activity.countRSVPs()
+          || 0 != slot.getMaxSlotVolunteers()
+          && slot.getMaxSlotVolunteers() <= slot.countRSVPs())
         throw new EndpointException(req, "volunteer cap exceeded", 409);
 
       RSVP rsvp = new RSVP(activity.getID(), slot.getWindow(), volunteer.getID());

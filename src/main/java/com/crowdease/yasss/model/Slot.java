@@ -55,7 +55,7 @@ public class Slot {
     return this;
   }
   
-  public Map<RSVP, Volunteer> getRSPVs() throws SQLException {
+  public Map<RSVP, Volunteer> getRSVPs() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -201,6 +201,7 @@ public class Slot {
       stmt = con.prepareStatement(
           new SQLBuilder()
               .select(
+                  YasssCore.getDB().getPrefix() + "rsvp",
                   "v.user",
                   "v.event",
                   "v.name",
