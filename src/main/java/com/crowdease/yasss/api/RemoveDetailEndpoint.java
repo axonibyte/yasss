@@ -21,12 +21,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for handling the removal of details from events.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class RemoveDetailEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public RemoveDetailEndpoint() {
     super("/events/:event/details/:detail", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

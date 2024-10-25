@@ -21,12 +21,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Event responsible for handling the removal of windows from events.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class RemoveWindowEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public RemoveWindowEndpoint() {
     super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

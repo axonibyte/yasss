@@ -17,18 +17,31 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that provides some basic information about the runtime. Helpful when
+ * a random endpoint needs to be used for initial authentication, but not
+ * necessarily used for such purposes.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class APIInfoEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public APIInfoEndpoint() {
     super("", APIVersion.VERSION_1, HTTPMethod.GET);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     res.status(200);
     return new JSONObject()
         .put("status", "ok")
-       .put("uptime", System.currentTimeMillis() - YasssCore.getLaunchTime())
-       .put("version", APIVersion.VERSION_1.ordinal());
+        .put("uptime", System.currentTimeMillis() - YasssCore.getLaunchTime())
+        .put("version", APIVersion.VERSION_1.ordinal());
   }
   
 }

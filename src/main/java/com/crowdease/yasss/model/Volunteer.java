@@ -18,6 +18,11 @@ import java.util.UUID;
 import com.axonibyte.lib.db.SQLBuilder;
 import com.crowdease.yasss.YasssCore;
 
+/**
+ * Represents a volunteer that has signed up for an event.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class Volunteer {
   
   private final UUID event;
@@ -27,7 +32,18 @@ public class Volunteer {
   private String name;
   private Map<Detail, String> details = new HashMap<>();
   private boolean remindersEnabled;
-  
+
+  /**
+   * Instantiates a volunteer.
+   *
+   * @param id the {@link UUID} of the {@link Volunteer}
+   * @param user the {@link UUID} of the associated {@link User}, if one has
+   *        been linked
+   * @param event the {@link UUID} of the {@link Event} that the {@link Volunteer}
+   *        has signed up for
+   * @param remindersEnabled {@code true} iff the volunteer should be sent
+   *        notifications when the event is about to start
+   */
   public Volunteer(UUID id, UUID user, UUID event, String name, boolean remindersEnabled) {
     this.id = id;
     this.user = user;
@@ -35,51 +51,119 @@ public class Volunteer {
     this.name = name;
     this.remindersEnabled = remindersEnabled;
   }
-  
+
+  /**
+   * Retrieves the volunteers's unique identifier.
+   *
+   * @return the {@link UUID} of the {@link Volunteer}
+   */
   public UUID getID() {
     return id;
   }
-  
+
+  /**
+   * Retrieves the associated event's unique identifier.
+   *
+   * @return the {@link UUID} of the {@link Event} associated with this
+   *         {@link Volunteer}
+   */
   public UUID getEvent() {
     return event;
   }
-  
+
+  /**
+   * Retrieves the associated user's unique identifier, if said user exists.
+   *
+   * @return the {@link UUID} of the {@link User} associated with this
+   *         {@link Volunteer}, if such a user exists
+   */
   public UUID getUser() {
     return user;
   }
-  
+
+  /**
+   * Sets the associated user's unique identifier.
+   *
+   * @param user the {@link UUID} of the {@link User} associated with this
+   *        {@link Volunteer} or {@code null} if no such user exists
+   * @return this {@link Volunteer} instance
+   */
   public Volunteer setUser(UUID user) {
     this.user = user;
     return this;
   }
 
+  /**
+   * Retrieves the volunteer's name.
+   *
+   * @return the name of the volunteer
+   */
   public String getName() {
     return name;
   }
 
+  /**
+   * Sets the volunteer's name.
+   *
+   * @param name the name of the volunteer
+   * @return the {@link Volunteer} instance
+   */
   public Volunteer setName(String name) {
     this.name = name;
     return this;
   }
-  
+
+  /**
+   * Retrieves the details associated with the volunteer.
+   *
+   * @return a {@link Map} of {@link Detail} keys and their associated values;
+   *         the returned map is a copy of the internal map, so modifications
+   *         must be recommitted via {@link Volunteer#setDetails(Map)}
+   */
   public Map<Detail, String> getDetails() {
     return Map.copyOf(details);
   }
-  
+
+  /**
+   * Sets the details associated with the volunteer. This method entirely
+   * replaces any existing details.
+   *
+   * @param details a {@link Map} of {@link Detail} keys and their associated
+   *        values; a copy of the provided map is used internally, so further
+   *        modification of the map must be recommitted
+   * @return the {@link Volunteer} instance
+   */
   public Volunteer setDetails(Map<Detail, String> details) {
     this.details = Map.copyOf(details);
     return this;
   }
-  
+
+  /**
+   * Determines whether or not reminders are enabled for this volunteer.
+   *
+   * @return {@code true} iff reminders are enabled for this volunteer
+   */
   public boolean remindersEnabled() {
     return remindersEnabled;
   }
-  
+
+  /**
+   * Sets whether or not reminders are enabled for this volunteer.
+   *
+   * @param enabled {@code true} iff reminders should be enabled for this volunteer
+   * @return the {@link Volunteer} instance
+   */
   public Volunteer enableReminders(boolean enabled) {
     this.remindersEnabled = enabled;
     return this;
   }
-  
+
+  /**
+   * Saves the {@link Volunteer} to the database. If it already exists, then the
+   * corresponding record will be updated.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void commit() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -211,7 +295,12 @@ public class Volunteer {
       YasssCore.getDB().close(con, stmt, null);
     }
   }
-  
+
+  /**
+   * Removes the volunteer from the database.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void delete() throws SQLException {
     if(null == id) return;
     

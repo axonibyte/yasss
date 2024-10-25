@@ -25,12 +25,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Handles user modification.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class ModifyUserEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public ModifyUserEndpoint() {
     super("/users/:user", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       User user = null;

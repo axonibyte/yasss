@@ -23,12 +23,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for modifying event windows.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class ModifyWindowEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public ModifyWindowEndpoint() {
     super("/events/:event/windows/:window", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

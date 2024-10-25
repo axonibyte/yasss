@@ -20,12 +20,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Event responsible for handling event removal.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class RemoveEventEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public RemoveEventEndpoint() {
     super("/events/:event", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       Event event = null;

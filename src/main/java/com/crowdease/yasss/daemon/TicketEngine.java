@@ -43,6 +43,9 @@ public final class TicketEngine implements Runnable {
     this.signers = new ConcurrentLinkedEvictionDeque<>(maxHistory);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public void run() {
     try {
       while(!thread.isInterrupted()) {
@@ -63,6 +66,9 @@ public final class TicketEngine implements Runnable {
     thread = null;
   }
 
+  /**
+   * Starts the ticket engine if it has not yet been started.
+   */
   public void start() {
     if(null == thread) {
       thread = new Thread(this);
@@ -71,10 +77,20 @@ public final class TicketEngine implements Runnable {
     }
   }
 
+  /**
+   * Stops the ticket engine if it was started.
+   */
   public void stop() {
     if(null != thread) thread.interrupt();
   }
 
+  /**
+   * Signs a message with the most recently-generated signer key.
+   *
+   * @param message the message to sign
+   * @return the signature
+   * @throws CryptoException if the message couldn't be signed
+   */
   public String sign(String message) throws CryptoException {
     Credentialed signer = signers.peekLast();
     if(null == signer)
@@ -82,6 +98,14 @@ public final class TicketEngine implements Runnable {
     return signer.sign(message);
   }
 
+  /**
+   * Verifies that the message was recently signed with the provided signature
+   * by this ticket engine.
+   *
+   * @param message the message that was signed
+   * @param signature the message signature
+   * @return {@code true} iff the signature is valid and verified
+   */
   public boolean verify(String message, String signature) {
     for(var signer : signers)
       if(signer.verifySig(message, signature))

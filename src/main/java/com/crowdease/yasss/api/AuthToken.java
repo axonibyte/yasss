@@ -21,6 +21,12 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * An auth token associated with authenticated users that validates and verifies
+ * the provided auth string.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class AuthToken {
 
   private static final String authHeader = "AXB-SIG-REQ";
@@ -30,10 +36,20 @@ public class AuthToken {
 
   private User user = null;
 
+  /**
+   * Instantiates the authorization token.
+   *
+   * @param authString the raw header containing the credentials to be processed
+   */
   public AuthToken(String authString) {
     this.authString = authString;
   }
 
+  /**
+   * Processes the authentication string and generates a session token.
+   *
+   * @return a session token, if verification is successful
+   */
   public String process() throws AuthException, SQLException {
     if(null == authString)
       throw new AuthException("no auth string; skipping");
@@ -117,10 +133,20 @@ public class AuthToken {
     
   }
 
+  /**
+   * Retrieves the user associated with verified credentials.
+   *
+   * @return the user if verified; {@code null} otherwise
+   */
   public User getUser() {
     return user;
   }
 
+  /**
+   * An exception to be thrown in the event that an auth string cannot be processed.
+   *
+   * @author Caleb L. Power <cpower@crowdease.com>
+   */
   public static class AuthException extends Exception {
     AuthException(String format, Object... args) {
       super(String.format(format, args));

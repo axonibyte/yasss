@@ -23,15 +23,54 @@ import com.axonibyte.lib.db.Comparison.ComparisonOp;
 import com.axonibyte.lib.db.SQLBuilder.Order;
 import com.crowdease.yasss.YasssCore;
 
+/**
+ * Represents a user that can authenticate and manage one or more volunteers and
+ * their respective RSVPS, and any events that they might administrate.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class User extends Credentialed implements Comparable<User> {
-  
+
+  /**
+   * Represents the access that the user has to the platform in general.
+   *
+   * @author Caleb L. Power <cpower@crowdease.com>
+   */
   public static enum AccessLevel {
+
+    /**
+     * Indicates that the user is prohibited from using the platform.
+     */
     BANNED,
+
+    /**
+     * Indicates that the user should verify their email address.
+     */
     UNVERIFIED,
+
+    /**
+     * Indicates that the user has general access to the system.
+     */
     STANDARD,
+
+    /**
+     * Indicates that the user has platform-wide administrative access.
+     */
     ADMIN
   }
-  
+
+  /**
+   * Retrieves the set of users that match a set of specified criteria.
+   *
+   * @param level the {@link AccessLevel} associated with the {@link User}, or
+   *        {@code null} to retrieve users without regard to their respective
+   *        access levels
+   * @param page the page to retrieve, with respect to previously-established
+   *        page limits
+   * @param limit the maximum number of records to return
+   * @return a {@link Set} of {@link User} objects
+   * @throws SQLException if a database malfunction occurs
+   */
   public static Set<User> getUsers(AccessLevel level, Integer page, Integer limit) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -80,7 +119,15 @@ public class User extends Credentialed implements Comparable<User> {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Counts the number of known users in accordance with specified criteria.
+   *
+   * @param level the {@link AccessLevel} that counted users should have, or
+   *        {@code null} to count all users
+   * @return the number of users in the database that match the specified criteria
+   * @throws SQLException if a database malfunction occurs
+   */
   public static int countUsers(AccessLevel level) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -110,7 +157,14 @@ public class User extends Credentialed implements Comparable<User> {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Retrieves a particular user from the database by their unique identifier.
+   *
+   * @param userID the {@link UUID} of the {@link User}
+   * @return the {@link User}, if it exists; otherwise, {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
   public static User getUser(UUID userID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -150,7 +204,14 @@ public class User extends Credentialed implements Comparable<User> {
     
     return null;
   }
-  
+
+  /**
+   * Retrieves a particular user from the database by their email address.
+   *
+   * @param email the user's email address
+   * @return the {@link User}, if it exists; otherwise, {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
   public static User getUser(String email) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -196,48 +257,107 @@ public class User extends Credentialed implements Comparable<User> {
   private String email = null;
   private String pendingEmail = null;
   private AccessLevel accessLevel = AccessLevel.UNVERIFIED;
-  
+
+  /**
+   * Instantiates a user. This method is designed to be invoked when retrieving
+   * a user from the database.
+   *
+   * @param id the {@link UUID} of the {@link User}
+   * @param pubkey the user's public key (as a byte array)
+   * @param mfakey the user's secret MFA key (as a byte array)
+   * @param email the user's current email address
+   * @param pendingEmail any pending email (unverified) that the user might have
+   * @param accessLevel the user's {@link AccessLevel}
+   */
   public User(UUID id, byte[] pubkey, byte[] mfakey, String email, String pendingEmail, AccessLevel accessLevel) {
     super(id, pubkey, null, mfakey);
     this.email = email;
     this.pendingEmail = email;
     this.accessLevel = accessLevel;
   }
-  
+
+  /**
+   * Instantiates a user. This method is designed to be invoked when creating a
+   * brand-new user.
+   *
+   * @param pendingEmail the email address that has not yet been verified
+   * @param accessLevel the user's access level
+   * @param pubkey the user's public key (as a Base64-encoded string)
+   * @throws CryptoException if the provided pubkey had an invalid format
+   */
   public User(String pendingEmail, AccessLevel accessLevel, String pubkey) throws CryptoException {
     super(null, null, null, null);
     this.pendingEmail = email;
     this.accessLevel = accessLevel;
     setPubkey(pubkey);
   }
-  
+
+  /**
+   * Retrieves the user's current (verified) email address.
+   *
+   * @return the user's email address
+   */
   public String getEmail() {
     return email;
   }
-  
+
+  /**
+   * Sets the user's current (verified) email address.
+   *
+   * @param email the user's email address
+   * @return the {@link User} instance
+   */
   public User setEmail(String email) {
     this.email = email;
     return this;
   }
-  
+
+  /**
+   * Retrieves the user's pending (unverified) email address.
+   *
+   * @return the user's pending email address
+   */
   public String getPendingEmail() {
     return pendingEmail;
   }
-  
+
+  /**
+   * Sets the user's pending email address.
+   *
+   * @param email the user's pending email address
+   * @return the {@link User} instance
+   */
   public User setPendingEmail(String email) {
     this.pendingEmail = email;
     return this;
   }
-  
+
+  /**
+   * Retrieves this user's access level.
+   *
+   * @return the user's {@link AccessLevel}
+   */
   public AccessLevel getAccessLevel() {
     return accessLevel;
   }
-  
+
+  /**
+   * Sets this user's access level.
+   *
+   * @param accessLevel the user's {@link AccessLevel}
+   * @return the {@link User} instance
+   */
   public User setAccessLevel(AccessLevel accessLevel) {
     this.accessLevel = accessLevel;
     return this;
   }
-  
+
+  /**
+   * Saves this {@link User} to the database. If the user already exists, then
+   * it will simply be updated.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void commit() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -328,7 +448,12 @@ public class User extends Credentialed implements Comparable<User> {
       YasssCore.getDB().close(con, stmt, null);
     }
   }
-  
+
+  /**
+   * Removes this {@link User} from the database.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void delete() throws SQLException {
     if(null == getID()) return;
     
@@ -353,7 +478,10 @@ public class User extends Credentialed implements Comparable<User> {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * {@inheritDoc}
+   */
   @Override public int compareTo(User user) {
     return null == email && null == user.email ? 0
         : null == email ? -1

@@ -25,8 +25,16 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for removing an RSVP.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class UnsetRSVPEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public UnsetRSVPEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
@@ -34,6 +42,9 @@ public final class UnsetRSVPEndpoint extends APIEndpoint {
         HTTPMethod.DELETE);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

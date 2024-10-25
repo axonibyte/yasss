@@ -9,6 +9,12 @@ package com.crowdease.yasss.api;
 
 import com.axonibyte.lib.http.rest.AuthStatus;
 
+/**
+ * An authorization token that accompanies the authentication token. Determines
+ * the amount of power an authenticated user has to view and/or manipulate resources.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class Authorization implements AuthStatus {
 
   public static final Object IS_AUTHENTICATED = new Object();
@@ -17,6 +23,12 @@ public class Authorization implements AuthStatus {
   private final boolean isAuthenticated;
   private final boolean isHuman;
 
+  /**
+   * Instantiates an {@link Authorization} object.
+   *
+   * @param isAuthenticated {@code true} iff the user was properly authenticated
+   * @param isHuman {@code true} iff the user passed a CAPTCHA check
+   */
   Authorization(boolean isAuthenticated, boolean isHuman) {
     this.isAuthenticated = isAuthenticated;
     this.isHuman = isHuman;

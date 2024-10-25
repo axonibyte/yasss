@@ -21,12 +21,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for handling the removal of volunteers from events.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class RemoveVolunteerEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public RemoveVolunteerEndpoint() {
     super("/events/:event/volunteers/:volunteer", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

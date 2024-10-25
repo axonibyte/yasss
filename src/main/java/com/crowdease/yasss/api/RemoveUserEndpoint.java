@@ -20,12 +20,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for handling the removal of users.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class RemoveUserEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public RemoveUserEndpoint() {
     super("/users", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       User user = null;

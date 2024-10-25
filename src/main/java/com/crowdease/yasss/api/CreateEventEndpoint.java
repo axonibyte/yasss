@@ -32,12 +32,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the creation of events.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class CreateEventEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public CreateEventEndpoint() {
     super("/events", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       JSONDeserializer deserializer = new JSONDeserializer(req.body())

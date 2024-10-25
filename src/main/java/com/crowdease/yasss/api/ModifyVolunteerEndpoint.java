@@ -29,12 +29,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the modification of event volunteers.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class ModifyVolunteerEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public ModifyVolunteerEndpoint() {
     super("/events/:event/volunteers/:volunteer", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

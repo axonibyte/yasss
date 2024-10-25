@@ -23,12 +23,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the adding of an activity to an event.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class AddActivityEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public AddActivityEndpoint() {
     super("/events/:event/activities", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       Event event = null;

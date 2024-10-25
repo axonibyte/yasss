@@ -22,8 +22,17 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for unsetting a slot (i.e. the intersection of a window
+ * and activity).
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class UnsetSlotEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public UnsetSlotEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window",
@@ -31,6 +40,9 @@ public final class UnsetSlotEndpoint extends APIEndpoint {
         HTTPMethod.DELETE);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

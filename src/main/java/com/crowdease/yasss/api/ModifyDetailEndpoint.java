@@ -24,12 +24,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the modification of event details.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class ModifyDetailEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public ModifyDetailEndpoint() {
     super("/events/:event/details/:detail", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       Event event = null;

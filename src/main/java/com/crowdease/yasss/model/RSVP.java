@@ -16,26 +16,56 @@ import java.util.UUID;
 import com.axonibyte.lib.db.SQLBuilder;
 import com.crowdease.yasss.YasssCore;
 
+/**
+ * Represents a volunteer's "sign-up" to an event.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class RSVP {
   
   private final UUID activity;
   private final UUID window;
   private final UUID volunteer;
-  
+
+  /**
+   * Instantiates an RSVP.
+   *
+   * @param activity the {@link UUID} of the {@link Activity} associated with
+   *        the {@link Slot} to which this {@link RSVP} is assigned
+   * @param window the {@link UUID} of the {@link Window} associated with the
+   *        {@link Slot} to which this {@link RSVP} is assigned
+   * @param volunteer the {@link UUID} of the {@link Volunteer} on whose behalf
+   *        this {@link RSVP} was submitted
+   */
   public RSVP(UUID activity, UUID window, UUID volunteer) {
     this.activity = activity;
     this.window = window;
     this.volunteer = volunteer;
   }
-  
+
+  /**
+   * Retrieves the unique identifier of the activity associated with this RSVP.
+   *
+   * @return the {@link UUID} of the {@link Activity}
+   */
   public UUID getActivity() {
     return activity;
   }
-  
+
+  /**
+   * Retrieves the unique identifier of the window associated with this RSVP.
+   *
+   * @return the {@link UUID} of the {@link Window}
+   */
   public UUID getWindow() {
     return window;
   }
-  
+
+  /**
+   * Retrieves the volunteer associated with this RSVP.
+   *
+   * @return the {@link Volunteer} associated with this {@link RSVP}
+   */
   public Volunteer getVolunteer() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -75,7 +105,12 @@ public class RSVP {
     
     return null;
   }
-  
+
+  /**
+   * Saves this RSVP to the database. Any conflicting record is overwritten.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void commit() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -101,7 +136,12 @@ public class RSVP {
       YasssCore.getDB().close(con, stmt, null);
     }
   }
-  
+
+  /**
+   * Removes this RSVP from the database.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void delete() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;

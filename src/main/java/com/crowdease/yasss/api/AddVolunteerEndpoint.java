@@ -26,7 +26,6 @@ import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
-import com.crowdease.yasss.model.Window;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 
 import org.json.JSONArray;
@@ -35,12 +34,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the adding of a volunteer to an event.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class AddVolunteerEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public AddVolunteerEndpoint() {
     super("/events/:event/volunteers", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

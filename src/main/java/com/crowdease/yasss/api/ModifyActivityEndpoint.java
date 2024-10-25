@@ -23,12 +23,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles activity modification.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class ModifyActivityEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public ModifyActivityEndpoint() {
     super("/events/:event/activities/:activity", APIVersion.VERSION_1, HTTPMethod.PATCH);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       Event event = null;

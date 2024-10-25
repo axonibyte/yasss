@@ -24,12 +24,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for resetting a user's credentials.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class ResetUserEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public ResetUserEndpoint() {
     super("/users/:user", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       User user = null;

@@ -24,12 +24,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the adding of a detail to an endpoint.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class AddDetailEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public AddDetailEndpoint() {
     super("/events/:event/details", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       Event event = null;

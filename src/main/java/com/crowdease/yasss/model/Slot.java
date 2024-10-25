@@ -25,36 +25,80 @@ import com.axonibyte.lib.db.SQLBuilder.Join;
 import com.axonibyte.lib.db.SQLBuilder.Order;
 import com.crowdease.yasss.YasssCore;
 
+/**
+ * Represents the intersection of an activity and a window.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class Slot {
   
   private final UUID activity;
   private final UUID window;
   
   private int maxSlotVolunteers = -1;
-  
+
+  /**
+   * Instantiates the slot.
+   *
+   * @param activity the {@link UUID} of the {@link Activity} associated with
+   *        this {@link Slot}
+   * @param window the {@link UUID} of the {@link Window} associated with this
+   *        {@link Slot}
+   * @param maxSlotVolunteers the maximum number of volunteers permitted to sign
+   *        up for this slot (or {@code 0} if an infinite number of volunteers
+   *        should be be permitted to sign up)
+   */
   public Slot(UUID activity, UUID window, int maxSlotVolunteers) {
     this.activity = activity;
     this.window = window;
     this.maxSlotVolunteers = maxSlotVolunteers;
   }
-  
+
+  /**
+   * Retrieves the unique ID of the activity associated with this slot.
+   *
+   * @return the {@link UUID} of the {@link Activity}
+   */
   public UUID getActivity() {
     return activity;
   }
-  
+
+  /**
+   * Retrieves the unique ID of the window associated with this slot.
+   *
+   * @return the {@link UUID} of the {@link Window}
+   */
   public UUID getWindow() {
     return window;
   }
-  
+
+  /**
+   * Retrieves the maximum number of volunteers that will be permitted to
+   * volunteer for this slot.
+   *
+   * @return the localized volunteer cap for this slot
+   */
   public int getMaxSlotVolunteers() {
     return maxSlotVolunteers;
   }
-  
+
+  /**
+   * Sets the maximum number of volunteers that will be permitted to volunteer
+   * for this slot.
+   *
+   * @return this {@link Slot} instance
+   */
   public Slot setMaxSlotVolunteers(int maxVolunteers) {
     this.maxSlotVolunteers = maxVolunteers;
     return this;
   }
-  
+
+  /**
+   * Retrieves the RSVPS (and linked volunteers) associated with this slot.
+   *
+   * @return a {@link Map} of {@link RSVP} keys and their respective
+   *         {@link Volunteer} values
+   */
   public Map<RSVP, Volunteer> getRSVPs() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -153,7 +197,12 @@ public class Slot {
     }
     
   }
-  
+
+  /**
+   * Counts the RSVPS associated with this particular slot.
+   *
+   * @return the {@link RSVP} count for this {@link Slot}
+   */
   public int countRSVPs() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -190,7 +239,13 @@ public class Slot {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Retrieves a particular RSVP and its associated volunteer.
+   *
+   * @return an {@link Entry} with an {@link RSVP} as its key and a
+   *         {@link Volunteer} as its value
+   */
   public Entry<RSVP, Volunteer> getRSVP(UUID volunteerID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -246,7 +301,13 @@ public class Slot {
     
     return null;
   }
-  
+
+  /**
+   * Saves this RSVP to the database. If it already exists, the entry is simply
+   * updated.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void commit() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -288,7 +349,12 @@ public class Slot {
       YasssCore.getDB().close(con, stmt, null);
     }
   }
-  
+
+  /**
+   * Removes this {@link Slot} from the database.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void delete() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;

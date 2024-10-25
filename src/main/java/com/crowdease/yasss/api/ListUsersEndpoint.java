@@ -23,12 +23,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the listing of users.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class ListUsersEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public ListUsersEndpoint() {
     super("/users", APIVersion.VERSION_1, HTTPMethod.GET);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       JSONDeserializer deserializer = deserializeQueryParams(req)

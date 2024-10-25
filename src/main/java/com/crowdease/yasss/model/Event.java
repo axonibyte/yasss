@@ -27,10 +27,29 @@ import com.axonibyte.lib.db.SQLBuilder.Join;
 import com.axonibyte.lib.db.SQLBuilder.Order;
 import com.crowdease.yasss.YasssCore;
 
+/**
+ * Represents an event--a collection of activities, windows, volunteers, and
+ * their respective RSVPS that represent attendees or helpers in a real-world
+ * event.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class Event {
-  
-  public static Set<Event> getEvents(UUID adminID, UUID volunteerID, String labelSubstr, Timestamp earliest,
-      Timestamp latest) throws SQLException {
+
+  /**
+   * Retrieves an ordered set of events that conform to provided criteria.
+   *
+   * @param adminID the {@link UUID} of the {@link User} that is responsible for
+   *        administrating the event
+   * @param volunteerID the {@link UUID} of a {@link Volunteer} that has signed
+   *        up for the event
+   * @param labelSubstr a needle to search for in the haystack of event labels
+   * @param earliest the inclusive lower bound for the event {@link Timestamp} criteria
+   * @param latest the exclusive upper bound for the event {@link Timestamp} criteria
+   * @return a {@link Set} of {@link Event} objects that meet the criteria
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static Set<Event> getEvents(UUID adminID, UUID volunteerID, String labelSubstr, Timestamp earliest, Timestamp latest) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -118,9 +137,23 @@ public class Event {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
-  public static Set<Event> getEvents(UUID adminID, UUID volunteerID, String labelSubstr, Timestamp earliest,
-      Integer page, Integer limit) throws SQLException {
+
+  /**
+   * Retrieves an ordered set of events that conform to provided criteria.
+   *
+   * @param adminID the {@link UUID} of the {@link User} that is responsible for
+   *        administrating the event
+   * @param volunteerID the {@link UUID} of a {@link Volunteer} that has
+   *        signed up for the event
+   * @param labelSubstr a needle to search for in the haystack of event labels
+   * @param earliest the inclusive lower bound for the event {@link Timestamp} criteria
+   * @param page the number of the page to retrieve (i.e. the paginated set of
+   *        results)
+   * @param limit the maximum number of results to return (i.e. the page size cap)
+   * @return a {@link Set} of {@link Event} objects that mett criteria
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static Set<Event> getEvents(UUID adminID, UUID volunteerID, String labelSubstr, Timestamp earliest, Integer page, Integer limit) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -208,7 +241,20 @@ public class Event {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Counts the number of events that meet the specified criteria.
+   *
+   * @param adminID the {@link UUID} of the {@link User} that is responsible for
+   *        administrating the event
+   * @param volunteerID the {@link UUID} of a {@link Volunteer} that has signed
+   *        up for the event
+   * @param labelSubstr a needle to search for in the haystack of event labels
+   * @param earliest the inclusive lower bound for the event {@link Timestamp} criteria
+   * @return the number of entries that would be returned in total, should this
+   *         query be made, without regard to the pagination specification
+   * @throws SQLexception if a database malfunction occurs
+   */
   public static int countEvents(UUID adminID, UUID volunteerID, String labelSubstr, Timestamp earliest)
       throws SQLException {
     Connection con = null;
@@ -270,7 +316,14 @@ public class Event {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Retrieves a specific {@link Event} from the database.
+   *
+   * @param eventID the {@link UUID} of the {@link Event}
+   * @return the {@link Event}, if it exists, or {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
   public static Event getEvent(UUID eventID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -323,7 +376,23 @@ public class Event {
   private boolean emailOnSubmission = false;
   private boolean allowMultiUserSignups = false;
   private boolean isPublished = false;
-  
+
+  /**
+   * Instantiates an {@link Event}.
+   *
+   * @param id the unique ID of the {@link Event}
+   * @param admin the unique ID of the {@link User} responsible for administrating
+   *        the event
+   * @param shortDescription the event's short description
+   * @param longDescription the event's long description
+   * @param firstDraftTimestamp the {@link Timestamp} corresponding to the date
+   *        and time at which the event was first posted to the database
+   * @param emailOnSubmission {@code true} if the admin should receive
+   *        notifications when someone submits an RSVP
+   * @param allowMultiUserSignups {@code true} if a single user should be allowed
+   *        to sign more than one volunteer up at the same time
+   * @param isPublished {@code true} iff this event is already published
+   */
   public Event(UUID id, UUID admin, String shortDescription, String longDescription,
       Timestamp firstDraftTimestamp, boolean emailOnSubmission,
       boolean allowMultiUserSignups, boolean isPublished) {
@@ -335,74 +404,168 @@ public class Event {
     this.emailOnSubmission = emailOnSubmission;
     this.allowMultiUserSignups = allowMultiUserSignups;
   }
-  
+
+  /**
+   * Retrieves the event's unique identifier.
+   *
+   * @return the {@link UUID} of the {@link Event}
+   */
   public UUID getID() {
     return id;
   }
-  
+
+  /**
+   * Retrieves the unique identifier of the user responsible for administrating
+   * this event.
+   *
+   * @return the {@link UUID} of the {@link Event} admin or {@code null} if no
+   *         admin was ever specified
+   */
   public UUID getAdmin() {
     return admin;
   }
-  
+
+  /**
+   * Sets the unique identifier of the user responsible for administrating this
+   * event.
+   *
+   * @return this {@link Event} instance
+   */
   public Event setAdmin(UUID admin) {
     this.admin = admin;
     return this;
   }
-  
+
+  /**
+   * Retrieves the event's short description.
+   *
+   * @return the short description associated with the {@link Event}
+   */
   public String getShortDescription() {
     return shortDescription;
   }
-  
+
+  /**
+   * Sets the event's short description.
+   *
+   * @param shortDescription the short description associated with the {@link Event}
+   * @return this {@link Event} instance
+   */
   public Event setShortDescription(String shortDescription) {
     this.shortDescription = shortDescription;
     return this;
   }
-  
+
+  /**
+   * Retrieves the event's long description.
+   *
+   * @return the long description associated with the {@link Event}
+   */
   public String getLongDescription() {
     return longDescription;
   }
-  
+
+  /**
+   * Sets the event's long description.
+   *
+   * @param longDescription the long description associated with the {@link Event}
+   * @return this {@link Event} instance
+   */
   public Event setLongDescription(String longDescription) {
     this.longDescription = longDescription;
     return this;
   }
-  
+
+  /**
+   * Retrieves the timestamp associated with this event's first date and time of
+   * commit to the database.
+   *
+   * @return the {@link Timestamp} associated with the publishing of the first
+   *         draft of this {@link Event}
+   */
   public Timestamp getFirstDraftTimestamp() {
     return firstDraftTimestamp;
   }
-  
+
+  /**
+   * Sets the timestamp associated with this event's first date and time of commit
+   * to the database.
+   *
+   * @return this {@link Event} instance
+   */
   public Event setFirstDraftTimestamp(Timestamp timestamp) {
     this.firstDraftTimestamp = timestamp;
     return this;
   }
-  
+
+  /**
+   * Determines whether or not the admin (if they exist) should be notified when
+   * a volunteer submits an RSVP.
+   *
+   * @return {@code true} iff admin email notifications are enabled
+   */
   public boolean emailOnSubmissionEnabled() {
     return emailOnSubmission;
   }
-  
+
+  /**
+   * Sets whether or not the admin (if they exist) should be notified when a
+   * volunteer submits an RSVP.
+   *
+   * @param enabled {@code true} iff admin email notifications should be enabled
+   * @return this {@link Event} instance
+   */
   public Event enableEmailOnSubmission(boolean enabled) {
     this.emailOnSubmission = enabled;
     return this;
   }
-  
+
+  /**
+   * Determines whether or not a single {@link User} is allowed to create more
+   * than one {@link Volunteer} for this event.
+   *
+   * @return {@code true} if multi-user signups are enabled
+   */
   public boolean allowMultiUserSignups() {
     return allowMultiUserSignups;
   }
-  
+
+  /**
+   * Sets whether or not a single {@link User} is allowed to create more than one
+   * {@link Volunteer} for this event.
+   *
+   * @return this {@link Event} instance
+   */
   public Event allowMultiUserSignups(boolean allow) {
     this.allowMultiUserSignups = allow;
     return this;
   }
-  
+
+  /**
+   * Determines whether or not this event has been published.
+   *
+   * @return {@code true} if this event was published
+   */
   public boolean isPublished() {
     return isPublished;
   }
-  
+
+  /**
+   * Sets whether or not this event should be published.
+   *
+   * @return this {@link Event} instance
+   */
   public Event publish(boolean publish) {
     this.isPublished = publish;
     return this;
   }
-  
+
+  /**
+   * Retrieves the details associated with this event.
+   *
+   * @return a {@link Set} of {@link Detail} objects
+   * @throws SQLException if a database malfunction occurs
+   */
   public Set<Detail> getDetails() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -447,7 +610,14 @@ public class Event {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Retrieves a specific event detail from thet database.
+   *
+   * @param detailID the {@link UUID} of the {@link Detail} in question
+   * @return the {@link Detail}, if it exists; otherwise, {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
   public Detail getDetail(UUID detailID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -490,7 +660,13 @@ public class Event {
     
     return null;
   }
-  
+
+  /**
+   * Retrieves the activities associated with this event.
+   *
+   * @return a {@link Set} of {@link Activity} objects
+   * @throws SQLException if a database malfunction occurs
+   */
   public Set<Activity> getActivities() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -535,7 +711,14 @@ public class Event {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Retrieves a specific activity from the database.
+   *
+   * @param activityID the {@link UUID} of the {@link Activity} in question
+   * @return the {@link Activity}, if it exists; otherwise, {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
   public Activity getActivity(UUID activityID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -578,7 +761,13 @@ public class Event {
     
     return null;
   }
-  
+
+  /**
+   * Retrieves the windows associated with this event.
+   *
+   * @return a {@link Set} of {@link Window} objects
+   * @throws SQLException if a database malfunction occurs
+   */
   public Set<Window> getWindows() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -616,7 +805,15 @@ public class Event {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Retrieves a window from the database.
+   *
+   * @param windowID the {@link UUID} associated with the {@link Window} in
+   *        question
+   * @return the {@link Window}, if it exists; otherwise, {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
   public Window getWindow(UUID windowID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -654,6 +851,12 @@ public class Event {
     return null;
   }
 
+  /**
+   * Retrieves the volunteers associated with this event.
+   *
+   * @return a {@link Set} of {@link Volunteer} objects
+   * @throws SQLException if a database malfunction occurs
+   */
   public Set<Volunteer> getVolunteers() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -734,6 +937,13 @@ public class Event {
     }
   }
 
+  /**
+   * Retrieves a particular volunteer associated with this event.
+   *
+   * @param volunteerID the {@link UUID} associated with the {@link Volunteer}
+   *        in question
+   * @return the {@link Volunteer}, if it exists; otherwise, {@code null}
+   */
   public Volunteer getVolunteer(UUID volunteerID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -772,7 +982,13 @@ public class Event {
 
     return null;
   }
-  
+
+  /**
+   * Saves this {@link Event} to the database. If it already exists, it's merely
+   * updated.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void commit() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -839,7 +1055,12 @@ public class Event {
       YasssCore.getDB().close(con, stmt, null);
     }
   }
-  
+
+  /**
+   * Removes this {@link Event} from the database.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void delete() throws SQLException {
     if(null == getID()) return;
     

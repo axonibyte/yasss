@@ -24,12 +24,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint that handles the creation of users.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class CreateUserEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public CreateUserEndpoint() {
     super("/users", APIVersion.VERSION_1, HTTPMethod.POST);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       JSONDeserializer deserializer = new JSONDeserializer(req.body())

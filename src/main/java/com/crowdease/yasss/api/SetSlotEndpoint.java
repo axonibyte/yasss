@@ -25,8 +25,17 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for setting a slot (i.e. the intersection of a window
+ * and activity).
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class SetSlotEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public SetSlotEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window",
@@ -34,6 +43,9 @@ public final class SetSlotEndpoint extends APIEndpoint {
         HTTPMethod.PUT);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       

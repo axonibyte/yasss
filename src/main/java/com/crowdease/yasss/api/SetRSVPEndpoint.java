@@ -24,8 +24,16 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for adding (or updating) an RSVP.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class SetRSVPEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public SetRSVPEndpoint() {
     super(
         "/events/:event/activities/:activity/windows/:window/volunteers/:volunteer",
@@ -33,6 +41,9 @@ public final class SetRSVPEndpoint extends APIEndpoint {
         HTTPMethod.PUT);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
 

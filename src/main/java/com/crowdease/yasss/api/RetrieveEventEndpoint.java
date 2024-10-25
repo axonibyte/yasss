@@ -24,12 +24,23 @@ import org.json.JSONObject;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Endpoint responsible for retrieving endpoints.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public final class RetrieveEventEndpoint extends APIEndpoint {
 
+  /**
+   * Instantiates the endpoint.
+   */
   public RetrieveEventEndpoint() {
     super("/events/:event", APIVersion.VERSION_1, HTTPMethod.GET);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
       Event event = null;

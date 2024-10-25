@@ -26,6 +26,12 @@ import org.slf4j.LoggerFactory;
 import spark.Request;
 import spark.Response;
 
+/**
+ * Represents a standard API endpoint that can accept a JSON request and returns
+ * a JSON response.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public abstract class APIEndpoint extends JSONEndpoint {
 
   public static final String ACCOUNT_HEADER = "AXB-ACCOUNT";
@@ -33,10 +39,21 @@ public abstract class APIEndpoint extends JSONEndpoint {
     
   private static final Logger logger = LoggerFactory.getLogger(APIEndpoint.class);
 
+  /**
+   * Instantiates the endpoint.
+   *
+   * @param resource the version-exclusive path used to access the endpoint
+   * @param version the {@link APIVersion} associated with the endpoint, which
+   *        prepended to the resource path accordingly
+   * @param methods the array of HTTP methods that can be used to hit the endpoint
+   */
   protected APIEndpoint(String resource, APIVersion version, HTTPMethod... methods) {
     super(resource, version, methods);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
     String authString = req.headers("Authorization");
     User user = null;
@@ -63,12 +80,37 @@ public abstract class APIEndpoint extends JSONEndpoint {
     return new Authorization(false, true);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override public JSONObject doEndpointTask(Request req, Response res, AuthStatus auth) throws EndpointException {
     return onCall(req, res, (Authorization)auth);
   }
 
+  /**
+   * Executes the endpoint workflow.
+   *
+   * @param req the HTTP {@link Request}
+   * @param res the HTTP {@link Response}
+   * @param auth the {@link Authorization} associated with the actor accessing
+   *        the endpoint
+   * @return the {@link JSONObject} response
+   * @throws EndpointException if a malfunction occurs during the execution of
+   *         the endpoint's workflow
+   */
   public abstract JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException;
 
+  /**
+   * Converts the query parameters into a {@link JSONObject}. If there exists
+   * only one value for the associated parameter, the value added to the object
+   * will be a string; otherwise, the value will be an array of strings.
+   *
+   * @param req the HTTP {@link Request}
+   * @return a {@link JSONDeserializer} to assist in the deserialization of the
+   *         JSON object
+   * @throws DeserializationException if the deserialization process fails for
+   *         some reason (which should never happen on this particular method)
+   */
   protected JSONDeserializer deserializeQueryParams(Request req) throws DeserializationException {
     JSONObject map = new JSONObject();
     for(var param : req.queryParams()) {

@@ -24,51 +24,108 @@ import com.axonibyte.lib.db.SQLBuilder.Join;
 import com.axonibyte.lib.db.SQLBuilder.Order;
 import com.crowdease.yasss.YasssCore;
 
+/**
+ * Models a window in an event. Intended to represent a window of time during
+ * which a volunteer will be participating in some activity.
+ *
+ * @author Caleb L. Power <cpower@crowdease.com>
+ */
 public class Window implements Comparable<Window> {
   
   private UUID id = null;
   private UUID event = null;
   private Timestamp begin = null;
   private Timestamp end = null;
-  
+
+  /**
+   * Instantiates a {@link Window}.
+   *
+   * @param id the {@link UUID} associated with this window
+   * @param event the {@link UUID} associated with the event containing this window
+   * @param begin the {@link Timestamp} denoting the date and time during which
+   *        the window starts
+   * @param end the {@link Timestamp} denoting the date and time during which the
+   *        window ends
+   */
   public Window(UUID id, UUID event, Timestamp begin, Timestamp end) {
     this.id = id;
     this.event = event;
     this.begin = begin;
     this.end = end;
   }
-  
+
+  /**
+   * Retrieves the unique ID associated with this {@link Window}.
+   *
+   * @return the {@link UUID} of the {@link Window}.
+   */
   public UUID getID() {
     return id;
   }
-  
+
+  /**
+   * Retrieves the unique ID of the {@link Event} associated with this window.
+   *
+   * @return the {@link UUID} of the {@link Event}
+   */
   public UUID getEvent() {
     return event;
   }
-  
+
+  /**
+   * Sets the unique ID of the {@link Event} associated with this window.
+   *
+   * @param event the {@link UUID} of the {@link Event}
+   * @return this {@link Window} instance
+   */
   public Window setEvent(UUID event) {
     this.event = event;
     return this;
   }
-  
+
+  /**
+   * Determines the date and time at which this window begins.
+   *
+   * @return a {@link Timestamp} denoting with the window's start time
+   */
   public Timestamp getBeginTime() {
     return begin;
   }
-  
+
+  /**
+   * Sets the date and time at which this window begins.
+   *
+   * @param beginTime the {@link Timestamp} denoting with the window's start time
+   */
   public Window setBeginTime(Timestamp beginTime) {
     this.begin = beginTime;
     return this;
   }
-  
+
+  /**
+   * Determines the date and time at which this window ends.
+   *
+   * @return a {@link Timestamp} denoting with the window's end time
+   */
   public Timestamp getEndTime() {
     return end;
   }
-  
+
+  /**
+   * Sets the date and time at which this window ends.
+   *
+   * @param endTime the {@link Timestamp} denoting the window's end time
+   */
   public Window setEndTime(Timestamp endTime) {
     this.end = endTime;
     return this;
   }
-  
+
+  /**
+   * Retrieves all slots associated with this window.
+   *
+   * @return a {@link Set} of {@link Slot} objects
+   */
   public Set<Slot> getSlots() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -111,7 +168,18 @@ public class Window implements Comparable<Window> {
       YasssCore.getDB().close(con, stmt, res);
     }
   }
-  
+
+  /**
+   * Retrieves a specific {@link Slot} associated with this {@link Window}.
+   *
+   * @param activityID the {@link UUID} associated with the {@link Activity} with
+   *        which this {@link Window} forms an intersection manifesting as the
+   *        desired {@link Slot}
+   * @return the {@link Slot} that forms the intersection of this {@link Window}
+   *         and the provided {@link Activity} {@link UUID}, if it exists;
+   *         otherwise, {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
   public Slot getSlot(UUID activityID) throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -146,7 +214,13 @@ public class Window implements Comparable<Window> {
     
     return null;
   }
-  
+
+  /**
+   * Saves this {@link Window} to the database. If it already exists, it is
+   * merely updated.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void commit() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
@@ -214,7 +288,12 @@ public class Window implements Comparable<Window> {
       YasssCore.getDB().close(con, stmt, null);
     }
   }
-  
+
+  /**
+   * Removes this {@link Window} from the database.
+   *
+   * @throws SQLException if a database malfunction occurs
+   */
   public void delete() throws SQLException {
     if(null == id) return;
     
@@ -238,7 +317,10 @@ public class Window implements Comparable<Window> {
       YasssCore.getDB().close(con, stmt, null);
     }
   }
-  
+
+  /**
+   * {@inheritDoc}
+   */
   @Override public int compareTo(Window window) {
     Objects.requireNonNull(window);
     int c;
