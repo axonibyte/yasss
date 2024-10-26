@@ -28,6 +28,7 @@ import com.crowdease.yasss.api.AddVolunteerEndpoint;
 import com.crowdease.yasss.api.AddWindowEndpoint;
 import com.crowdease.yasss.api.CreateEventEndpoint;
 import com.crowdease.yasss.api.CreateUserEndpoint;
+import com.crowdease.yasss.api.EventReportEndpoint;
 import com.crowdease.yasss.api.ListEventsEndpoint;
 import com.crowdease.yasss.api.ListUsersEndpoint;
 import com.crowdease.yasss.api.ModifyActivityEndpoint;
@@ -134,6 +135,7 @@ public class YasssCore {
               new AddWindowEndpoint(),
               new CreateEventEndpoint(),
               new CreateUserEndpoint(),
+              new EventReportEndpoint(),
               new ListEventsEndpoint(),
               new ListUsersEndpoint(),
               new ModifyActivityEndpoint(),
