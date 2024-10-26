@@ -1,8 +1,45 @@
 <!doctype html>
 <html>
+  
   <head>
     <title>Yasss!</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      
+      table {
+        background-color: #f9fafb;
+        border: 1px solid #00d1b2;
+        width: 100%;
+        margin-bottom: 15px;
+        table-layout: fixed;
+      }
+      
+      tr:first-of-type > th {
+        border: 1px solid #dbe1e7;
+        background-color: #dbe1e7;
+        text-align: center;
+      }
+      
+      tr, td {
+        padding-left: 10px;
+      }
+      
+      .category {
+        border: 1px solid #dbe1e7;
+        background-color: #dbe1e7;
+        text-align: center;
+        vertical-align: top;
+      }
+      
+      .checkbox {
+        text-align: center;
+      }
+    </style>
     <link rel="stylesheet" href="/assets/css/report.css" />
   </head>
+  
   {{ REPORT_BODY }}
+  
 </html>

@@ -207,12 +207,15 @@ function renderEventTableMeta(title, description, editable) {
   if(editable) {
     $('#view-event-volunteer').hide();
     $('#view-event-details').show();
-    $('#view-event-edit-summary').parent().show();
+    $('#view-event-edit-summary').show();
   } else {
     $('#view-event-details').hide();
     $('#view-event-volunteer').show();
-    $('#view-event-edit-summary').parent().hide();
+    $('#view-event-edit-summary').hide();
   }
+  if(userData && userData.account)
+    $('#view-event-view-report').show();
+  else $('#view-event-view-report').hide();
 }
 
 function renderEventTable(parent, step = 1) {
@@ -2615,6 +2618,22 @@ function loadSite() {
       else if(null !== max && val > max)
         $(this).val(max);
     }
+  });
+
+  // report handling
+  $('#view-event-view-report').on('click', function() {
+    fetch(`/v1/events/${eventTableData.summary.id}/report`, {
+      headers: {
+        Authorization: `AXB-SIG-REQ ${userData.session}`
+      }
+    }).then(
+      res => res.blob()
+    ).then((blob) => {
+      var _url = window.URL.createObjectURL(blob);
+      window.open(_url, "_blank").focus();
+    }).catch(err => {
+      console.log(err);
+    });
   });
 
   setTimeout(() => {
