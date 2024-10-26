@@ -11,8 +11,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 import com.axonibyte.lib.db.SQLBuilder;
@@ -121,7 +123,8 @@ public class Volunteer {
    *         must be recommitted via {@link Volunteer#setDetails(Map)}
    */
   public Map<Detail, String> getDetails() {
-    return Map.copyOf(details);
+    return Collections.unmodifiableMap(
+        new TreeMap<>(details));
   }
 
   /**
@@ -134,7 +137,7 @@ public class Volunteer {
    * @return the {@link Volunteer} instance
    */
   public Volunteer setDetails(Map<Detail, String> details) {
-    this.details = Map.copyOf(details);
+    this.details = new TreeMap<>(details);
     return this;
   }
 

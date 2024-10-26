@@ -23,7 +23,6 @@ import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.api.AuthToken.AuthException;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.HTMLElem;
-import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.User;
 
 import org.slf4j.Logger;
@@ -36,6 +35,8 @@ public final class EventReportEndpoint extends Endpoint {
 
   private static final String TOTAL_COLS = "5";
   private static final String ACTIVITY_COLSPAN = "2";
+  private static final String DETAIL_COLSPAN = "3";
+  private static final String RSVP_COLSPAN = "2";
   private static final String VOLUNTEER_COLSPAN = "2";
   private static final int ADDITIONAL_NOCAP_VOLUNTEERS = 5;
 
@@ -45,10 +46,7 @@ public final class EventReportEndpoint extends Endpoint {
     super("/events/:event/report", APIVersion.VERSION_1, HTTPMethod.GET);
   }
 
-  @Override public String answer(Request req, Response res, AuthStatus auth) throws EndpointException {
-    boolean rsvpsOnly = Boolean.parseBoolean(
-        req.queryParamOrDefault("rsvpsOnly", "true"));
-    
+  @Override public String answer(Request req, Response res, AuthStatus auth) throws EndpointException {    
     HTMLElem htmlBody = new HTMLElem("body");
     
     try {
@@ -66,6 +64,47 @@ public final class EventReportEndpoint extends Endpoint {
       htmlBody.push(
           new HTMLElem("h1")
               .push(event.getShortDescription()));
+      
+      HTMLElem volTable = new HTMLElem("table")
+          .push(
+              new HTMLElem("tr")
+                  .push(
+                      new HTMLElem("th")
+                          .attr("colspan", TOTAL_COLS)
+                          .push("Volunteers")));
+      for(var volunteer : event.getVolunteers()) {
+        List<HTMLElem> rows = new ArrayList<>();
+        
+        for(var detail : volunteer.getDetails().entrySet()) {
+          rows.add(
+              new HTMLElem("tr")
+                  .push(
+                      new HTMLElem("td")
+                          .attr("colspan", DETAIL_COLSPAN)
+                          .push(
+                              String.format(
+                                  "<strong>%1$s:</strong> %2$s",
+                                  detail.getKey().getLabel(),
+                                  detail.getValue()))));
+        }
+
+        rows.get(0).insert(
+            0,
+            new HTMLElem("td")
+            .attr("colspan", VOLUNTEER_COLSPAN)
+            .attr("rowspan", "" + (1 + rows.size()))
+            .attr("class", "category")
+            .push(volunteer.getName()));
+
+        rows.add(
+            new HTMLElem("td")
+                .push("<br />"));
+
+        for(var row : rows)
+          volTable.push(row);
+      }
+      
+      htmlBody.push(volTable);
 
       final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm a");
 
@@ -94,9 +133,10 @@ public final class EventReportEndpoint extends Endpoint {
                 new HTMLElem("tr")
                     .push(
                         new HTMLElem("td")
-                            .attr("colspan", VOLUNTEER_COLSPAN)
+                            .attr("colspan", RSVP_COLSPAN)
                             .push(volunteer.getName()),
                         new HTMLElem("td")
+                            .attr("class", "checkbox")
                             .push("&#x2610;")));
           }
           
@@ -120,23 +160,24 @@ public final class EventReportEndpoint extends Endpoint {
                 new HTMLElem("tr")
                     .push(
                         new HTMLElem("td")
-                            .attr("colspan", VOLUNTEER_COLSPAN)
+                            .attr("colspan", RSVP_COLSPAN)
                             .push("<br /><hr />"),
                         new HTMLElem("td")
+                            .attr("class", "checkbox")
                             .push("&#x2610;")));
 
-          logger.error(
-              "desc is {} with act {} and win {}",
-              activity.getShortDescription(),
+          logger.debug(
+              "slot at (a,w) = ({},{}) has description \"{}\"",
               activity.getID().toString(),
-              slot.getWindow().toString());
+              slot.getWindow().toString(),
+              activity.getShortDescription());
           
           rows.get(0).insert(
               0,
               new HTMLElem("td")
                   .attr("colspan", ACTIVITY_COLSPAN)
-                  .attr("rowspan", String.format("%d", rows.size()))
-                  .attr("class", "activity")
+                  .attr("rowspan", "" + rows.size())
+                  .attr("class", "category")
                   .push(activity.getShortDescription()));
 
           for(var row : rows)

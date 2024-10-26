@@ -14,9 +14,11 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 
@@ -873,11 +875,12 @@ public class Event {
               "name",
               "reminders_enabled")
           .where("event")
+          .order("name", Order.ASC)
           .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       res = stmt.executeQuery();
 
-      Set<Volunteer> volunteers = new HashSet<>();
+      Set<Volunteer> volunteers = new LinkedHashSet<>();
       while(res.next())
         volunteers.add(
             new Volunteer(
@@ -890,7 +893,7 @@ public class Event {
                 res.getBoolean("reminders_enabled")));
 
       if(!volunteers.isEmpty()) {
-        Map<UUID, Map<Detail, String>> details = new HashMap<>();
+        Map<UUID, Map<Detail, String>> details = new LinkedHashMap<>();
         YasssCore.getDB().close(null, stmt, res);
         stmt = con.prepareStatement(
             new SQLBuilder()
@@ -905,7 +908,7 @@ public class Event {
         
         int idx = 0;
         for(var volunteer : volunteers) {
-          details.put(volunteer.getID(), new HashMap<>());
+          details.put(volunteer.getID(), new TreeMap<>());
           stmt.setBytes(++idx, SQLBuilder.uuidToBytes(volunteer.getID()));
         }
         res = stmt.executeQuery();
