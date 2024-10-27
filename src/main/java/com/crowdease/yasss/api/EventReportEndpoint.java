@@ -15,6 +15,7 @@ import java.util.Scanner;
 import java.util.UUID;
 
 import com.axonibyte.lib.http.APIVersion;
+import com.axonibyte.lib.http.CAPTCHAValidator;
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.Endpoint;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -46,7 +47,8 @@ public final class EventReportEndpoint extends Endpoint {
     super("/events/:event/report", APIVersion.VERSION_1, HTTPMethod.GET);
   }
 
-  @Override public String answer(Request req, Response res, AuthStatus auth) throws EndpointException {    
+  @Override public String answer(Request req, Response res, AuthStatus as) throws EndpointException {
+    Authorization auth = (Authorization)as;
     HTMLElem htmlBody = new HTMLElem("body");
     
     try {
@@ -60,6 +62,9 @@ public final class EventReportEndpoint extends Endpoint {
 
       if(null == event)
         throw new EndpointException(req, "event not found", 404);
+
+      if(!auth.atLeast(event))
+        throw new EndpointException(req, "access denied", 403);
 
       htmlBody.push(
           new HTMLElem("h1")
@@ -204,6 +209,7 @@ public final class EventReportEndpoint extends Endpoint {
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
     String authString = req.headers("Authorization");
     User user = null;
+    boolean isHuman = false;
 
     try {
       AuthToken token = new AuthToken(authString);
@@ -212,8 +218,6 @@ public final class EventReportEndpoint extends Endpoint {
 
       res.header(APIEndpoint.ACCOUNT_HEADER, user.getID().toString());
       res.header(APIEndpoint.SESSION_HEADER, nextSession);
-
-      return new Authorization(true, true); // set up CAPTCHAS later
       
     } catch(AuthException e) {
       logger.error("authorization error: {}", e.getMessage());
@@ -223,8 +227,18 @@ public final class EventReportEndpoint extends Endpoint {
           null == e.getMessage() ? "no further info available" : e.getMessage());
       throw new EndpointException(req, "internal server error", 500, e);
     }
+
+    if(null == YasssCore.getCAPTCHAKeys())
+      isHuman = true;
+    else {
+      CAPTCHAValidator captchaValidator = new CAPTCHAValidator(
+          YasssCore.getCAPTCHAKeys().getKey());
+      isHuman = captchaValidator.verify(
+          req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
+          req.ip());
+    }
     
-    return new Authorization(false, true);
+    return new Authorization(user, isHuman);
   }
   
 }

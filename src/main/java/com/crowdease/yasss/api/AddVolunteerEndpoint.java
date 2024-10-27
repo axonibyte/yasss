@@ -27,6 +27,7 @@ import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -84,6 +85,11 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
         if(null == user)
           throw new EndpointException(req, "user not found", 404);
       }
+
+      if(!auth.is(Authorization.IS_AUTHENTICATED) && !auth.atLeast(Authorization.IS_HUMAN)
+          || auth.is(Authorization.IS_AUTHENTICATED) && !auth.atLeast(AccessLevel.STANDARD)
+          || null != user && !auth.atLeast(user))
+        throw new EndpointException(req, "access denied", 403);
 
       String name = deserializer.getString("name").strip();
       if(name.isBlank())

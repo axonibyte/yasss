@@ -48,10 +48,14 @@ public final class RemoveActivityEndpoint extends APIEndpoint {
             UUID.fromString(
                 req.params("event")));
 
-        if(null != event)
+        if(null != event) {
+          if(!auth.atLeast(event))
+            throw new EndpointException(req, "access denied", 403);
+          
           activity = event.getActivity(
               UUID.fromString(
                   req.params("activity")));
+        }
         
       } catch(IllegalArgumentException e) { }
 

@@ -16,6 +16,7 @@ import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONArray;
@@ -108,7 +109,11 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
                 .put("priority", detail.getPriority())
                 .put("required", detail.isRequired()));
 
-      for(var volunteer : volunteers.values())
+      for(var volunteer : volunteers.values()) {
+        if(!auth.atLeast(User.getUser(volunteer.getUser()))
+            && !auth.atLeast(event))
+          continue;
+        
         volunteerArr.put(
             new JSONObject()
                 .put("id", volunteer.getID())
@@ -129,6 +134,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
                             (a, b) -> {
                               for(final Object o : b) a.put(o);
                             })));
+      }
 
       res.status(200);
       return new JSONObject()

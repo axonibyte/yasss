@@ -12,8 +12,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -327,6 +325,8 @@ public class Event {
    * @throws SQLException if a database malfunction occurs
    */
   public static Event getEvent(UUID eventID) throws SQLException {
+    if(null == eventID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -621,6 +621,8 @@ public class Event {
    * @throws SQLException if a database malfunction occurs
    */
   public Detail getDetail(UUID detailID) throws SQLException {
+    if(null == detailID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -722,6 +724,8 @@ public class Event {
    * @throws SQLException if a database malfunction occurs
    */
   public Activity getActivity(UUID activityID) throws SQLException {
+    if(null == activityID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -817,6 +821,8 @@ public class Event {
    * @throws SQLException if a database malfunction occurs
    */
   public Window getWindow(UUID windowID) throws SQLException {
+    if(null == windowID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -948,6 +954,8 @@ public class Event {
    * @return the {@link Volunteer}, if it exists; otherwise, {@code null}
    */
   public Volunteer getVolunteer(UUID volunteerID) throws SQLException {
+    if(null == volunteerID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;

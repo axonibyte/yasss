@@ -8,6 +8,10 @@
 package com.crowdease.yasss.api;
 
 import com.axonibyte.lib.http.rest.AuthStatus;
+import com.crowdease.yasss.YasssCore;
+import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.User;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 /**
  * An authorization token that accompanies the authentication token. Determines
@@ -20,17 +24,18 @@ public class Authorization implements AuthStatus {
   public static final Object IS_AUTHENTICATED = new Object();
   public static final Object IS_HUMAN = new Object();
 
-  private final boolean isAuthenticated;
   private final boolean isHuman;
+  private final User user;
 
   /**
    * Instantiates an {@link Authorization} object.
    *
-   * @param isAuthenticated {@code true} iff the user was properly authenticated
+   * @param user the authenticated {@link User}, or {@code null} if the actor
+   *        did not authenticate
    * @param isHuman {@code true} iff the user passed a CAPTCHA check
    */
-  Authorization(boolean isAuthenticated, boolean isHuman) {
-    this.isAuthenticated = isAuthenticated;
+  Authorization(User user, boolean isHuman) {
+    this.user = user;
     this.isHuman = isHuman;
   }
 
@@ -38,18 +43,44 @@ public class Authorization implements AuthStatus {
    * {@inheritDoc}
    */
   @Override public boolean is(Object permission) {
-    throw new UnsupportedOperationException();
+    if(null != permission && permission instanceof AccessLevel)
+      return null != user
+        && ((AccessLevel)permission).ordinal() == user.getAccessLevel().ordinal();
+
+    else return atLeast(permission);
   }
 
   /**
    * {@inheritDoc}
    */
   @Override public boolean atLeast(Object permission) {
-    if(IS_AUTHENTICATED == permission)
-      return isAuthenticated;
+    if(!YasssCore.authRequired())
+      return true;
+    
+    else if(null == permission)
+      return atLeast(AccessLevel.ADMIN);
+    
+    else if(IS_AUTHENTICATED == permission)
+      return null != user;
     
     else if(IS_HUMAN == permission)
       return isHuman;
+
+    else if(permission instanceof AccessLevel)
+      return null != user
+        && ((AccessLevel)permission).ordinal() >= user.getAccessLevel().ordinal();
+
+    else if(permission instanceof Event)
+      return null != user && (
+          user.getID().equals(((Event)permission).getAdmin())
+          && atLeast(AccessLevel.STANDARD)
+          || atLeast(AccessLevel.ADMIN));
+
+    else if(permission instanceof User)
+      return null != user && (
+          user.getID().equals(((User)permission).getID())
+          && atLeast(AccessLevel.STANDARD)
+          || atLeast(AccessLevel.ADMIN));
     
     else return false;
   }
@@ -59,6 +90,15 @@ public class Authorization implements AuthStatus {
    */
   @Override public boolean atMost(Object permission) {
     throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Retrieves the authenticated user, if a user was indeed authenticated.
+   *
+   * @return the {@link User} if one was authenticated; otherwise, {@code null}
+   */
+  public User getUser() {
+    return user;
   }
   
 }

@@ -62,8 +62,13 @@ public final class ModifyUserEndpoint extends APIEndpoint {
         .tokenize("regenerateMFA", false)
         .check();
 
+      if(!auth.atLeast(user))
+        throw new EndpointException(req, "access denied", 403);
+
       if(deserializer.has("accessLevel")) {
-        // TODO auth check
+        if(!auth.atLeast(AccessLevel.ADMIN))
+          throw new EndpointException(req, "access denied", 403);
+        
         try {
           user.setAccessLevel(
               AccessLevel.valueOf(
@@ -82,8 +87,9 @@ public final class ModifyUserEndpoint extends APIEndpoint {
             && null != User.getUser(email))
           throw new EndpointException(req, "conflicting email address found", 409);
 
-        // TODO if auth'd user is an admin, use #setEmail instead
-        user.setPendingEmail(email);
+        if(auth.atLeast(AccessLevel.ADMIN))
+          user.setEmail(email);
+        else user.setPendingEmail(email);
       }
 
       if(deserializer.has("pubkey")) {

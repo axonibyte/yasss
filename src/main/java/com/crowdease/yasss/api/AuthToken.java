@@ -90,7 +90,11 @@ public class AuthToken {
       if(null == user)
         throw new AuthException("user does not exist");
 
-      if(user.verifySig(creds, sig)
+      if(!YasssCore.authRequired()) {
+        logger.warn(
+            "user {} underwent de facto authentication by virtue of disabled auth requirement",
+            user.getID().toString());
+      } if(user.verifySig(creds, sig)
           && (null == user.getEncMFASecret()
               || user.verifyTOTP(
                   credsJSO.getString("mfa")))) {

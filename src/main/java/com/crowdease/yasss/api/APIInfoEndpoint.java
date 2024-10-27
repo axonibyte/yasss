@@ -38,10 +38,16 @@ public final class APIInfoEndpoint extends APIEndpoint {
    */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     res.status(200);
-    return new JSONObject()
-        .put("status", "ok")
-        .put("uptime", System.currentTimeMillis() - YasssCore.getLaunchTime())
-        .put("version", APIVersion.VERSION_1.ordinal());
+
+    JSONObject resBody = new JSONObject()
+      .put("status", "ok")
+      .put("uptime", System.currentTimeMillis() - YasssCore.getLaunchTime())
+      .put("version", APIVersion.VERSION_1.ordinal());
+
+    if(null != YasssCore.getCAPTCHAKeys())
+      resBody.put("captcha", YasssCore.getCAPTCHAKeys().getKey());
+
+    return resBody;
   }
   
 }

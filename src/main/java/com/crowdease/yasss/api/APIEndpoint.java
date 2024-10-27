@@ -10,10 +10,12 @@ package com.crowdease.yasss.api;
 import java.sql.SQLException;
 
 import com.axonibyte.lib.http.APIVersion;
+import com.axonibyte.lib.http.CAPTCHAValidator;
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.axonibyte.lib.http.rest.JSONEndpoint;
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.api.AuthToken.AuthException;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.User;
@@ -57,6 +59,7 @@ public abstract class APIEndpoint extends JSONEndpoint {
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
     String authString = req.headers("Authorization");
     User user = null;
+    boolean isHuman = false;
 
     try {
       AuthToken token = new AuthToken(authString);
@@ -65,8 +68,6 @@ public abstract class APIEndpoint extends JSONEndpoint {
 
       res.header(ACCOUNT_HEADER, user.getID().toString());
       res.header(SESSION_HEADER, nextSession);
-
-      return new Authorization(true, true); // set up CAPTCHAS later
       
     } catch(AuthException e) {
       logger.error("authorization error: {}", e.getMessage());
@@ -76,8 +77,18 @@ public abstract class APIEndpoint extends JSONEndpoint {
           null == e.getMessage() ? "no further info available" : e.getMessage());
       throw new EndpointException(req, "internal server error", 500, e);
     }
+
+    if(null == YasssCore.getCAPTCHAKeys())
+      isHuman = true;
+    else {
+      CAPTCHAValidator captchaValidator = new CAPTCHAValidator(
+          YasssCore.getCAPTCHAKeys().getKey());
+      isHuman = captchaValidator.verify(
+          req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
+          req.ip());
+    }
     
-    return new Authorization(false, true);
+    return new Authorization(user, isHuman);
   }
 
   /**

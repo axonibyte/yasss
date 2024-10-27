@@ -263,6 +263,8 @@ public class Activity implements Comparable<Activity> {
    * @throws SQLException if a database malfunction occurs
    */
   public Slot getSlot(UUID windowID) throws SQLException {
+    if(null == windowID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;

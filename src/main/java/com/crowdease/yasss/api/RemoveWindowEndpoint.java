@@ -49,10 +49,14 @@ public final class RemoveWindowEndpoint extends APIEndpoint {
             UUID.fromString(
                 req.params("event")));
 
-        if(null != event)
+        if(null != event) {
+          if(!auth.atLeast(event))
+            throw new EndpointException(req, "access denied", 403);
+          
           window = event.getWindow(
               UUID.fromString(
                   req.params("window")));
+        }
         
       } catch(IllegalArgumentException e) { }
       

@@ -166,6 +166,8 @@ public class User extends Credentialed implements Comparable<User> {
    * @throws SQLException if a database malfunction occurs
    */
   public static User getUser(UUID userID) throws SQLException {
+    if(null == userID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -213,6 +215,8 @@ public class User extends Credentialed implements Comparable<User> {
    * @throws SQLException if a database malfunction occurs
    */
   public static User getUser(String email) throws SQLException {
+    if(null == email) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;

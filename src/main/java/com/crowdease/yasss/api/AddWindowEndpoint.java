@@ -54,6 +54,9 @@ public final class AddWindowEndpoint extends APIEndpoint {
       if(null == event)
         throw new EndpointException(req, "event not found", 404);
 
+      if(!auth.atLeast(event))
+        throw new EndpointException(req, "access denied", 403);
+
       JSONDeserializer deserializer = new JSONDeserializer(req.body())
         .tokenize("beginTime", true)
         .tokenize("endTime", false)

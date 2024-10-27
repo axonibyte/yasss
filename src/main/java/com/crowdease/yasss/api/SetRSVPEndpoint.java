@@ -17,6 +17,7 @@ import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
+import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONObject;
@@ -46,11 +47,11 @@ public final class SetRSVPEndpoint extends APIEndpoint {
    */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
-
       Event event = null;
       Activity activity = null;
       Slot slot = null;
       Volunteer volunteer = null;
+      
       try {
         event = Event.getEvent(
             UUID.fromString(
@@ -74,6 +75,10 @@ public final class SetRSVPEndpoint extends APIEndpoint {
       
       if(null == slot)
         throw new EndpointException(req, "slot not found", 404);
+
+      if(!auth.atLeast(User.getUser(volunteer.getUser()))
+          && !auth.atLeast(event))
+        throw new EndpointException(req, "access denied", 403);
 
       if(0 != activity.getMaxActivityVolunteers()
           && activity.getMaxActivityVolunteers() <= activity.countRSVPs()

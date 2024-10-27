@@ -11,6 +11,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.Map.Entry;
 
 import com.axonibyte.lib.auth.Credentialed;
 import com.axonibyte.lib.cfg.CLConfig;
@@ -70,6 +72,8 @@ public class YasssCore {
   private static Config config = null;
   private static Database database = null;
   private static TicketEngine ticketEngine = null;
+  private static Entry<String, String> captchaKeys = null;
+  private static boolean authRequired = true;
 
   /**
    * Entry-point.
@@ -110,6 +114,13 @@ public class YasssCore {
       Credentialed.setGlobalSecret(
           config.getString(
               ParamEnum.TICKET_GLOBAL_SECRET.param().toString()));
+
+      authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN.param().toString());
+
+      if(config.getBoolean(ParamEnum.AUTH_REQUIRE_CAPTCHA.param().toString()))
+        captchaKeys = new SimpleEntry<>(
+            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY.param().toString()),
+            config.getString(ParamEnum.AUTH_CAPTCHA_SECRET_KEY.param().toString()));
 
       ticketEngine = new TicketEngine(
           config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.param().toString()),
@@ -188,7 +199,8 @@ public class YasssCore {
       
     } catch(Exception e) {
       logger.error("Failed to properly launch: {}", e.getMessage());
-      e.printStackTrace();
+      if(!(e instanceof BadParamException))
+        e.printStackTrace();
       System.exit(1);
     }
     
@@ -220,6 +232,33 @@ public class YasssCore {
    */
   public static long getLaunchTime() {
     return launchTime;
+  }
+
+  /**
+   * Retrieves the CAPTCHA site and secret keys, if the CAPTCHA workflow is
+   * enabled.
+   *
+   * @return an {@link Entry} with the CAPTCHA site key mapped to the CAPTCHA
+   *         secret key, if the CAPTCHA workflow has been enabled; otherwise,
+   *         {@code null}
+   */
+  public static Entry<String, String> getCAPTCHAKeys() {
+    return captchaKeys;
+  }
+
+  /**
+   * Determines whether or not authentication is required under those
+   * circumstances under which authentication might normally be required. In
+   * cases where the frontend requires some form of user session, access is
+   * granted at the admin level with any secret credential, so long as the user
+   * has been properly identified.
+   *
+   * This method does not affect the CAPTCHA workflow requirement.
+   *
+   * @return {@code true} iff auth is required under standard circumstances
+   */
+  public static boolean authRequired() {
+    return authRequired;
   }
 
 }

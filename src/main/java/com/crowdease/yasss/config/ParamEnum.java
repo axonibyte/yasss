@@ -27,22 +27,31 @@ public enum ParamEnum {
   API_ALLOWED_ORIGINS(new Param("api.allowedOrigins", "*")),
 
   /**
+   * Required if CAPTCHAs are enabled. Denotes the Google reCAPTCHA v2 secret key.
+   */
+  AUTH_CAPTCHA_SECRET_KEY(new Param("auth.captchaSecretKey")),
+
+  /**
+   * Required if CAPTCHAs are enabled. Denotes the Google reCAPTCHA v2 site key.
+   */
+  AUTH_CAPTCHA_SITE_KEY(new Param("auth.captchaSiteKey")),
+
+  /**
    * Require a CAPTCHA when a CAPTCHA would normally be required (e.g. when
    * creating a new event or signing up for an event.
    */
   AUTH_REQUIRE_CAPTCHA(new Param("auth.requireCAPTCHA")),
 
   /**
-   * Require a password when a password would normally be required (e.g. when
-   * editing an event or volunteer response.
+   * Require users to log in if they are changing an existing resource.
    */
-  AUTH_REQUIRE_PASSWORD(new Param("auth.requirePassword")),
+  AUTH_REQUIRE_SIGNIN(new Param("auth.requireSignin", true)),
 
   /**
    * Require payment when an event is published or re-published.
    */
   AUTH_REQUIRE_PAYMENT(new Param("auth.requirePayment")),
-
+  
   /**
    * Path to the configuration file.
    */

@@ -14,6 +14,7 @@ import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
 
 import org.json.JSONObject;
@@ -58,6 +59,10 @@ public final class RemoveVolunteerEndpoint extends APIEndpoint {
       
       if(null == volunteer)
         throw new EndpointException(req, "volunteer not found", 404);
+
+      if(!auth.atLeast(User.getUser(volunteer.getUser()))
+          && !auth.atLeast(event))
+        throw new EndpointException(req, "access denied", 403);
       
       volunteer.delete();
       

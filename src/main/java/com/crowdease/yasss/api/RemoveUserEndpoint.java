@@ -50,6 +50,9 @@ public final class RemoveUserEndpoint extends APIEndpoint {
       if(null == user)
         throw new EndpointException(req, "user not found", 404);
 
+      if(!auth.atLeast(user))
+        throw new EndpointException(req, "access denied", 403);
+
       user.delete();
 
       res.status(200);
