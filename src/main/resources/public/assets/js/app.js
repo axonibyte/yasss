@@ -282,6 +282,8 @@ function renderEventTable(parent, step = 1) {
           '',
           !slot.data.slotEnabled
             ? 'is-outlined is-light'
+            : eventTableData.editing
+            ? 'is-outlined is-primary'
             : state.hasRSVP
             ? 'is-outlined is-warning'
             : state.atCapacity
