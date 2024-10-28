@@ -1,3 +1,4 @@
+var captchaRequired = true;
 var userData = null;
 
 const maxTableCols = 5;
@@ -2337,6 +2338,39 @@ function retrieveEvent(eventID) {
   });
 }
 
+var captchaCallback = null;
+
+function loadCAPTCHA() {
+  $.ajax({
+    url: '/v1',
+    type: 'GET',
+    complete: res => {
+      if(!res.responseJSON.captcha) {
+        console.log('CAPTCHA disabled')
+        captchaRequired = false;
+      } else {
+        console.log(`CAPTCHA site key is ${res.responseJSON.captcha}`);
+        grecaptcha.enterprise.render('captcha', {
+          sitekey: res.responseJSON.captcha,
+          callback: res => {
+            $('#captcha-modal').removeClass('is-active');
+            if('function' === typeof captchaCallback)
+              captchaCallback(res);
+            captchaCallback = null;
+          }
+        });
+        console.log('CAPTCHA loaded');
+      }
+    }
+  })
+}
+
+function renderCAPTCHA(callback = null) {
+  captchaCallback = callback;
+  grecaptcha.enterprise.reset();
+  $('#captcha-modal').addClass('is-active');
+}
+
 function loadSite() {
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -2359,7 +2393,11 @@ function loadSite() {
   );
 
   $('#magic-button').on('click', function() {
-    retrieveEvent('6f9a0fce-bdc7-419c-801f-670d1add733a');
+    renderCAPTCHA((res) => {
+      console.log('Magic CAPTCHA callback!');
+      console.log(res);
+    });
+    //retrieveEvent('6f9a0fce-bdc7-419c-801f-670d1add733a');
   });
 
   // for when someone hits the 'create event' nav item

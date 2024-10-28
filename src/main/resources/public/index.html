@@ -16,6 +16,9 @@
     <script src="/assets/js/bulma-toast.js" defer></script>
     <script src="/assets/js/axb-sig-req.min.js" defer></script>
     <script src="/assets/js/app.js" defer></script>
+    <script
+      src="https://www.google.com/recaptcha/enterprise.js?onload=loadCAPTCHA&render=explicit&hl=en"
+      async defer></script>
   </head>
   <body>
     <nav class="navbar" role="navigation" aria-label="main navigation">
@@ -646,6 +649,31 @@
               id="guest-auth-prompt-proceed-nologin"
               class="button is-danger">No thanks, I'm good!</button>
           </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- CAPTCHA modal -->
+    <div id="captcha-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Are you human?</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4">
+            Please forgive the intrusion, but we just want to make sure that
+            you're human and not a bot trying to cause us grief. We'd be very
+            grateful if you would please complete the CAPTCHA below before
+            proceeding. Thank you!
+          </p>
+          <div id="captcha"></div>
+        </section>
+        <footer class="modal-card-foot">
+          <p class="mb-4">
+            Thank you for helping us out!
+          </p>
         </footer>
       </div>
     </div>
