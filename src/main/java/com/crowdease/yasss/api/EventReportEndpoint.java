@@ -15,7 +15,7 @@ import java.util.Scanner;
 import java.util.UUID;
 
 import com.axonibyte.lib.http.APIVersion;
-import com.axonibyte.lib.http.CAPTCHAValidator;
+import com.axonibyte.lib.http.captcha.CAPTCHAValidator;
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.Endpoint;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -209,7 +209,6 @@ public final class EventReportEndpoint extends Endpoint {
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
     String authString = req.headers("Authorization");
     User user = null;
-    boolean isHuman = false;
 
     try {
       AuthToken token = new AuthToken(authString);
@@ -227,18 +226,13 @@ public final class EventReportEndpoint extends Endpoint {
           null == e.getMessage() ? "no further info available" : e.getMessage());
       throw new EndpointException(req, "internal server error", 500, e);
     }
-
-    if(null == YasssCore.getCAPTCHAKeys())
-      isHuman = true;
-    else {
-      CAPTCHAValidator captchaValidator = new CAPTCHAValidator(
-          YasssCore.getCAPTCHAKeys().getKey());
-      isHuman = captchaValidator.verify(
-          req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
-          req.ip());
-    }
     
-    return new Authorization(user, isHuman);
+    return new Authorization(
+        user,
+        APIEndpoint.MIN_CAPTCHA_SCORE <= YasssCore.getCAPTCHAValidator().score(
+            req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
+            null,
+            req.ip()));
   }
   
 }

@@ -10,7 +10,7 @@ package com.crowdease.yasss.api;
 import java.sql.SQLException;
 
 import com.axonibyte.lib.http.APIVersion;
-import com.axonibyte.lib.http.CAPTCHAValidator;
+import com.axonibyte.lib.http.captcha.CAPTCHAValidator;
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
@@ -38,7 +38,8 @@ public abstract class APIEndpoint extends JSONEndpoint {
 
   public static final String ACCOUNT_HEADER = "AXB-ACCOUNT";
   public static final String SESSION_HEADER = "AXB-SESSION";
-    
+  public static final float MIN_CAPTCHA_SCORE = 0.7f;
+  
   private static final Logger logger = LoggerFactory.getLogger(APIEndpoint.class);
 
   /**
@@ -59,7 +60,6 @@ public abstract class APIEndpoint extends JSONEndpoint {
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
     String authString = req.headers("Authorization");
     User user = null;
-    boolean isHuman = false;
 
     try {
       AuthToken token = new AuthToken(authString);
@@ -77,18 +77,13 @@ public abstract class APIEndpoint extends JSONEndpoint {
           null == e.getMessage() ? "no further info available" : e.getMessage());
       throw new EndpointException(req, "internal server error", 500, e);
     }
-
-    if(null == YasssCore.getCAPTCHAKeys())
-      isHuman = true;
-    else {
-      CAPTCHAValidator captchaValidator = new CAPTCHAValidator(
-          YasssCore.getCAPTCHAKeys().getKey());
-      isHuman = captchaValidator.verify(
-          req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
-          req.ip());
-    }
     
-    return new Authorization(user, isHuman);
+    return new Authorization(
+        user,
+        MIN_CAPTCHA_SCORE <= YasssCore.getCAPTCHAValidator().score(
+            req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
+            null,
+            req.ip()));
   }
 
   /**

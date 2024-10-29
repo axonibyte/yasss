@@ -44,8 +44,8 @@ public final class APIInfoEndpoint extends APIEndpoint {
       .put("uptime", System.currentTimeMillis() - YasssCore.getLaunchTime())
       .put("version", APIVersion.VERSION_1.ordinal());
 
-    if(null != YasssCore.getCAPTCHAKeys())
-      resBody.put("captcha", YasssCore.getCAPTCHAKeys().getKey());
+    if(null != YasssCore.getCAPTCHAValidator())
+      resBody.put("captcha", YasssCore.getCAPTCHAValidator().getSiteKey());
 
     return resBody;
   }

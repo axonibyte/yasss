@@ -27,20 +27,25 @@ public enum ParamEnum {
   API_ALLOWED_ORIGINS(new Param("api.allowedOrigins", "*")),
 
   /**
-   * Required if CAPTCHAs are enabled. Denotes the Google reCAPTCHA v2 secret key.
+   * Require a CAPTCHA when a CAPTCHA would normally be required (e.g. when
+   * creating a new event or signing up for an event.
    */
-  AUTH_CAPTCHA_SECRET_KEY(new Param("auth.captchaSecretKey")),
+  AUTH_CAPTCHA_REQUIRED(new Param("auth.captcha.required", false)),
+
+  /**
+   * Required if CAPTCHAs are enabled. Denotes the Google Cloud project.
+   */
+  AUTH_CAPTCHA_CLOUD_PROJECT(new Param("auth.captcha.cloudProject")),
+
+  /**
+   * Required if CAPTCHAs are enabled. Path to the reCAPTCHA service account keyfile.
+   */
+  AUTH_CAPTCHA_KEYFILE(new Param("auth.captcha.keyFile")),
 
   /**
    * Required if CAPTCHAs are enabled. Denotes the Google reCAPTCHA v2 site key.
    */
-  AUTH_CAPTCHA_SITE_KEY(new Param("auth.captchaSiteKey")),
-
-  /**
-   * Require a CAPTCHA when a CAPTCHA would normally be required (e.g. when
-   * creating a new event or signing up for an event.
-   */
-  AUTH_REQUIRE_CAPTCHA(new Param("auth.requireCAPTCHA")),
+  AUTH_CAPTCHA_SITE_KEY(new Param("auth.captcha.siteKey")),
 
   /**
    * Require users to log in if they are changing an existing resource.

@@ -22,6 +22,7 @@ import com.axonibyte.lib.cfg.Config.BadParamException;
 import com.axonibyte.lib.cfg.FileConfig.FileReadException;
 import com.axonibyte.lib.db.Database;
 import com.axonibyte.lib.http.APIDriver;
+import com.axonibyte.lib.http.captcha.CAPTCHAValidator;
 import com.crowdease.yasss.api.APIEndpoint;
 import com.crowdease.yasss.api.APIInfoEndpoint;
 import com.crowdease.yasss.api.AddActivityEndpoint;
@@ -69,10 +70,10 @@ public class YasssCore {
   private static final long launchTime = System.currentTimeMillis();
 
   private static APIDriver apiDriver = null;
+  private static CAPTCHAValidator captchaValidator = null;
   private static Config config = null;
   private static Database database = null;
   private static TicketEngine ticketEngine = null;
-  private static Entry<String, String> captchaKeys = null;
   private static boolean authRequired = true;
 
   /**
@@ -117,10 +118,11 @@ public class YasssCore {
 
       authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN.param().toString());
 
-      if(config.getBoolean(ParamEnum.AUTH_REQUIRE_CAPTCHA.param().toString()))
-        captchaKeys = new SimpleEntry<>(
-            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY.param().toString()),
-            config.getString(ParamEnum.AUTH_CAPTCHA_SECRET_KEY.param().toString()));
+      if(config.getBoolean(ParamEnum.AUTH_CAPTCHA_REQUIRED.param().toString()))
+        captchaValidator = new CAPTCHAValidator(
+            config.getString(ParamEnum.AUTH_CAPTCHA_KEYFILE.param().toString()),
+            config.getString(ParamEnum.AUTH_CAPTCHA_CLOUD_PROJECT.param().toString()),
+            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY.param().toString()));
 
       ticketEngine = new TicketEngine(
           config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.param().toString()),
@@ -235,15 +237,14 @@ public class YasssCore {
   }
 
   /**
-   * Retrieves the CAPTCHA site and secret keys, if the CAPTCHA workflow is
-   * enabled.
+   * Retrieves the CAPTCHA validator, if CAPTCHAs should be used in those
+   * instances for which CAPTCHAs would normally be used.
    *
-   * @return an {@link Entry} with the CAPTCHA site key mapped to the CAPTCHA
-   *         secret key, if the CAPTCHA workflow has been enabled; otherwise,
-   *         {@code null}
+   * @return the {@link CAPTCHAValidator} instance, if CAPTCHAs have been enabled;
+   *         otherwise, {@code null}
    */
-  public static Entry<String, String> getCAPTCHAKeys() {
-    return captchaKeys;
+  public static CAPTCHAValidator getCAPTCHAValidator() {
+    return captchaValidator;
   }
 
   /**
