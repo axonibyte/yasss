@@ -81,8 +81,7 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
         User user = null;
         try {
           user = User.getUser(
-              UUID.fromString(
-                  req.params("user")));
+              deserializer.getUUID("user"));
         } catch(IllegalArgumentException e) { }
 
         if(null == user)

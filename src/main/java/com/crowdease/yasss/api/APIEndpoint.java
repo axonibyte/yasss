@@ -10,7 +10,6 @@ package com.crowdease.yasss.api;
 import java.sql.SQLException;
 
 import com.axonibyte.lib.http.APIVersion;
-import com.axonibyte.lib.http.captcha.CAPTCHAValidator;
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
@@ -38,7 +37,6 @@ public abstract class APIEndpoint extends JSONEndpoint {
 
   public static final String ACCOUNT_HEADER = "AXB-ACCOUNT";
   public static final String SESSION_HEADER = "AXB-SESSION";
-  public static final float MIN_CAPTCHA_SCORE = 0.7f;
   
   private static final Logger logger = LoggerFactory.getLogger(APIEndpoint.class);
 
@@ -80,8 +78,8 @@ public abstract class APIEndpoint extends JSONEndpoint {
     
     return new Authorization(
         user,
-        MIN_CAPTCHA_SCORE <= YasssCore.getCAPTCHAValidator().score(
-            req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
+        YasssCore.getCAPTCHAValidator().verify(
+            req.headers(com.axonibyte.lib.http.captcha.CAPTCHAValidator.CAPTCHA_HEADER),
             null,
             req.ip()));
   }

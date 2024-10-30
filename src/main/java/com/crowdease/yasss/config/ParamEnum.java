@@ -43,6 +43,16 @@ public enum ParamEnum {
   AUTH_CAPTCHA_KEYFILE(new Param("auth.captcha.keyFile")),
 
   /**
+   * Optional. CAPTCHA IP cache TTL.
+   */
+  AUTH_CAPTCHA_GRACE_PERIOD(new Param("auth.captcha.gracePeriod", 10000L)),
+
+  /**
+   * Optional. Minimum reCAPTCHA score to consider a user legitimate.
+   */
+  AUTH_CAPTCHA_MINIMUM_SCORE(new Param("auth.captcha.minScore", 0.7f)),
+
+  /**
    * Required if CAPTCHAs are enabled. Denotes the Google reCAPTCHA v2 site key.
    */
   AUTH_CAPTCHA_SITE_KEY(new Param("auth.captcha.siteKey")),

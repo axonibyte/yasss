@@ -74,7 +74,7 @@ public final class CreateUserEndpoint extends APIEndpoint {
       final User user;
       try {
         user = new User(
-            AccessLevel.UNVERIFIED == accessLevel ? email : "",
+            AccessLevel.UNVERIFIED == accessLevel ? email : null,
             accessLevel,
             deserializer.getString("pubkey"));
         if(AccessLevel.UNVERIFIED != accessLevel)

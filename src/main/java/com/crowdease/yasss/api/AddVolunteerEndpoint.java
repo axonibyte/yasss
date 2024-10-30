@@ -78,9 +78,8 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
       if(deserializer.has("user")) {
         try {
           user = User.getUser(
-              UUID.fromString(
-                  req.params("user")));
-        } catch(IllegalArgumentException e) { }
+              deserializer.getUUID("user"));
+        } catch(DeserializationException e) { }
         
         if(null == user)
           throw new EndpointException(req, "user not found", 404);

@@ -15,7 +15,6 @@ import java.util.Scanner;
 import java.util.UUID;
 
 import com.axonibyte.lib.http.APIVersion;
-import com.axonibyte.lib.http.captcha.CAPTCHAValidator;
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.Endpoint;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -229,8 +228,8 @@ public final class EventReportEndpoint extends Endpoint {
     
     return new Authorization(
         user,
-        APIEndpoint.MIN_CAPTCHA_SCORE <= YasssCore.getCAPTCHAValidator().score(
-            req.headers(CAPTCHAValidator.CAPTCHA_HEADER),
+        YasssCore.getCAPTCHAValidator().verify(
+            req.headers(com.axonibyte.lib.http.captcha.CAPTCHAValidator.CAPTCHA_HEADER),
             null,
             req.ip()));
   }

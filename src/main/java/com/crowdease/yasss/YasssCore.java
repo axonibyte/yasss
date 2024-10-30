@@ -11,8 +11,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.Map.Entry;
 
 import com.axonibyte.lib.auth.Credentialed;
 import com.axonibyte.lib.cfg.CLConfig;
@@ -22,7 +20,6 @@ import com.axonibyte.lib.cfg.Config.BadParamException;
 import com.axonibyte.lib.cfg.FileConfig.FileReadException;
 import com.axonibyte.lib.db.Database;
 import com.axonibyte.lib.http.APIDriver;
-import com.axonibyte.lib.http.captcha.CAPTCHAValidator;
 import com.crowdease.yasss.api.APIEndpoint;
 import com.crowdease.yasss.api.APIInfoEndpoint;
 import com.crowdease.yasss.api.AddActivityEndpoint;
@@ -55,6 +52,7 @@ import com.crowdease.yasss.api.UnsetSlotEndpoint;
 import com.crowdease.yasss.api.VerifyUserEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.TicketEngine;
+import com.crowdease.yasss.model.CAPTCHAValidator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,7 +120,9 @@ public class YasssCore {
         captchaValidator = new CAPTCHAValidator(
             config.getString(ParamEnum.AUTH_CAPTCHA_KEYFILE.param().toString()),
             config.getString(ParamEnum.AUTH_CAPTCHA_CLOUD_PROJECT.param().toString()),
-            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY.param().toString()));
+            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY.param().toString()),
+            (float)config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE.param().toString()),
+            config.getLong(ParamEnum.AUTH_CAPTCHA_GRACE_PERIOD.param().toString()));
 
       ticketEngine = new TicketEngine(
           config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.param().toString()),

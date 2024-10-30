@@ -214,7 +214,10 @@ function renderEventTableMeta(title, description, editable) {
     $('#view-event-volunteer').show();
     $('#view-event-edit-summary').hide();
   }
-  if(userData && userData.account)
+  if(userData
+      && userData.account
+      && eventTableData.summary.admin
+      && eventTableData.summary.admin == userData.account)
     $('#view-event-view-report').show();
   else $('#view-event-view-report').hide();
 }
@@ -1148,8 +1151,6 @@ function registerUser() {
   let userEmail = $('#auth-modal-email').val().trim();
   let userPass = $('#auth-modal-password').val();
 
-  setLoaderBtn($('#auth-modal-register-btn'), true);
-
   try {
     if(!emailRegex.test(userEmail))
       throw 'Please specify a valid email address.';
@@ -1157,37 +1158,44 @@ function registerUser() {
       throw 'Your password should be at least one character in length';
     if(userPass !== $('#auth-modal-confirm-pass').val())
       throw 'Oops! You might have mistyped your password confirmation.';
-  
-    (async () => {
-      let sigReq = await genCreds(userEmail, userPass, '', '');
-      console.log(sigReq);
 
-      $.ajax({
-        url: '/v1/users',
-        type: 'POST',
-        data: JSON.stringify({
-          email: userEmail,
-          pubkey: sigReq.pubkey,
-          generateMFA: false
-        }),
-        dataType: 'json'
-      }).done(function(data) {
-        console.log(data);
-        toast({
-          message: 'Your new account was successfully created :)',
-          type: 'is-success'
+    renderCAPTCHA((captchaRes) => {
+      setLoaderBtn($('#auth-modal-register-btn'), true);
+      
+      (async () => {
+        let sigReq = await genCreds(userEmail, userPass, '', '');
+        console.log(sigReq);
+        
+        $.ajax({
+          url: '/v1/users',
+          type: 'POST',
+          data: JSON.stringify({
+            email: userEmail,
+            pubkey: sigReq.pubkey,
+            generateMFA: false
+          }),
+          dataType: 'json',
+          headers: {
+            'X-CAPTCHA-TOKEN': captchaRes
+          }
+        }).done(function(data) {
+          console.log(data);
+          toast({
+            message: 'Your new account was successfully created :)',
+            type: 'is-success'
+          });
+          $('#authentication-modal').removeClass('is-active');
+        }).fail(function(data) {
+          console.error(data);
+          toast({
+            message: `We ran into an issue creating your account: "${data.responseJSON.info}"`,
+            type: 'is-danger'
+          });
+        }).always(function(data) {
+          setLoaderBtn($('#auth-modal-register-btn'), false);
         });
-        $('#authentication-modal').removeClass('is-active');
-      }).fail(function(data) {
-        console.error(data);
-        toast({
-          message: `We ran into an issue creating your account: "${data.responseJSON.info}"`,
-          type: 'is-danger'
-        });
-      }).always(function(data) {
-        setLoaderBtn($('#auth-modal-register-btn'), false);
-      });
-    })();
+      })();
+    });
     
   } catch(e) {
     console.log(e);
@@ -1978,6 +1986,7 @@ function pubVolUpdate(vol) {
       volObj.details.splice(i, 1);
     }
     delete volObj.id;
+    if(volObj.user) delete volObj.user;
   }
 
   console.log(JSON.stringify(volObj));
@@ -2033,10 +2042,16 @@ function pubRSVPDeletion(activity, window, volunteer, fn = null) {
   });
 }
 
-function pubRSVPS() {
-  for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
-    if(!vol.id) pubVolCreation(vol);
-  }
+function pubRSVPS(captchaRes = null) {
+  $.ajax(injectAuth({
+    url: `/v1`,
+    type: 'GET',
+    complete: res => saveSession(res, () => {
+      for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
+        if(!vol.id) pubVolCreation(vol);
+      }
+    })
+  }, null, captchaRes));
 }
 
 function retrieveEvent(eventID, postHook = null) {
@@ -2057,7 +2072,8 @@ function retrieveEvent(eventID, postHook = null) {
       title: data.event.shortDescription,
       description: data.event.longDescription,
       notifyOnSignup: data.event.emailOnSubmission,
-      allowMultiuserSignups: data.event.allowMultiUserSignups
+      allowMultiuserSignups: data.event.allowMultiUserSignups,
+      admin: data.event.admin
     }
     renderEventTableMeta(
       eventTableData.summary.title,
@@ -2242,7 +2258,7 @@ function retrieveEvent(eventID, postHook = null) {
 
     $('#view-event-save-rsvps').unbind('click');
     $('#view-event-save-rsvps').on('click', () => {
-      pubRSVPS();
+      renderCAPTCHA(pubRSVPS);
     });
 
     console.log(eventTableData);
@@ -2257,8 +2273,12 @@ function retrieveEvent(eventID, postHook = null) {
     $('#view-event-add-field').hide();
     $('#view-event-publish-event').hide();
 
-    if(null != userData)
+    if(userData
+        && userData.account
+        && eventTableData.summary.admin
+        && eventTableData.summary.admin == userData.ccount)
       $('#view-event-modify-event').show();
+    else $('#view-event-modify-event').hide();
     $('#view-event-modify-event').unbind('click');
     $('#view-event-modify-event').on('click', function() {
       eventTableData.editing = true;
