@@ -22,9 +22,11 @@ import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.Slot;
+import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Window;
 import com.crowdease.yasss.model.Detail.Type;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -61,6 +63,20 @@ public final class CreateEventEndpoint extends APIEndpoint {
         .tokenize("windows", true)
         .tokenize("details", true)
         .check();
+
+      User user = null;
+      if(deserializer.has("admin")) {
+        user = User.getUser(
+            deserializer.getUUID("admin"));
+
+        if(null == user)
+          throw new EndpointException(req, "user not found", 404);
+      }
+
+      if(!auth.is(Authorization.IS_AUTHENTICATED) && !auth.atLeast(Authorization.IS_HUMAN)
+          || auth.is(Authorization.IS_AUTHENTICATED) && !auth.atLeast(AccessLevel.STANDARD)
+          || null != user && !auth.atLeast(user))
+        throw new EndpointException(req, "access denied", 403);
 
       Event event = new Event(
           null,

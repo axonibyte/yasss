@@ -16,6 +16,9 @@
     <script src="/assets/js/bulma-toast.js" defer></script>
     <script src="/assets/js/axb-sig-req.min.js" defer></script>
     <script src="/assets/js/app.js" defer></script>
+    <script
+      src="https://www.google.com/recaptcha/enterprise.js?onload=loadCAPTCHA&render=explicit&hl=en"
+      async defer></script>
   </head>
   <body>
     <nav class="navbar" role="navigation" aria-label="main navigation">
@@ -25,9 +28,9 @@
         </a>
       </div>
       <div class="navbar-end">
-        <a id="create-event-btn" class="navbar-item">Create Event</a>
-        <a id="login-btn" class="navbar-item" style="display: none;">Log In</a>
-        <a id="logout-btn" class="navbar-item" style="display: none;">Log Out</a>
+        <a id="create-event-nav" class="navbar-item">Create Event</a>
+        <a id="login-nav" class="navbar-item" style="display: none;">Log In</a>
+        <a id="logout-nav" class="navbar-item" style="display: none;">Log Out</a>
       </div>
     </nav>
 
@@ -51,10 +54,13 @@
         <div class="card-content">
           <div class="content has-text-centered">
             <p class="subtitle">
-              Create an event or log in to see any of the events you've signed up for.
+              Welcome, friend! It's super easy to create an event.
+              Click the button below to get started!
             </p>
             <div class="buttons is-centered">
-              <button id="magic-button" class="button is-warning" data-tooltip="Suscipit omnis vero velit ex velit nulla. Necessitatibus et totam non qui repudiandae. Deleniti dolorem vel magni et quam consequuntur. Voluptatem quasi dolorem cum modi.">Magic Test Button</button>
+              <button
+                id="create-event-cta"
+                class="button is-primary is-medium">Create an Event!</button>
             </div>
           </div>
         </div>
@@ -197,6 +203,39 @@
         </div>
       </div>
     </section>
+
+    <!-- event sharing modal -->
+    <div id="share-event-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Share this event!</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4">
+            You can visit this event by visiting the URL below:
+          </p>
+          <div class="field">
+            <div class="control">
+              <input
+                id="share-event-url"
+                class="input is-primary"
+                type="text"
+                readonly="readonly"
+                placeholder="Event URL" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="share-event-copy"
+              class="button is-success">Copy to Clipboard</button>
+          </div>
+        </footer>
+      </div>
+    </div>
 
     <!-- event modification form modal -->
     <div id="edit-event-modal" class="modal">
@@ -646,6 +685,31 @@
               id="guest-auth-prompt-proceed-nologin"
               class="button is-danger">No thanks, I'm good!</button>
           </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- CAPTCHA modal -->
+    <div id="captcha-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Are you human?</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4">
+            Please forgive the intrusion, but we just want to make sure that
+            you're human and not a bot trying to cause us grief. We'd be very
+            grateful if you would please complete the CAPTCHA below before
+            proceeding. Thank you!
+          </p>
+          <div id="captcha"></div>
+        </section>
+        <footer class="modal-card-foot">
+          <p class="mb-4">
+            Thank you for helping us out!
+          </p>
         </footer>
       </div>
     </div>

@@ -48,7 +48,6 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
    */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     try {
-
       Event event = null;
       Volunteer volunteer = null;
 
@@ -67,6 +66,10 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
       if(null == volunteer)
         throw new EndpointException(req, "volunteer not found", 404);
 
+      if(!auth.atLeast(User.getUser(volunteer.getUser()))
+          && !auth.atLeast(event))
+        throw new EndpointException(req, "access denied", 403);
+
       JSONDeserializer deserializer = new JSONDeserializer(req.body())
         .tokenize("name", false)
         .tokenize("remindersEnabled", false)
@@ -78,8 +81,7 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
         User user = null;
         try {
           user = User.getUser(
-              UUID.fromString(
-                  req.params("user")));
+              deserializer.getUUID("user"));
         } catch(IllegalArgumentException e) { }
 
         if(null == user)

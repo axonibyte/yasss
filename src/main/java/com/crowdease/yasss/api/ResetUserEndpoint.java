@@ -18,6 +18,7 @@ import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONObject;
 
@@ -42,6 +43,9 @@ public class ResetUserEndpoint extends APIEndpoint {
    * {@inheritDoc}
    */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
+    if(!auth.is(Authorization.IS_HUMAN) && !auth.is(AccessLevel.ADMIN))
+      throw new EndpointException(req, "access denied", 403);
+    
     try {
       User user = null;
 

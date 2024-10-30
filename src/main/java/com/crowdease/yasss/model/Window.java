@@ -181,6 +181,8 @@ public class Window implements Comparable<Window> {
    * @throws SQLException if a database malfunction occurs
    */
   public Slot getSlot(UUID activityID) throws SQLException {
+    if(null == activityID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;

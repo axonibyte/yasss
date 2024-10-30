@@ -52,6 +52,7 @@ import com.crowdease.yasss.api.UnsetSlotEndpoint;
 import com.crowdease.yasss.api.VerifyUserEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.TicketEngine;
+import com.crowdease.yasss.model.CAPTCHAValidator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,9 +68,11 @@ public class YasssCore {
   private static final long launchTime = System.currentTimeMillis();
 
   private static APIDriver apiDriver = null;
+  private static CAPTCHAValidator captchaValidator = null;
   private static Config config = null;
   private static Database database = null;
   private static TicketEngine ticketEngine = null;
+  private static boolean authRequired = true;
 
   /**
    * Entry-point.
@@ -110,6 +113,16 @@ public class YasssCore {
       Credentialed.setGlobalSecret(
           config.getString(
               ParamEnum.TICKET_GLOBAL_SECRET.param().toString()));
+
+      authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN.param().toString());
+
+      if(config.getBoolean(ParamEnum.AUTH_CAPTCHA_REQUIRED.param().toString()))
+        captchaValidator = new CAPTCHAValidator(
+            config.getString(ParamEnum.AUTH_CAPTCHA_KEYFILE.param().toString()),
+            config.getString(ParamEnum.AUTH_CAPTCHA_CLOUD_PROJECT.param().toString()),
+            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY.param().toString()),
+            (float)config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE.param().toString()),
+            config.getLong(ParamEnum.AUTH_CAPTCHA_GRACE_PERIOD.param().toString()));
 
       ticketEngine = new TicketEngine(
           config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.param().toString()),
@@ -188,7 +201,8 @@ public class YasssCore {
       
     } catch(Exception e) {
       logger.error("Failed to properly launch: {}", e.getMessage());
-      e.printStackTrace();
+      if(!(e instanceof BadParamException))
+        e.printStackTrace();
       System.exit(1);
     }
     
@@ -220,6 +234,32 @@ public class YasssCore {
    */
   public static long getLaunchTime() {
     return launchTime;
+  }
+
+  /**
+   * Retrieves the CAPTCHA validator, if CAPTCHAs should be used in those
+   * instances for which CAPTCHAs would normally be used.
+   *
+   * @return the {@link CAPTCHAValidator} instance, if CAPTCHAs have been enabled;
+   *         otherwise, {@code null}
+   */
+  public static CAPTCHAValidator getCAPTCHAValidator() {
+    return captchaValidator;
+  }
+
+  /**
+   * Determines whether or not authentication is required under those
+   * circumstances under which authentication might normally be required. In
+   * cases where the frontend requires some form of user session, access is
+   * granted at the admin level with any secret credential, so long as the user
+   * has been properly identified.
+   *
+   * This method does not affect the CAPTCHA workflow requirement.
+   *
+   * @return {@code true} iff auth is required under standard circumstances
+   */
+  public static boolean authRequired() {
+    return authRequired;
   }
 
 }

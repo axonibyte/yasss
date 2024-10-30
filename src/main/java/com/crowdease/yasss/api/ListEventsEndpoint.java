@@ -17,6 +17,7 @@ import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -42,6 +43,9 @@ public final class ListEventsEndpoint extends APIEndpoint {
    * {@inheritDoc}
    */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
+    if(!auth.atLeast(AccessLevel.ADMIN))
+      throw new EndpointException(req, "access denied", 403);
+    
     try {
       JSONDeserializer deserializer = deserializeQueryParams(req)
         .tokenize("admin", false)

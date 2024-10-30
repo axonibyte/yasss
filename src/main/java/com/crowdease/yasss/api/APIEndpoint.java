@@ -14,6 +14,7 @@ import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.axonibyte.lib.http.rest.JSONEndpoint;
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.api.AuthToken.AuthException;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.User;
@@ -36,7 +37,7 @@ public abstract class APIEndpoint extends JSONEndpoint {
 
   public static final String ACCOUNT_HEADER = "AXB-ACCOUNT";
   public static final String SESSION_HEADER = "AXB-SESSION";
-    
+  
   private static final Logger logger = LoggerFactory.getLogger(APIEndpoint.class);
 
   /**
@@ -65,8 +66,6 @@ public abstract class APIEndpoint extends JSONEndpoint {
 
       res.header(ACCOUNT_HEADER, user.getID().toString());
       res.header(SESSION_HEADER, nextSession);
-
-      return new Authorization(true, true); // set up CAPTCHAS later
       
     } catch(AuthException e) {
       logger.error("authorization error: {}", e.getMessage());
@@ -77,7 +76,12 @@ public abstract class APIEndpoint extends JSONEndpoint {
       throw new EndpointException(req, "internal server error", 500, e);
     }
     
-    return new Authorization(false, true);
+    return new Authorization(
+        user,
+        YasssCore.getCAPTCHAValidator().verify(
+            req.headers(com.axonibyte.lib.http.captcha.CAPTCHAValidator.CAPTCHA_HEADER),
+            null,
+            req.ip()));
   }
 
   /**

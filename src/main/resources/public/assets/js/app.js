@@ -1,3 +1,4 @@
+var captchaRequired = true;
 var userData = null;
 
 const maxTableCols = 5;
@@ -213,7 +214,10 @@ function renderEventTableMeta(title, description, editable) {
     $('#view-event-volunteer').show();
     $('#view-event-edit-summary').hide();
   }
-  if(userData && userData.account)
+  if(userData
+      && userData.account
+      && eventTableData.summary.admin
+      && eventTableData.summary.admin == userData.account)
     $('#view-event-view-report').show();
   else $('#view-event-view-report').hide();
 }
@@ -1147,8 +1151,6 @@ function registerUser() {
   let userEmail = $('#auth-modal-email').val().trim();
   let userPass = $('#auth-modal-password').val();
 
-  setLoaderBtn($('#auth-modal-register-btn'), true);
-
   try {
     if(!emailRegex.test(userEmail))
       throw 'Please specify a valid email address.';
@@ -1156,37 +1158,44 @@ function registerUser() {
       throw 'Your password should be at least one character in length';
     if(userPass !== $('#auth-modal-confirm-pass').val())
       throw 'Oops! You might have mistyped your password confirmation.';
-  
-    (async () => {
-      let sigReq = await genCreds(userEmail, userPass, '', '');
-      console.log(sigReq);
 
-      $.ajax({
-        url: '/v1/users',
-        type: 'POST',
-        data: JSON.stringify({
-          email: userEmail,
-          pubkey: sigReq.pubkey,
-          generateMFA: false
-        }),
-        dataType: 'json'
-      }).done(function(data) {
-        console.log(data);
-        toast({
-          message: 'Your new account was successfully created :)',
-          type: 'is-success'
+    renderCAPTCHA((captchaRes) => {
+      setLoaderBtn($('#auth-modal-register-btn'), true);
+      
+      (async () => {
+        let sigReq = await genCreds(userEmail, userPass, '', '');
+        console.log(sigReq);
+        
+        $.ajax({
+          url: '/v1/users',
+          type: 'POST',
+          data: JSON.stringify({
+            email: userEmail,
+            pubkey: sigReq.pubkey,
+            generateMFA: false
+          }),
+          dataType: 'json',
+          headers: {
+            'X-CAPTCHA-TOKEN': captchaRes
+          }
+        }).done(function(data) {
+          console.log(data);
+          toast({
+            message: 'Your new account was successfully created :)',
+            type: 'is-success'
+          });
+          $('#authentication-modal').removeClass('is-active');
+        }).fail(function(data) {
+          console.error(data);
+          toast({
+            message: `We ran into an issue creating your account: "${data.responseJSON.info}"`,
+            type: 'is-danger'
+          });
+        }).always(function(data) {
+          setLoaderBtn($('#auth-modal-register-btn'), false);
         });
-        $('#authentication-modal').removeClass('is-active');
-      }).fail(function(data) {
-        console.error(data);
-        toast({
-          message: `We ran into an issue creating your account: "${data.responseJSON.info}"`,
-          type: 'is-danger'
-        });
-      }).always(function(data) {
-        setLoaderBtn($('#auth-modal-register-btn'), false);
-      });
-    })();
+      })();
+    });
     
   } catch(e) {
     console.log(e);
@@ -1195,16 +1204,21 @@ function registerUser() {
   }
 }
 
-function injectAuth(options, session = null) {
+function injectAuth(options, session = null, captcha = null) {
   if(null == session && userData && userData.session)
     session = userData.session;
 
-  if(null != session) {
-    let headers = { Authorization: `AXB-SIG-REQ ${session}` };
-    if(options.headers)
-      Object.assign(options.headers, headers);
-    else options.headers = headers;
-  }
+  let headers = {};
+
+  if(null != session)
+    headers['Authorization'] = `AXB-SIG-REQ ${session}`;
+
+  if(null != captcha)
+    headers['X-CAPTCHA-TOKEN'] = captcha;
+
+  if(options.headers)
+    Object.assign(options.headers, headers);
+  else options.headers = headers;
 
   console.log(`options are ${JSON.stringify(options)}`);
   return options;
@@ -1216,11 +1230,11 @@ function saveSession(res, onSuccess = null, onFailure = null) {
   if(userData) {
     if(userSession) {
       userData.session = userSession;
-      $('#login-btn').hide();
-      $('#logout-btn').show();
+      $('#login-nav').hide();
+      $('#logout-nav').show();
     } else {
-      $('#logout-btn').hide();
-      $('#login-btn').show();
+      $('#logout-nav').hide();
+      $('#login-nav').show();
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
@@ -1267,8 +1281,8 @@ function userLogin() {
           let userAccount = res.getResponseHeader('axb-account');
           let userSession = res.getResponseHeader('axb-session');
           if(userAccount && userSession) {
-            $('#login-btn').hide();
-            $('#logout-btn').show();
+            $('#login-nav').hide();
+            $('#logout-nav').show();
             userData = {
               account: userAccount,
               session: userSession
@@ -1321,8 +1335,8 @@ function userLogout() {
     message: 'You\'ve been logged out!',
     type: 'is-warning'
   });
-  $('#logout-btn').hide();
-  $('#login-btn').show();
+  $('#logout-nav').hide();
+  $('#login-nav').show();
 }
 
 function refreshUserSession(session = null, fn = null) {
@@ -1341,8 +1355,8 @@ function refreshUserSession(session = null, fn = null) {
       Cookies.remove('user');
       console.error('Failed to refresh user session.');
       console.error(data);
-      $('#logout-btn').hide();
-      $('#login-btn').show();
+      $('#logout-nav').hide();
+      $('#login-nav').show();
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
@@ -1525,7 +1539,7 @@ function onPubdDetailClick(d) {
   console.log(d);
 }
 
-function pubEventCreation() {
+function pubEventCreation(captchaRes = null) {
   console.log('publishing new event probably');
 
   eventData = {
@@ -1596,12 +1610,15 @@ function pubEventCreation() {
     data: JSON.stringify(eventData),
     dataType: 'json',
     complete: res => saveSession(res)
-  })).done(function(data) {
+  }, null, captchaRes)).done(function(data) {
     console.log(data);
     toast({ message: 'Successfully published event!', type: 'is-success' });
+
     if(userData && userData.account)
       retrieveUserOwnedEvents(userData.account);
-    // TODO redirect to event
+
+    window.location.replace(`${window.location.origin}?event=${data.event.id}&share`);
+
   }).fail(function(data) {
     console.log(data);
     toast({ message: 'Couldn\'t create your event... sorry.', type: 'is-danger' });
@@ -1969,6 +1986,7 @@ function pubVolUpdate(vol) {
       volObj.details.splice(i, 1);
     }
     delete volObj.id;
+    if(volObj.user) delete volObj.user;
   }
 
   console.log(JSON.stringify(volObj));
@@ -2024,13 +2042,19 @@ function pubRSVPDeletion(activity, window, volunteer, fn = null) {
   });
 }
 
-function pubRSVPS() {
-  for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
-    if(!vol.id) pubVolCreation(vol);
-  }
+function pubRSVPS(captchaRes = null) {
+  $.ajax(injectAuth({
+    url: `/v1`,
+    type: 'GET',
+    complete: res => saveSession(res, () => {
+      for(let v = 0, vol; vol = eventTableData.volunteers[v]; v++) {
+        if(!vol.id) pubVolCreation(vol);
+      }
+    })
+  }, null, captchaRes));
 }
 
-function retrieveEvent(eventID) {
+function retrieveEvent(eventID, postHook = null) {
   console.log(`retrieving ${eventID} probably`);
 
   $.ajax(injectAuth({
@@ -2048,7 +2072,8 @@ function retrieveEvent(eventID) {
       title: data.event.shortDescription,
       description: data.event.longDescription,
       notifyOnSignup: data.event.emailOnSubmission,
-      allowMultiuserSignups: data.event.allowMultiUserSignups
+      allowMultiuserSignups: data.event.allowMultiUserSignups,
+      admin: data.event.admin
     }
     renderEventTableMeta(
       eventTableData.summary.title,
@@ -2233,7 +2258,7 @@ function retrieveEvent(eventID) {
 
     $('#view-event-save-rsvps').unbind('click');
     $('#view-event-save-rsvps').on('click', () => {
-      pubRSVPS();
+      renderCAPTCHA(pubRSVPS);
     });
 
     console.log(eventTableData);
@@ -2248,8 +2273,12 @@ function retrieveEvent(eventID) {
     $('#view-event-add-field').hide();
     $('#view-event-publish-event').hide();
 
-    if(null != userData)
+    if(userData
+        && userData.account
+        && eventTableData.summary.admin
+        && eventTableData.summary.admin == userData.ccount)
       $('#view-event-modify-event').show();
+    else $('#view-event-modify-event').hide();
     $('#view-event-modify-event').unbind('click');
     $('#view-event-modify-event').on('click', function() {
       eventTableData.editing = true;
@@ -2327,6 +2356,9 @@ function retrieveEvent(eventID) {
     }
 
     renderVolDropdown();
+
+    if('function' === typeof postHook)
+      postHook();
     
   }).fail(function(data) {
     console.error(data);
@@ -2337,12 +2369,56 @@ function retrieveEvent(eventID) {
   });
 }
 
+var captchaCallback = null;
+
+function loadCAPTCHA() {
+  $.ajax({
+    url: '/v1',
+    type: 'GET',
+    complete: res => {
+      if(!res.responseJSON.captcha) {
+        console.log('CAPTCHA disabled')
+        captchaRequired = false;
+      } else {
+        console.log(`CAPTCHA site key is ${res.responseJSON.captcha}`);
+        grecaptcha.enterprise.render('captcha', {
+          sitekey: res.responseJSON.captcha,
+          callback: res => {
+            $('#captcha-modal').removeClass('is-active');
+            if('function' === typeof captchaCallback)
+              captchaCallback(res);
+            captchaCallback = null;
+          }
+        });
+        console.log('CAPTCHA loaded');
+      }
+    }
+  })
+}
+
+function renderCAPTCHA(callback = null) {
+  if(!userData) {
+    captchaCallback = callback;
+    grecaptcha.enterprise.reset();
+    $('#captcha-modal').addClass('is-active');
+  } else callback();
+}
+
 function loadSite() {
 
   const urlParams = new URLSearchParams(window.location.search);
+
   if(urlParams.has('event') && urlParams.get('event')) {
-    retrieveEvent(urlParams.get('event'));
+    retrieveEvent(urlParams.get('event'), urlParams.has('share') ? () => {
+      $('#share-event-url').val(`${window.location.origin}?event=${eventTableData.summary.id}`);
+      $('#share-event-modal').addClass('is-active');
+    } : null);
   }
+
+  $('#share-event-copy').on('click', () => {
+    navigator.clipboard.writeText($('#share-event-url').val());
+    toast({ message: 'Copied!', type: 'is-success' });
+  });
   
   const viewTableSliderObserver = new MutationObserver(function(mutationsList) {
     mutationsList.forEach(function(mutation) {
@@ -2358,12 +2434,8 @@ function loadSite() {
     { childList: true, subtree: true, characterData: true }
   );
 
-  $('#magic-button').on('click', function() {
-    retrieveEvent('6f9a0fce-bdc7-419c-801f-670d1add733a');
-  });
-
-  // for when someone hits the 'create event' nav item
-  $('#create-event-btn').on('click', () => {
+  // for when someone hits the 'create event' nav or hero button
+  $('#create-event-nav,#create-event-cta').on('click', () => {
 
     $('#view-event-modify-event').unbind('click');
     $('#view-event-close-editor').unbind('click');
@@ -2568,19 +2640,18 @@ function loadSite() {
     registerUser();
   });
 
-  $('#login-btn').on('click', () => {
+  $('#login-nav').on('click', () => {
     resetAuthModal();
     $('#guest-auth-prompt-modal').removeClass('is-active');
     $('#authentication-modal').addClass('is-active');
   });
 
   // for users that want to log out
-  $('#logout-btn').on('click', userLogout);
+  $('#logout-nav').on('click', userLogout);
 
   // for when someone's ready to publish their event
   $('#view-event-publish-event').on('click', () => {
-    console.log("8675309");
-    if(userData) pubEventCreation();
+    if(userData) renderCAPTCHA(pubEventCreation);
     else renderGuestAuthPrompt(
       '.guest-on-publish',
       () => {
@@ -2588,7 +2659,8 @@ function loadSite() {
         $('#guest-auth-prompt-modal').removeClass('is-active');
         $('#authentication-modal').addClass('is-active');
       },
-      pubEventCreation);
+      () => renderCAPTCHA(pubEventCreation)
+    );
   });
   
   // close any modal when their respective 'x' is clicked
@@ -2655,7 +2727,7 @@ $(function() {
     if(userCookie) userData = userCookie;
   } catch(e) {
     console.log('no auth cookie detected');
-    $('#login-btn').show();
+    $('#login-nav').show();
   }
 
   refreshUserSession(

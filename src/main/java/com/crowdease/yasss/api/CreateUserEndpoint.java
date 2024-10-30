@@ -62,6 +62,9 @@ public final class CreateUserEndpoint extends APIEndpoint {
         }
       } else accessLevel = AccessLevel.UNVERIFIED;
 
+      if(!auth.atLeast(Authorization.IS_HUMAN) && !auth.atLeast(AccessLevel.ADMIN))
+        throw new EndpointException(req, "access denied", 403);
+
       final String email = deserializer.getString("email").strip();
       if(email.isBlank() || !Detail.Type.EMAIL.isValid(email))
         throw new EndpointException(req, "malformed argument (email)", 400);
@@ -71,7 +74,7 @@ public final class CreateUserEndpoint extends APIEndpoint {
       final User user;
       try {
         user = new User(
-            AccessLevel.UNVERIFIED == accessLevel ? email : "",
+            AccessLevel.UNVERIFIED == accessLevel ? email : null,
             accessLevel,
             deserializer.getString("pubkey"));
         if(AccessLevel.UNVERIFIED != accessLevel)

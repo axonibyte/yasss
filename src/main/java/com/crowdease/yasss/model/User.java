@@ -166,6 +166,8 @@ public class User extends Credentialed implements Comparable<User> {
    * @throws SQLException if a database malfunction occurs
    */
   public static User getUser(UUID userID) throws SQLException {
+    if(null == userID) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -213,6 +215,8 @@ public class User extends Credentialed implements Comparable<User> {
    * @throws SQLException if a database malfunction occurs
    */
   public static User getUser(String email) throws SQLException {
+    if(null == email) return null;
+    
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
@@ -272,7 +276,7 @@ public class User extends Credentialed implements Comparable<User> {
   public User(UUID id, byte[] pubkey, byte[] mfakey, String email, String pendingEmail, AccessLevel accessLevel) {
     super(id, pubkey, null, mfakey);
     this.email = email;
-    this.pendingEmail = email;
+    this.pendingEmail = pendingEmail;
     this.accessLevel = accessLevel;
   }
 
@@ -287,7 +291,7 @@ public class User extends Credentialed implements Comparable<User> {
    */
   public User(String pendingEmail, AccessLevel accessLevel, String pubkey) throws CryptoException {
     super(null, null, null, null);
-    this.pendingEmail = email;
+    this.pendingEmail = pendingEmail;
     this.accessLevel = accessLevel;
     setPubkey(pubkey);
   }
@@ -324,11 +328,11 @@ public class User extends Credentialed implements Comparable<User> {
   /**
    * Sets the user's pending email address.
    *
-   * @param email the user's pending email address
+   * @param pendingEmail the user's pending email address
    * @return the {@link User} instance
    */
-  public User setPendingEmail(String email) {
-    this.pendingEmail = email;
+  public User setPendingEmail(String pendingEmail) {
+    this.pendingEmail = pendingEmail;
     return this;
   }
 
@@ -412,7 +416,8 @@ public class User extends Credentialed implements Comparable<User> {
 
       if(null != email) {
         // clean up any users with the same pending email
-        // first, by deleting pending emails for any user with an existing email
+        // first, set any pending email matching this user's email to null if
+        // their owners already have verified email addresses
         
         YasssCore.getDB().close(null, stmt, null);
         stmt = con.prepareStatement(
@@ -427,8 +432,8 @@ public class User extends Credentialed implements Comparable<User> {
         stmt.setString(2, email);
         stmt.executeUpdate();
         
-        // then, by outright deleting any users with out an email with that pending
-        // email
+        // then, by outright deleting any users with a pending email matching
+        // this user's email address that don't otherwise have a verified email
         
         YasssCore.getDB().close(null, stmt, null);
         stmt = con.prepareStatement(

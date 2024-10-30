@@ -41,6 +41,9 @@ public final class ListUsersEndpoint extends APIEndpoint {
    * {@inheritDoc}
    */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
+    if(!auth.atLeast(AccessLevel.ADMIN))
+      throw new EndpointException(req, "access denied", 403);
+    
     try {
       JSONDeserializer deserializer = deserializeQueryParams(req)
           .tokenize("accessLevel", false)

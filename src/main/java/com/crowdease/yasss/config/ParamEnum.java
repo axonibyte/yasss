@@ -30,19 +30,43 @@ public enum ParamEnum {
    * Require a CAPTCHA when a CAPTCHA would normally be required (e.g. when
    * creating a new event or signing up for an event.
    */
-  AUTH_REQUIRE_CAPTCHA(new Param("auth.requireCAPTCHA")),
+  AUTH_CAPTCHA_REQUIRED(new Param("auth.captcha.required", false)),
 
   /**
-   * Require a password when a password would normally be required (e.g. when
-   * editing an event or volunteer response.
+   * Required if CAPTCHAs are enabled. Denotes the Google Cloud project.
    */
-  AUTH_REQUIRE_PASSWORD(new Param("auth.requirePassword")),
+  AUTH_CAPTCHA_CLOUD_PROJECT(new Param("auth.captcha.cloudProject")),
+
+  /**
+   * Required if CAPTCHAs are enabled. Path to the reCAPTCHA service account keyfile.
+   */
+  AUTH_CAPTCHA_KEYFILE(new Param("auth.captcha.keyFile")),
+
+  /**
+   * Optional. CAPTCHA IP cache TTL.
+   */
+  AUTH_CAPTCHA_GRACE_PERIOD(new Param("auth.captcha.gracePeriod", 10000L)),
+
+  /**
+   * Optional. Minimum reCAPTCHA score to consider a user legitimate.
+   */
+  AUTH_CAPTCHA_MINIMUM_SCORE(new Param("auth.captcha.minScore", 0.7f)),
+
+  /**
+   * Required if CAPTCHAs are enabled. Denotes the Google reCAPTCHA v2 site key.
+   */
+  AUTH_CAPTCHA_SITE_KEY(new Param("auth.captcha.siteKey")),
+
+  /**
+   * Require users to log in if they are changing an existing resource.
+   */
+  AUTH_REQUIRE_SIGNIN(new Param("auth.requireSignin", true)),
 
   /**
    * Require payment when an event is published or re-published.
    */
   AUTH_REQUIRE_PAYMENT(new Param("auth.requirePayment")),
-
+  
   /**
    * Path to the configuration file.
    */

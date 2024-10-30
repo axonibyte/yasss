@@ -49,6 +49,9 @@ public final class RemoveEventEndpoint extends APIEndpoint {
       
       if(null == event)
         throw new EndpointException(req, "event not found", 404);
+
+      if(!auth.atLeast(event))
+        throw new EndpointException(req, "access denied", 403);
       
       event.delete();
       

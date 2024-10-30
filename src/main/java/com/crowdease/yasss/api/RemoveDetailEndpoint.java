@@ -49,10 +49,14 @@ public final class RemoveDetailEndpoint extends APIEndpoint {
             UUID.fromString(
                 req.params("event")));
 
-        if(null != event)
+        if(null != event) {
+          if(!auth.atLeast(event))
+            throw new EndpointException(req, "access denied");
+          
           detail = event.getDetail(
               UUID.fromString(
                   req.params("detail")));
+        }
         
       } catch(IllegalArgumentException e) { }
 
