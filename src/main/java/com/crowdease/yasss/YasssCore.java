@@ -53,6 +53,7 @@ import com.crowdease.yasss.api.VerifyUserEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.TicketEngine;
 import com.crowdease.yasss.model.CAPTCHAValidator;
+import com.crowdease.yasss.model.Mail;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +73,7 @@ public class YasssCore {
   private static Config config = null;
   private static Database database = null;
   private static TicketEngine ticketEngine = null;
+  private static String apiHost = "";
   private static boolean authRequired = true;
 
   /**
@@ -92,7 +94,7 @@ public class YasssCore {
 
       try {
         FileConfig fCfg = new FileConfig(
-            config.getString(ParamEnum.CONFIG_FILE.param().toString()));
+            config.getString(ParamEnum.CONFIG_FILE));
         for(var param : ParamEnum.values())
           if(ParamEnum.CONFIG_FILE != param)
             fCfg.defineParam(param.param());
@@ -103,40 +105,50 @@ public class YasssCore {
       }
 
       database = new Database(
-          config.getString(ParamEnum.DB_LOCATION.param().toString()),
-          config.getString(ParamEnum.DB_PREFIX.param().toString()),
-          config.getString(ParamEnum.DB_USERNAME.param().toString()),
-          config.getString(ParamEnum.DB_PASSWORD.param().toString()),
-          config.getBoolean(ParamEnum.DB_SECURE.param().toString()));
+          config.getString(ParamEnum.DB_LOCATION),
+          config.getString(ParamEnum.DB_PREFIX),
+          config.getString(ParamEnum.DB_USERNAME),
+          config.getString(ParamEnum.DB_PASSWORD),
+          config.getBoolean(ParamEnum.DB_SECURE));
       database.setup(YasssCore.class, "db");
 
       Credentialed.setGlobalSecret(
           config.getString(
-              ParamEnum.TICKET_GLOBAL_SECRET.param().toString()));
+              ParamEnum.TICKET_GLOBAL_SECRET));
 
-      authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN.param().toString());
+      if(config.getBoolean(ParamEnum.EMAIL_ENABLED))
+        Mail.instantiate(
+            config.getString(ParamEnum.EMAIL_SMTP_HOST),
+            config.getInteger(ParamEnum.EMAIL_SMTP_PORT),
+            config.getString(ParamEnum.EMAIL_SMTP_USERNAME),
+            config.getString(ParamEnum.EMAIL_SMTP_PASSWORD),
+            config.getString(ParamEnum.EMAIL_SENDER));
 
-      if(config.getBoolean(ParamEnum.AUTH_CAPTCHA_REQUIRED.param().toString()))
+      authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN);
+
+      if(config.getBoolean(ParamEnum.AUTH_CAPTCHA_REQUIRED))
         captchaValidator = new CAPTCHAValidator(
-            config.getString(ParamEnum.AUTH_CAPTCHA_KEYFILE.param().toString()),
-            config.getString(ParamEnum.AUTH_CAPTCHA_CLOUD_PROJECT.param().toString()),
-            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY.param().toString()),
-            (float)config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE.param().toString()),
-            config.getLong(ParamEnum.AUTH_CAPTCHA_GRACE_PERIOD.param().toString()));
+            config.getString(ParamEnum.AUTH_CAPTCHA_KEYFILE),
+            config.getString(ParamEnum.AUTH_CAPTCHA_CLOUD_PROJECT),
+            config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY),
+            (float)config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE),
+            config.getLong(ParamEnum.AUTH_CAPTCHA_GRACE_PERIOD));
 
       ticketEngine = new TicketEngine(
-          config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL.param().toString()),
-          config.getInteger(ParamEnum.TICKET_MAX_HISTORY.param().toString()));
+          config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL),
+          config.getInteger(ParamEnum.TICKET_MAX_HISTORY));
       ticketEngine.start();
+
+      apiHost = config.getString(ParamEnum.API_HOST);
 
       apiDriver = new APIDriver.Builder()
           .setPort(
               config.getInteger(
-                  ParamEnum.API_PORT.param().toString()))
+                  ParamEnum.API_PORT))
           .setPublicFolder("/public")
           .addAllowedOrigins(
               config.getString(
-                  ParamEnum.API_ALLOWED_ORIGINS.param().toString()))
+                  ParamEnum.API_ALLOWED_ORIGINS))
           .addExposedHeaders(
               APIEndpoint.ACCOUNT_HEADER,
               APIEndpoint.SESSION_HEADER)
@@ -184,7 +196,7 @@ public class YasssCore {
     } catch(FileReadException e) {
       
       File diskConfig = new File(
-          config.getString(ParamEnum.CONFIG_FILE.param().toString()));
+          config.getString(ParamEnum.CONFIG_FILE));
 
       if(diskConfig.exists()) {
         logger.error("Failed to read config file: {}", e.getMessage());
@@ -260,6 +272,15 @@ public class YasssCore {
    */
   public static boolean authRequired() {
     return authRequired;
+  }
+
+  /**
+   * Retrieves the expected API host. Mostly affects links in outgoing emails.
+   *
+   * @return the expected API host and protocol e.g. https://yasss.crowdease.com
+   */
+  public static String getAPIHost() {
+    return apiHost;
   }
 
 }

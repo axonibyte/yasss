@@ -8,6 +8,8 @@
 package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import com.axonibyte.lib.auth.CryptoException;
@@ -16,6 +18,7 @@ import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 import com.crowdease.yasss.model.User.AccessLevel;
@@ -66,8 +69,24 @@ public class ResetUserEndpoint extends APIEndpoint {
         .check();
 
       if(!deserializer.has("token") && !deserializer.has("pubkey")) {
-        String sig = YasssCore.getTicketEngine().sign(user.getID().toString());
-        // TODO email the user or something
+        if(null == user.getEmail())
+          throw new EndpointException(req, "user has no verified email", 409);
+
+        Map<String, String> args = new HashMap<>();
+        args.put(
+            "RESET_LINK",
+            String.format(
+                "%1$s?action=user-reset&user=%2$s&token=$3%s",
+                YasssCore.getAPIHost(),
+                user.getID().toString(),
+                YasssCore.getTicketEngine().sign(
+                    user.getID().toString())));
+        
+        Mail mail = new Mail(
+            user.getEmail(),
+            "reset-user",
+            args);
+        mail.send();
 
         res.status(202);
         return new JSONObject()

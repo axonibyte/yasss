@@ -27,6 +27,12 @@ public enum ParamEnum {
   API_ALLOWED_ORIGINS(new Param("api.allowedOrigins", "*")),
 
   /**
+   * The host used to access this endpoint--generally used for links in outgoing
+   * emails and the like.
+   */
+  API_HOST(new Param("api.host", "")),
+
+  /**
    * Require a CAPTCHA when a CAPTCHA would normally be required (e.g. when
    * creating a new event or signing up for an event.
    */
@@ -98,6 +104,36 @@ public enum ParamEnum {
   DB_SECURE(new Param("db.secure", false)),
 
   /**
+   * Boolean indicating whether or not email services should be enabled.
+   */
+  EMAIL_ENABLED(new Param("email.enabled", false)),
+
+  /**
+   * The "from" email address included in outgoing emails.
+   */
+  EMAIL_SENDER(new Param("email.sender")),
+
+  /**
+   * The email server hostname. Required only if outoging emails are enabled.
+   */
+  EMAIL_SMTP_HOST(new Param("email.smtpHost")),
+
+  /**
+   * The email server's port number. Required only if outgoing emails are enabled.
+   */
+  EMAIL_SMTP_PORT(new Param("email.smtpPort", 587)),
+
+  /**
+   * The username for email server authentication. Required only if outgoing emails are enabled.
+   */
+  EMAIL_SMTP_USERNAME(new Param("email.smtpUser")),
+
+  /**
+   * The password for email server authentication. Required only if outgoing emails are enabled.
+   */
+  EMAIL_SMTP_PASSWORD(new Param("email.smtpPassword")),
+
+  /**
    * The global secret for the ticket engine and, ultimately, all users.
    */
   TICKET_GLOBAL_SECRET(new Param("ticket.globalSecret", null)),
@@ -126,6 +162,13 @@ public enum ParamEnum {
    */
   public Param param() {
     return param;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override public String toString() {
+    return param.toString();
   }
   
 }
