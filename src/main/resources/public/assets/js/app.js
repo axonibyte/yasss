@@ -842,6 +842,36 @@ function renderVolEditModal(newVol = true, savFn = null, delFn = null, vol = {
   $('#edit-vol-modal').addClass('is-active');
 }
 
+function renderProfileUpdateModal(savFn = null) {
+  if(!userData || !userData.account) return;
+
+  $.ajax(injectAuth({
+    url: `/v1/users/${userData.account}`,
+    type: 'GET',
+    success: function(res) {
+      console.log(res);
+      $('#profile-modal-email').attr('placeholder', res.user.email);
+      $('#profile-modal-email').val('');
+      $('#profile-modal-password').val('');
+      $('#profile-modal-confirm-pass').val('');
+      $('#profile-modal-confirm-pass').closest('div.field').hide();
+
+      $('#profile-modal-update-btn').unbind('click');
+      if('function' === typeof savFn) {
+        $('#profile-modal-update-btn').on('click', function() {
+          if(savFn())
+            $('#profile-modal').removeClass('is-active');
+        });
+      }
+      
+      $('#profile-modal').addClass('is-active');
+    }
+  })).fail(function(data) {
+    console.error(data);
+  });
+  
+};
+
 function refreshTable(step = 1) {
   renderEventTable($('#view-event-table'));
   renderEventTableSlider($('#view-event-table').parent(), step);
@@ -1194,7 +1224,9 @@ function registerUser() {
         }).always(function(data) {
           setLoaderBtn($('#auth-modal-register-btn'), false);
         });
+        
       })();
+      
     });
     
   } catch(e) {
@@ -1232,7 +1264,9 @@ function saveSession(res, onSuccess = null, onFailure = null) {
       userData.session = userSession;
       $('#login-nav').hide();
       $('#logout-nav').show();
+      $('#account-nav').show();
     } else {
+      $('#account-nav').hide();
       $('#logout-nav').hide();
       $('#login-nav').show();
       toast({
@@ -1335,6 +1369,7 @@ function userLogout() {
     message: 'You\'ve been logged out!',
     type: 'is-warning'
   });
+  $('#account-nav').hide();
   $('#logout-nav').hide();
   $('#login-nav').show();
 }
@@ -1355,6 +1390,7 @@ function refreshUserSession(session = null, fn = null) {
       Cookies.remove('user');
       console.error('Failed to refresh user session.');
       console.error(data);
+      $('#account-nav').hide();
       $('#logout-nav').hide();
       $('#login-nav').show();
       toast({
@@ -1366,6 +1402,64 @@ function refreshUserSession(session = null, fn = null) {
   } else if('function' === typeof fn) fn();
 
   setTimeout(refreshUserSession, 1000 * 60 * 10); // TODO make configurable
+}
+
+function profileUpdate() {
+  let userEmail = $('#profile-modal-email').val().trim();
+  let userPass = $('#profile-modal-password').val();
+
+  try {
+    if(userEmail && !emailRegex.test(userEmail))
+      throw 'Please specify a valid email address.';
+    if(userPass !== $('#profile-modal-confirm-pass').val())
+      throw 'Oops! You might have mistyped your password confirmation.';
+
+    setLoaderBtn($('#profile-modal-update-btn'), true);
+
+    let userPatch = { };
+    if(userEmail)
+      userPatch.email = userEmail;
+
+    let updateUser = () => {
+      $.ajax(injectAuth({
+        url: `/v1/users/${userData.account}`,
+        type: 'PATCH',
+        data: JSON.stringify(userPatch),
+        dataType: 'json',
+        complete: res => saveSession(res)
+      })).done(function(data) {
+        console.log(data);
+        toast({ message: 'Successfully updated your profile!', type: 'is-success' });
+      }).fail(function(data) {
+        console.log(data);
+        toast({ message: 'Couldn\'t update your profile... sorry.', type: 'is-danger' });
+      }).always(function(data) {
+        setLoaderBtn($('#profile-modal-update-btn'), false);
+      });
+    };
+
+    if(userPass) {
+      (async () => {
+        let sigReq = await genCreds(
+          userEmail ? userEmail : $('#profile-modal-email').attr('placeholder'),
+          userPass,
+          '',
+          ''
+        );
+        console.log(sigReq);
+        userPatch.pubkey = sigReq.pubkey;
+        updateUser();
+      })();
+    } else if(userEmail) updateUser();
+    else setLoaderBtn($('#profile-modal-update-btn'), false);
+
+    return true;
+    
+  } catch(e) {
+    console.log(e);
+    toast({ message: e, type: 'is-danger' });
+    setLoaderBtn($('#profile-modal-update-btn'), false);
+  }
 }
 
 function onPubdActivityClick(d) {
@@ -2649,6 +2743,11 @@ function loadSite() {
   // for users that want to log out
   $('#logout-nav').on('click', userLogout);
 
+  // for users that want to update their account profile
+  $('#account-nav').on('click', () => {
+    renderProfileUpdateModal(profileUpdate);
+  });
+
   // for when someone's ready to publish their event
   $('#view-event-publish-event').on('click', () => {
     if(userData) renderCAPTCHA(pubEventCreation);
@@ -2694,6 +2793,13 @@ function loadSite() {
     }
   });
 
+  // profile update modal: show/hide password confirmation box when appropriate
+  $('#profile-modal-password').on('keyup focusout', function() {
+    if(!$(this).val())
+      $('#profile-modal-confirm-pass').closest('div.field').hide();
+    else $('#profile-modal-confirm-pass').closest('div.field').show();
+  });
+
   // report handling
   $('#view-event-view-report').on('click', function() {
     fetch(`/v1/events/${eventTableData.summary.id}/report`, {
@@ -2727,6 +2833,8 @@ $(function() {
     if(userCookie) userData = userCookie;
   } catch(e) {
     console.log('no auth cookie detected');
+    $('#account-nav').hide();
+    $('#logout-nav').hide();
     $('#login-nav').show();
   }
 

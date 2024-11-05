@@ -45,6 +45,7 @@ import com.crowdease.yasss.api.RemoveVolunteerEndpoint;
 import com.crowdease.yasss.api.RemoveWindowEndpoint;
 import com.crowdease.yasss.api.ResetUserEndpoint;
 import com.crowdease.yasss.api.RetrieveEventEndpoint;
+import com.crowdease.yasss.api.RetrieveUserEndpoint;
 import com.crowdease.yasss.api.SetRSVPEndpoint;
 import com.crowdease.yasss.api.SetSlotEndpoint;
 import com.crowdease.yasss.api.UnsetRSVPEndpoint;
@@ -177,6 +178,7 @@ public class YasssCore {
               new RemoveWindowEndpoint(),
               new ResetUserEndpoint(),
               new RetrieveEventEndpoint(),
+              new RetrieveUserEndpoint(),
               new SetRSVPEndpoint(),
               new SetSlotEndpoint(),
               new UnsetRSVPEndpoint(),

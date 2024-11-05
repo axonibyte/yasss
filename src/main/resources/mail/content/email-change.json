@@ -1,0 +1,21 @@
+{
+  "subject": "Email Change Request",
+  "blocks": [
+    {
+      "type": "title-block",
+      "header": "An email change was requested for your account."
+    },
+    {
+      "type": "content-block",
+      "text": [
+        [
+          "Hi there! It looks like someone's trying to tie this email address to",
+          "a <strong>Yasss!</strong> account. To confirm this change, please click",
+          "the link below. But, if you didn't request this change, please just",
+          "ignore this email. Thanks!"
+        ],
+        "<a href='[[VERIFY_LINK]]' style=\"color: #631a35; text-decoration: none;\">Verify Me!</a>"
+      ]
+    }
+  ]
+}
