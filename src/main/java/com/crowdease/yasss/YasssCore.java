@@ -123,7 +123,8 @@ public class YasssCore {
             config.getInteger(ParamEnum.EMAIL_SMTP_PORT),
             config.getString(ParamEnum.EMAIL_SMTP_USERNAME),
             config.getString(ParamEnum.EMAIL_SMTP_PASSWORD),
-            config.getString(ParamEnum.EMAIL_SENDER));
+            config.getString(ParamEnum.EMAIL_SENDER_ADDRESS),
+            config.getString(ParamEnum.EMAIL_SENDER_NAME));
 
       authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN);
 
@@ -191,6 +192,7 @@ public class YasssCore {
           logger.info("Shutting down...");
           apiDriver.halt();
           ticketEngine.stop();
+          captchaValidator.close();
           logger.info("Goodbye! ^_^");
         }
       });

@@ -14,7 +14,7 @@
           "account with us. If so, we're happy to have you! Just click the link",
           "below. Otherwise, please feel free to ignore this email."
         ],
-        "<a href='[[VERIFY_LINK]]' style=\"color: #631a35; text-decoration: none;\">Verify Me!</a>"
+        "<a href='[[VERIFY_LINK]]' style=\"color: #00d1b2; text-decoration: none;\">Verify Me!</a>"
       ]
     }
   ]

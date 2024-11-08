@@ -46,16 +46,16 @@ public class Mail {
   private static final Logger logger = LoggerFactory.getLogger(Mail.class);
   
   private static Mailer mailer = null;
-  private static String senderAddr = null;
+  private static Recipient sender = null;
 
-  public static void instantiate(String smtpHost, int smtpPort, String smtpUser, String smtpPass, String senderAddr) {
+  public static void instantiate(String smtpHost, int smtpPort, String smtpUser, String smtpPass, String senderAddr, String senderName) {
     Mail.mailer = MailerBuilder
       .withSMTPServer(smtpHost, smtpPort, smtpUser, smtpPass)
       .withTransportStrategy(TransportStrategy.SMTP_TLS)
       .withDebugLogging(true)
       .withThreadPoolSize(20)
       .buildMailer();
-    Mail.senderAddr = senderAddr;
+    Mail.sender = new Recipient(senderName, senderAddr, null);
   }
   
   private String recipient = null;
@@ -231,7 +231,7 @@ public class Mail {
     }
     
     var email = EmailBuilder.startingBlank()
-      .from(senderAddr)
+      .from(sender)
       .to(new Recipient(null, recipient, RecipientType.TO))
       .withSubject(subject)
       .withHTMLText(body)

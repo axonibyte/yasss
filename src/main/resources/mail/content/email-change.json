@@ -14,7 +14,7 @@
           "the link below. But, if you didn't request this change, please just",
           "ignore this email. Thanks!"
         ],
-        "<a href='[[VERIFY_LINK]]' style=\"color: #631a35; text-decoration: none;\">Verify Me!</a>"
+        "<a href='[[VERIFY_LINK]]' style=\"color: #00d1b2; text-decoration: none;\">Verify Me!</a>"
       ]
     }
   ]

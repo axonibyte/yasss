@@ -30,7 +30,7 @@ public enum ParamEnum {
    * The host used to access this endpoint--generally used for links in outgoing
    * emails and the like.
    */
-  API_HOST(new Param("api.host", "")),
+  API_HOST(new Param("api.host", "http://127.0.0.1:7455")),
 
   /**
    * Require a CAPTCHA when a CAPTCHA would normally be required (e.g. when
@@ -111,7 +111,12 @@ public enum ParamEnum {
   /**
    * The "from" email address included in outgoing emails.
    */
-  EMAIL_SENDER(new Param("email.sender")),
+  EMAIL_SENDER_ADDRESS(new Param("email.senderAddress")),
+
+  /**
+   * The informal name of the "from" email address sender.
+   */
+  EMAIL_SENDER_NAME(new Param("email.senderName", "Yasss!")),
 
   /**
    * The email server hostname. Required only if outoging emails are enabled.

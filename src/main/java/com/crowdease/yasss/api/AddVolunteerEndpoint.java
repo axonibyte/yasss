@@ -14,13 +14,13 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
@@ -221,6 +221,12 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
 
         Map<String, String> args = new HashMap<>();
         args.put("EVENT_TITLE", event.getShortDescription());
+        args.put(
+            "EVENT_URL",
+            String.format(
+                "%1$s/?event=%2$s",
+                YasssCore.getAPIHost(),
+                event.getID().toString()));
         args.put("VOLUNTEER_NAME", volunteer.getName());
         args.put("VOLUNTEER_DETAILS", detailList.toString());
         args.put("RSVP_LIST", rsvpList.toString());

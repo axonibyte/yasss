@@ -51,7 +51,7 @@ public class ResetUserEndpoint extends APIEndpoint {
     
     try {
       User user = null;
-
+      
       try {
         user = User.getUser(
             UUID.fromString(
@@ -59,24 +59,57 @@ public class ResetUserEndpoint extends APIEndpoint {
       } catch(IllegalArgumentException e) {
         user = User.getUser(req.params("user"));
       }
-
+      
       if(null == user)
         throw new EndpointException(req, "user not found", 404);
       
-      JSONDeserializer deserializer = new JSONDeserializer(req.body())
-        .tokenize("token", false)
-        .tokenize("pubkey", false)
-        .check();
+      String reqBody = req.body();
+      
+      try {
+        
+        if(null == reqBody || reqBody.isEmpty())
+          throw new EmptyBodyException();
+        
+        JSONDeserializer deserializer = new JSONDeserializer(req.body())
+            .tokenize("token", false)
+            .tokenize("pubkey", false)
+            .check();
+        
+        if(!deserializer.has("token") && !deserializer.has("pubkey"))
+          throw new EmptyBodyException();
 
-      if(!deserializer.has("token") && !deserializer.has("pubkey")) {
+        System.err.println(deserializer.getString("token"));
+        
+        if(!YasssCore.getTicketEngine().verify(
+            user.getID().toString(),
+            deserializer.getString("token"))) {
+          throw new EndpointException(req, "access denied", 403);
+        }
+        
+        try {
+          user.setPubkey(
+              deserializer.getString("pubkey"));
+        } catch(CryptoException e) {
+          throw new EndpointException(req, "malformed argument (pubkey)", 400, e);
+        }
+
+        user.commit();
+        
+        res.status(200);
+        return new JSONObject()
+            .put("status", "ok")
+            .put("info", "credentials successfully reset");
+        
+      } catch(EmptyBodyException e) {
+        
         if(null == user.getEmail())
           throw new EndpointException(req, "user has no verified email", 409);
-
+        
         Map<String, String> args = new HashMap<>();
         args.put(
             "RESET_LINK",
             String.format(
-                "%1$s?action=user-reset&user=%2$s&token=$3%s",
+                "%1$s?action=reset-user&user=%2$s&token=%3$s",
                 YasssCore.getAPIHost(),
                 user.getID().toString(),
                 YasssCore.getTicketEngine().sign(
@@ -87,29 +120,12 @@ public class ResetUserEndpoint extends APIEndpoint {
             "reset-user",
             args);
         mail.send();
-
+        
         res.status(202);
         return new JSONObject()
-          .put("status", "ok")
-          .put("info", "credential reset request initiated");
-        
-      } else if(!YasssCore.getTicketEngine().verify(
-          user.getID().toString(),
-          deserializer.getString("token"))) {
-        throw new EndpointException(req, "access denied", 403);
+            .put("status", "ok")
+            .put("info", "credential reset request initiated");
       }
-      
-      try {
-        user.setPubkey(
-            deserializer.getString("pubkey"));
-      } catch(CryptoException e) {
-        throw new EndpointException(req, "malformed argument (pubkey)", 400, e);
-      }
-      
-      res.status(200);
-      return new JSONObject()
-          .put("status", "ok")
-          .put("info", "credentials successfully reset");
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
@@ -119,5 +135,7 @@ public class ResetUserEndpoint extends APIEndpoint {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
   }
+
+  private static final class EmptyBodyException extends Exception { }
   
 }

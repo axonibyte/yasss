@@ -13,7 +13,7 @@
           "legitimate request, please click the link below. Otherwise, you",
           "should just ignore this email."
         ],
-        "<a href='[[RESET_LINK]]' style=\"color: #631a35; text-decoration: none;\">Reset My User</a>"
+        "<a href='[[RESET_LINK]]' style=\"color: #00d1b2; text-decoration: none;\">Reset My User</a>"
       ]
     }
   ]
