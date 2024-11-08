@@ -1,0 +1,23 @@
+{
+  "subject": "Yasss! New Event Signup",
+  "blocks": [
+    {
+      "type": "title-block",
+      "header": "Your event has a new volunteer!"
+    },
+    {
+      "type": "content-block",
+      "text": [
+        "[[VOLUNTEER_NAME]] has signed up for <a href='[[EVENT_URL]]' style=\"color: [[ACCENT_COLOR]]; text-decoration: none;\">[[EVENT_TITLE]]</a>!",
+        "[[VOLUNTEER_DETAILS]]"
+      ]
+    },
+    {
+      "type": "content-block",
+      "text": [
+        "RSVPS:",
+        "[[RSVP_LIST]]"
+      ]
+    }
+  ]
+}

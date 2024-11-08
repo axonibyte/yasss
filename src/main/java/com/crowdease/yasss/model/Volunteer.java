@@ -13,7 +13,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -139,6 +141,50 @@ public class Volunteer {
   public Volunteer setDetails(Map<Detail, String> details) {
     this.details = new TreeMap<>(details);
     return this;
+  }
+
+  /**
+   * Retrieves any RSVPs associated with this volunteer.
+   *
+   * @return a {@link Set} of {@link RSVP} objects
+   * @throws SQLException if a database malfunction occurs
+   */
+  public Set<RSVP> getRSVPS() throws SQLException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+    
+    Set<RSVP> rsvps = new HashSet<>();
+    
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(
+          new SQLBuilder()
+              .select(
+                  YasssCore.getDB().getPrefix() + "rsvp",
+                  "activity",
+                  "event_window")
+              .where("volunteer")
+              .toString());
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
+      res = stmt.executeQuery();
+      
+      while(res.next())
+        rsvps.add(
+            new RSVP(
+                SQLBuilder.bytesToUUID(
+                    res.getBytes("activity")),
+                SQLBuilder.bytesToUUID(
+                    res.getBytes("event_window")),
+                id));
+      
+    } catch(SQLException e) {
+      throw e;
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+    
+    return rsvps;
   }
 
   /**

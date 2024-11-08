@@ -1,0 +1,21 @@
+{
+  "subject": "Welcome to Yasss!",
+  "blocks": [
+    {
+      "type": "title-block",
+      "header": "Welcome Aboard!"
+    },
+    {
+      "type": "content-block",
+      "text": [
+        [
+          "Hi there! Welcome to <strong>Yasss!</strong> We're trying to cut down",
+          "on spam so we just want to make sure that you intended to create an",
+          "account with us. If so, we're happy to have you! Just click the link",
+          "below. Otherwise, please feel free to ignore this email."
+        ],
+        "<a href='[[VERIFY_LINK]]' style=\"color: [[ACCENT_COLOR]]; text-decoration: none;\">Verify Me!</a>"
+      ]
+    }
+  ]
+}

@@ -8,13 +8,17 @@
 package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.axonibyte.lib.auth.CryptoException;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 import com.crowdease.yasss.model.User.AccessLevel;
@@ -97,6 +101,24 @@ public final class CreateUserEndpoint extends APIEndpoint {
 
       user.commit();
 
+      if(AccessLevel.UNVERIFIED == user.getAccessLevel()) {
+        Map<String, String> args = new HashMap<>();
+        args.put(
+            "VERIFY_LINK",
+            String.format(
+                "%1$s?action=verify-user&user=%2$s&token=%3$s",
+                YasssCore.getAPIHost(),
+                user.getID().toString(),
+                YasssCore.getTicketEngine().sign(
+                    user.getID().toString())));
+
+        Mail mail = new Mail(
+            user.getPendingEmail(),
+            "welcome",
+            args);
+        mail.send();
+      }
+
       res.status(201);
       return new JSONObject()
           .put("status", "ok")
@@ -105,6 +127,8 @@ public final class CreateUserEndpoint extends APIEndpoint {
 
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
+    } catch(CryptoException e) {
+      throw new EndpointException(req, "cryptographic malfunction", 500, e);
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }

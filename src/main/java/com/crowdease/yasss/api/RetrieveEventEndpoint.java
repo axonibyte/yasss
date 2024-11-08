@@ -26,7 +26,7 @@ import spark.Request;
 import spark.Response;
 
 /**
- * Endpoint responsible for retrieving endpoints.
+ * Endpoint responsible for retrieving the details of an event.
  *
  * @author Caleb L. Power <cpower@crowdease.com>
  */

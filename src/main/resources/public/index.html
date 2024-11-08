@@ -24,12 +24,14 @@
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div class="navbar-brand">
         <a class="navbar-item" href="/">
+          <img src="assets/img/yasss_logo_small.png" alt="Yasss!" />
           <strong class="has-text-primary">Yasss!</strong>
         </a>
       </div>
       <div class="navbar-end">
         <a id="create-event-nav" class="navbar-item">Create Event</a>
         <a id="login-nav" class="navbar-item" style="display: none;">Log In</a>
+        <a id="account-nav" class="navbar-item" style="display: none;">Account</a>
         <a id="logout-nav" class="navbar-item" style="display: none;">Log Out</a>
       </div>
     </nav>
@@ -642,9 +644,60 @@
               id="auth-modal-login-btn"
               class="button is-info toggle-auth-confirm-pass">Log In!</button>
             <button
+              id="auth-modal-reset-btn"
+              class="button is-danger toggle-auth-confirm-pass">Reset Account</button>
+            <button
               id="auth-modal-register-btn"
               class="button is-info toggle-auth-confirm-pass"
               style="display: none;">Register!</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- profile update modal -->
+    <div id="profile-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Update Your Profile</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Change your email address?</div>
+            <div class="control">
+              <input
+                id="profile-modal-email"
+                class="input"
+                type="email"
+                placeholder="me@email.tld" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Change your password?</div>
+            <div class="control">
+              <input
+                id="profile-modal-password"
+                class="input"
+                type="password" />
+            </div>
+          </div>
+          <div class="field" style="display: none;">
+            <div class="label">Please confirm your password.</div>
+            <div class="control">
+              <input
+                id="profile-modal-confirm-pass"
+                class="input"
+                type="password" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="profile-modal-update-btn"
+              class="button is-info">Update Profile</button>
           </div>
         </footer>
       </div>

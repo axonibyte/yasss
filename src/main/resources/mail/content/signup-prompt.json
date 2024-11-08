@@ -1,0 +1,23 @@
+{
+  "subject": "Yasss! New Event Signup",
+  "blocks": [
+    {
+      "type": "title-block",
+      "header": "You've signed up for an event!"
+    },
+    {
+      "type": "content-block",
+      "text": [
+        [
+          "It looks like your email was used to volunteer for an event",
+          "(<a href='[[EVENT_URL]]' style=\"color: [[ACCENT_COLOR]]; text-decoration: none;\">[[EVENT_TITLE]]</a>).",
+          "But, we're not going to alert you about it without your permission...",
+          "so if you want notifications, please click the link below. You can",
+          "unsubscribe at any time by hitting the \"unsubscribe\" button at the",
+          "bottom of any email you get from us."
+        ],
+        "<a href='[[SUBSCRIBE]]' style=\"color: [[ACCENT_COLOR]]; text-decoration: none;\">Subscribe</a>"
+      ]
+    }
+  ]
+}

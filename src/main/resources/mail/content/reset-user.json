@@ -1,0 +1,20 @@
+{
+  "subject": "User Reset Request",
+  "blocks": [
+    {
+      "type": "title-block",
+      "header": "A password reset has been requested."
+    },
+    {
+      "type": "content-block",
+      "text": [
+        [
+          "Hi there! Someone is trying to reset your password. If this is a",
+          "legitimate request, please click the link below. Otherwise, you",
+          "should just ignore this email."
+        ],
+        "<a href='[[RESET_LINK]]' style=\"color: [[ACCENT_COLOR]]; text-decoration: none;\">Reset My User</a>"
+      ]
+    }
+  ]
+}

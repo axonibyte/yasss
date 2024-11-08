@@ -8,8 +8,10 @@
 package com.crowdease.yasss.model;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,8 +25,9 @@ import org.slf4j.LoggerFactory;
 public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAValidator {
 
   private static final Logger logger = LoggerFactory.getLogger(CAPTCHAValidator.class);
-  
-  private final Map<String, Thread> ipCache = new ConcurrentHashMap<>();
+
+  private final ExecutorService threadPool = Executors.newCachedThreadPool();
+  private final Set<String> ipCache = new CopyOnWriteArraySet<>();
   private final float minScore;
   private final long gracePeriod;
 
@@ -60,7 +63,7 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
    *         {@code false} if it is likely that the user is a bot
    */
   public boolean verify(String token, String action, String ip) {
-    if(null != ip && ipCache.containsKey(ip)) {
+    if(null != ip && ipCache.contains(ip)) {
       logger.info(
           "user's ip ({}) found in cache; verification is not necessary (this time)",
           ip);
@@ -76,10 +79,8 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
         pass ? "PASSED" : "FAILED");
     
     if(pass && null != ip) {
-      Thread thread = new Thread(new CacheReaper(ip));
-      thread.setDaemon(true);
-      ipCache.put(ip, thread);
-      thread.start();
+      ipCache.add(ip);
+      threadPool.execute(new CacheReaper(ip));
       
       logger.info(
           "cached IP {} for {} milliseconds",
@@ -88,6 +89,14 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
     }
     
     return pass;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override public void close() {
+    threadPool.shutdownNow();
+    super.close();
   }
 
   private class CacheReaper implements Runnable {

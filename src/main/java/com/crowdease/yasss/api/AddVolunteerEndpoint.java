@@ -8,6 +8,8 @@
 package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,14 +20,18 @@ import java.util.stream.Collectors;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.HTMLElem;
 import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
+import com.crowdease.yasss.model.Window;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 import com.crowdease.yasss.model.User.AccessLevel;
 
@@ -161,6 +167,75 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
             slot.getWindow(),
             volunteer.getID());
         rsvp.commit();
+      }
+
+      User admin = User.getUser(event.getAdmin());
+      if(null != admin) {
+        HTMLElem detailList = new HTMLElem("ul");
+        for(var detail : volunteer.getDetails().entrySet()) {
+          detailList.push(
+              new HTMLElem("li")
+                  .push(
+                      String.format(
+                          "<strong>%1$s</strong>: %2$s",
+                          detail.getKey().getLabel(),
+                          detail.getValue())));
+        }
+
+        HTMLElem rsvpList = new HTMLElem("ul");
+        Set<Activity> activities = event.getActivities();
+        Set<Window> windows = event.getWindows();
+        Map<UUID, Set<UUID>> rsvps = new HashMap<>();
+        for(RSVP rsvp : volunteer.getRSVPS()) {
+          if(!rsvps.containsKey(rsvp.getActivity()))
+            rsvps.put(rsvp.getActivity(), new HashSet<>());
+          rsvps.get(rsvp.getActivity()).add(rsvp.getWindow());
+        }
+
+        final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm a");
+
+        if(!rsvps.isEmpty()) {
+          for(var activity : activities) {
+            if(!rsvps.containsKey(activity.getID()))
+              continue;
+
+            HTMLElem windowList = new HTMLElem("ul");
+
+            for(var window : windows) {
+              if(!rsvps.get(activity.getID()).contains(window.getID()))
+                continue;
+
+              windowList.push(
+                  new HTMLElem("li")
+                  .push(
+                      sdf.format(
+                          window.getBeginTime())));
+            }
+
+            rsvpList.push(
+                new HTMLElem("li")
+                .push(activity.getShortDescription())
+                .push(windowList));
+          }
+        }
+
+        Map<String, String> args = new HashMap<>();
+        args.put("EVENT_TITLE", event.getShortDescription());
+        args.put(
+            "EVENT_URL",
+            String.format(
+                "%1$s/?event=%2$s",
+                YasssCore.getAPIHost(),
+                event.getID().toString()));
+        args.put("VOLUNTEER_NAME", volunteer.getName());
+        args.put("VOLUNTEER_DETAILS", detailList.toString());
+        args.put("RSVP_LIST", rsvpList.toString());
+
+        Mail mail = new Mail(
+            admin.getEmail(),
+            "signup-alert",
+            args);
+        mail.send();
       }
 
       res.status(201);

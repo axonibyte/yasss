@@ -52,9 +52,9 @@ public final class TicketEngine implements Runnable {
         Credentialed signer = new Credentialed(UUID.randomUUID(), null, null, null);
         try {
           signer.regenerateKeypair();
-          logger.info("Generated new signer.");
+          logger.info("generated new signer");
         } catch(CryptoException e) {
-          logger.error("Failed to generate signer: {}", e.getMessage());
+          logger.error("failed to generate signer: {}", e.getMessage());
           e.printStackTrace();
         }
         signers.add(signer);
@@ -62,7 +62,7 @@ public final class TicketEngine implements Runnable {
       }
     } catch(InterruptedException e) { }
     
-    logger.warn("TicketEngine terminated.");
+    logger.warn("TicketEngine terminated");
     thread = null;
   }
 
@@ -94,7 +94,7 @@ public final class TicketEngine implements Runnable {
   public String sign(String message) throws CryptoException {
     Credentialed signer = signers.peekLast();
     if(null == signer)
-      throw new RuntimeException("Signer queue has not yet been populated!");
+      throw new RuntimeException("signer queue has not yet been populated");
     return signer.sign(message);
   }
 
