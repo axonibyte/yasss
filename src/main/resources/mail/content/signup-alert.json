@@ -8,7 +8,7 @@
     {
       "type": "content-block",
       "text": [
-        "[[VOLUNTEER_NAME]] has signed up for <a href='[[EVENT_URL]]' style=\"color: #00d1b2; text-decoration: none;\">[[EVENT_TITLE]]</a>!",
+        "[[VOLUNTEER_NAME]] has signed up for <a href='[[EVENT_URL]]' style=\"color: [[ACCENT_COLOR]]; text-decoration: none;\">[[EVENT_TITLE]]</a>!",
         "[[VOLUNTEER_DETAILS]]"
       ]
     },

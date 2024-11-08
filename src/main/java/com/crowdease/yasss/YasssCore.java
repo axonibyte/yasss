@@ -118,14 +118,17 @@ public class YasssCore {
               ParamEnum.TICKET_GLOBAL_SECRET));
 
       if(config.getBoolean(ParamEnum.EMAIL_ENABLED))
-        Mail.instantiate(
+        Mail.initMailer(
             config.getString(ParamEnum.EMAIL_SMTP_HOST),
             config.getInteger(ParamEnum.EMAIL_SMTP_PORT),
             config.getString(ParamEnum.EMAIL_SMTP_USERNAME),
             config.getString(ParamEnum.EMAIL_SMTP_PASSWORD),
             config.getString(ParamEnum.EMAIL_SENDER_ADDRESS),
             config.getString(ParamEnum.EMAIL_SENDER_NAME));
-
+      Mail.setTemplate(
+          config.getString(ParamEnum.EMAIL_TEMPLATE_ACCENT_COLOR),
+          config.getString(ParamEnum.EMAIL_TEMPLATE_HEADER_IMAGE));
+      
       authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN);
 
       if(config.getBoolean(ParamEnum.AUTH_CAPTCHA_REQUIRED))

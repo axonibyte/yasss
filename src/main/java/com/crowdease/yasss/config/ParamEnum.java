@@ -111,32 +111,45 @@ public enum ParamEnum {
   /**
    * The "from" email address included in outgoing emails.
    */
-  EMAIL_SENDER_ADDRESS(new Param("email.senderAddress")),
+  EMAIL_SENDER_ADDRESS(new Param("email.sender.address")),
 
   /**
    * The informal name of the "from" email address sender.
    */
-  EMAIL_SENDER_NAME(new Param("email.senderName", "Yasss!")),
+  EMAIL_SENDER_NAME(new Param("email.sender.name", "Yasss!")),
 
   /**
    * The email server hostname. Required only if outoging emails are enabled.
    */
-  EMAIL_SMTP_HOST(new Param("email.smtpHost")),
+  EMAIL_SMTP_HOST(new Param("email.smtp.host")),
 
   /**
    * The email server's port number. Required only if outgoing emails are enabled.
    */
-  EMAIL_SMTP_PORT(new Param("email.smtpPort", 587)),
+  EMAIL_SMTP_PORT(new Param("email.smtp.port", 587)),
 
   /**
    * The username for email server authentication. Required only if outgoing emails are enabled.
    */
-  EMAIL_SMTP_USERNAME(new Param("email.smtpUser")),
+  EMAIL_SMTP_USERNAME(new Param("email.smtp.user")),
 
   /**
    * The password for email server authentication. Required only if outgoing emails are enabled.
    */
-  EMAIL_SMTP_PASSWORD(new Param("email.smtpPassword")),
+  EMAIL_SMTP_PASSWORD(new Param("email.smtp.password")),
+
+  /**
+   * The accent color used in outgoing emails.
+   */
+  EMAIL_TEMPLATE_ACCENT_COLOR(new Param("email.template.accentColor", "#00d1b2")),
+
+  /**
+   * The path to the header image in outgoing emails.
+   */
+  EMAIL_TEMPLATE_HEADER_IMAGE(
+      new Param(
+          "email.template.headerImage",
+          "http://127.0.0.1:7455/assets/img/yasss_logo_small.png")),
 
   /**
    * The global secret for the ticket engine and, ultimately, all users.

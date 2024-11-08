@@ -47,8 +47,21 @@ public class Mail {
   
   private static Mailer mailer = null;
   private static Recipient sender = null;
+  private static String accentColor = null;
+  private static String headerImage = null;
 
-  public static void instantiate(String smtpHost, int smtpPort, String smtpUser, String smtpPass, String senderAddr, String senderName) {
+  /**
+   * Initializes the mailer. If this method is not invoked, the mailer is assumed
+   * to be disabled.
+   *
+   * @param smtpHost the hostname or IP of the SMTP server
+   * @param smtpPort the port number associated with the SMTP service
+   * @param smtpUser the username associated with the SMTP sender
+   * @param smtpPassword the password associated with the SMTP sender
+   * @param senderAddr the sender's email address
+   * @param senderName the human-readable informal name of the sender
+   */
+  public static void initMailer(String smtpHost, int smtpPort, String smtpUser, String smtpPass, String senderAddr, String senderName) {
     Mail.mailer = MailerBuilder
       .withSMTPServer(smtpHost, smtpPort, smtpUser, smtpPass)
       .withTransportStrategy(TransportStrategy.SMTP_TLS)
@@ -56,6 +69,18 @@ public class Mail {
       .withThreadPoolSize(20)
       .buildMailer();
     Mail.sender = new Recipient(senderName, senderAddr, null);
+  }
+
+  /**
+   * Sets some global template parameters. This must be called at least once,
+   * even if the mailer isn't actually going to send anything out.
+   *
+   * @param accentColor the color of accents in outgoing mail templates
+   * @param headerImage the URL of the image to appear at the top of outgoing emails
+   */
+  public static void setTemplate(String accentColor, String headerImage) {
+    Mail.accentColor = accentColor;
+    Mail.headerImage = headerImage;
   }
   
   private String recipient = null;
@@ -161,8 +186,11 @@ public class Mail {
       this.body = this.body.replace(var, arg.getValue());
     }
     
-    // Step 3: Make sure that any substitutions of the subject in the body are made.
-    this.body = this.body.replace("[[SUBJECT]]", this.subject);
+    // Step 3: Make sure that any global substitutions in the body are made.
+    this.body = this.body
+      .replace("[[SUBJECT]]", this.subject)
+      .replace("[[ACCENT_COLOR]]", Mail.accentColor)
+      .replace("[[HEADER_IMAGE]]", Mail.headerImage);
   }
   
   /**
