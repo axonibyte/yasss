@@ -99,6 +99,11 @@ public enum ParamEnum {
   DB_SECURE(new Param("db.secure", false)),
 
   /**
+   * Determines whether or not debug logs should be enabled.
+   */
+  DEBUG_ENABLED(new Param("debug", false)),
+
+  /**
    * Boolean indicating whether or not email services should be enabled.
    */
   EMAIL_ENABLED(new Param("email.enabled", false)),

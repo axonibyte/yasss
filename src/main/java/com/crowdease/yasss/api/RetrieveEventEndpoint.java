@@ -15,10 +15,12 @@ import java.util.UUID;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
 import com.crowdease.yasss.model.User.AccessLevel;
+import com.stripe.exception.StripeException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -56,7 +58,9 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       if(null == event)
         throw new EndpointException(req, "event not found", 404);
 
-      if(!event.isPublished() && !auth.atLeast(AccessLevel.ADMIN))
+      if(!event.isPublished()
+         && (null == YasssCore.getStripe() || !YasssCore.getStripe().fulfillCheckout(event))
+         && !auth.atLeast(AccessLevel.ADMIN))
         throw new EndpointException(req, "event not published", 402);
 
       JSONArray activityArr = new JSONArray();
@@ -159,6 +163,8 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
 
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
+    } catch(StripeException e) {
+      throw new EndpointException(req, "stripe malfunction", 500, e);
     }
   }
 }

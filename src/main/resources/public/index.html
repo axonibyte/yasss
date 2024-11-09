@@ -14,6 +14,7 @@
     <script src="/assets/js/bulma-calendar.min.js" defer></script>
     <script src="/assets/js/bulma-slider.min.js" defer></script>
     <script src="/assets/js/bulma-toast.js" defer></script>
+    <script src="/assets/js/showdown-2.1.0.min.js" defer></script>
     <script src="/assets/js/axb-sig-req.min.js" defer></script>
     <script src="/assets/js/app.js" defer></script>
     <script
@@ -55,9 +56,17 @@
       <div class="card">
         <div class="card-content">
           <div class="content has-text-centered">
-            <p class="subtitle">
-              Welcome, friend! It's super easy to create an event.
-              Click the button below to get started!
+            <p class="subtitle">Welcome, friend!</h1>
+            <p>
+              Our team built this tool for our own use because we were tired of
+              dealing with other sign-up tools that require costly subscriptions.
+              We've designed it to be super straightforward and hassle-free, and
+              if you'd like you can use it too! You're more than welcome to
+              <a class="has-text-primary" href="https://bitbucket.org/axonibyte/yasss">host it yourself for free</a>,
+              but if that's not your style, we can host your sign-up form for you.
+              It's super easy to create an event, and if you're happy with it you
+              can publish it on this platform for a $4.99 one-time fee... no
+              subscription required. Click the button below to get started.
             </p>
             <div class="buttons is-centered">
               <button
@@ -236,6 +245,21 @@
               class="button is-success">Copy to Clipboard</button>
           </div>
         </footer>
+      </div>
+    </div>
+
+    <!-- terms and/or privacy modal -->
+    <div id="md-viewer-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title"></p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="content"></div>
+        </section>
+        <footer class="modal-card-foot"></footer>
       </div>
     </div>
 
@@ -777,9 +801,9 @@
           Copyright &copy; <script>document.write(/\d{4}/.exec(Date())[0])</script> CrowdEase, LLC. All rights reserved.
         </p>
         <p class="is-size-7 mt-2">
-          <a href="/terms" class="has-text-primary">Terms of Service</a>
+          <a id="terms-link-footer" class="has-text-primary">Terms of Service</a>
           &emsp;|&emsp;
-          <a href="/privacy" class="has-text-primary">Privacy Policy</a>
+          <a id="privacy-link-footer" class="has-text-primary">Privacy Policy</a>
           &emsp;|&emsp;
           <a href="https://bitbucket.org/axonibyte/yasss" class="has-text-primary">Host it Yourself</a>
         </p>

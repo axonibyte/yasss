@@ -28,6 +28,9 @@ The following software is included in the web UI:
 - js-cookie (JavaScript Cookie) ; Copyright (c) 2018 Klaus Hartl, Fagner Brack, GitHub Contributors
   https://github.com/js-cookie/js-cookie
 
+- showdown ; Copyright (c) 2018, 2021 ShowdownJS
+  https://github.com/showdownjs/showdown
+
 The aforementioned software repositories are all licensed under 
 the MIT license, as follows:
 

@@ -18,6 +18,7 @@ package com.crowdease.yasss.model;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.Mail.MailInstantiationException.InstantiationFailure;
 
 import org.json.JSONArray;
@@ -65,7 +66,7 @@ public class Mail {
     Mail.mailer = MailerBuilder
       .withSMTPServer(smtpHost, smtpPort, smtpUser, smtpPass)
       .withTransportStrategy(TransportStrategy.SMTP_TLS)
-      .withDebugLogging(true)
+      .withDebugLogging(YasssCore.debugEnabled())
       .withThreadPoolSize(20)
       .buildMailer();
     Mail.sender = new Recipient(senderName, senderAddr, null);
