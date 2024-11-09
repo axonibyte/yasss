@@ -67,11 +67,6 @@ public enum ParamEnum {
    * Require users to log in if they are changing an existing resource.
    */
   AUTH_REQUIRE_SIGNIN(new Param("auth.requireSignin", true)),
-
-  /**
-   * Require payment when an event is published or re-published.
-   */
-  AUTH_REQUIRE_PAYMENT(new Param("auth.requirePayment")),
   
   /**
    * Path to the configuration file.
@@ -151,6 +146,22 @@ public enum ParamEnum {
           "email.template.headerImage",
           "http://127.0.0.1:7455/assets/img/yasss_logo_small.png")),
 
+  /**
+   * Enable payments; if enabled, non-admins are redirected to a payments page
+   * when creating an event.
+   */
+  PAYMENTS_ENABLED(new Param("payments.enabled", false)),
+
+  /**
+   * Required only if payments are enabled; Stripe API key.
+   */
+  PAYMENTS_STRIPE_API_KEY(new Param("payments.stripe.apiKey")),
+
+  /**
+   * Required only if payments are enabled; the price ID for the event line item.
+   */
+  PAYMENTS_STRIPE_LOOKUP_KEY(new Param("payments.stripe.lookupKey")),
+  
   /**
    * The global secret for the ticket engine and, ultimately, all users.
    */

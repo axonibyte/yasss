@@ -20,6 +20,7 @@ sourceCompatibility = prjCompat
 targetCompatibility = prjCompat
 
 dependencies {
+  implementation 'com.stripe:stripe-java:28.0.1'
   implementation 'org.bitbucket.axonibyte:axb-lib-auth-java:0.0.2'
   implementation 'org.bitbucket.axonibyte:axb-lib-cfg-java:0.0.2'
   implementation 'org.bitbucket.axonibyte:axb-lib-db-java:0.3.3'

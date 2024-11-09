@@ -52,6 +52,7 @@ import com.crowdease.yasss.api.UnsetRSVPEndpoint;
 import com.crowdease.yasss.api.UnsetSlotEndpoint;
 import com.crowdease.yasss.api.VerifyUserEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
+import com.crowdease.yasss.daemon.StripeDriver;
 import com.crowdease.yasss.daemon.TicketEngine;
 import com.crowdease.yasss.model.CAPTCHAValidator;
 import com.crowdease.yasss.model.Mail;
@@ -75,6 +76,7 @@ public class YasssCore {
   private static Database database = null;
   private static TicketEngine ticketEngine = null;
   private static String apiHost = "";
+  private static StripeDriver stripe = null;
   private static boolean authRequired = true;
 
   /**
@@ -116,6 +118,11 @@ public class YasssCore {
       Credentialed.setGlobalSecret(
           config.getString(
               ParamEnum.TICKET_GLOBAL_SECRET));
+
+      if(config.getBoolean(ParamEnum.PAYMENTS_ENABLED))
+        stripe = new StripeDriver(
+            config.getString(ParamEnum.PAYMENTS_STRIPE_API_KEY),
+            config.getString(ParamEnum.PAYMENTS_STRIPE_LOOKUP_KEY));
 
       if(config.getBoolean(ParamEnum.EMAIL_ENABLED))
         Mail.initMailer(
@@ -234,6 +241,15 @@ public class YasssCore {
    */
   public static Database getDB() {
     return database;
+  }
+
+  /**
+   * Retrieves the Stripe driver.
+   *
+   * @return the {@link StripeDriver} instance
+   */
+  public static StripeDriver getStripe() {
+    return stripe;
   }
 
   /**

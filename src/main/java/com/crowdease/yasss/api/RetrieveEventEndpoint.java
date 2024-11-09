@@ -18,6 +18,7 @@ import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -54,6 +55,9 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
 
       if(null == event)
         throw new EndpointException(req, "event not found", 404);
+
+      if(!event.isPublished() && !auth.atLeast(AccessLevel.ADMIN))
+        throw new EndpointException(req, "event not published", 402);
 
       JSONArray activityArr = new JSONArray();
       JSONArray windowArr = new JSONArray();
@@ -147,6 +151,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
              .put("longDescription", event.getLongDescription())
              .put("emailOnSubmission", event.emailOnSubmissionEnabled())
              .put("allowMultiUserSignups", event.allowMultiUserSignups())
+             .put("isPublished", event.isPublished())
              .put("activities", activityArr)
              .put("windows", windowArr)
              .put("details", detailArr)

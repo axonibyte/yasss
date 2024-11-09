@@ -1819,12 +1819,20 @@ function pubEventCreation(captchaRes = null) {
     complete: res => saveSession(res)
   }, null, captchaRes)).done(function(data) {
     console.log(data);
-    toast({ message: 'Successfully published event!', type: 'is-success' });
+    toast({ message: 'Successfully created your event!', type: 'is-success' });
 
-    if(userData && userData.account)
-      retrieveUserOwnedEvents(userData.account);
+    if(data.paymentRedirect) { // redirect to payment portal
+      
+      window.location.replace(data.paymentRedirect);
+      
+    } else { // event already published by virtue of disabled payments or access level
 
-    window.location.replace(`${window.location.origin}?event=${data.event.id}&share`);
+      if(userData && userData.account)
+        retrieveUserOwnedEvents(userData.account);
+      
+      window.location.replace(`${window.location.origin}?event=${data.event.id}&share`);
+      
+    }
 
   }).fail(function(data) {
     console.log(data);
@@ -2574,7 +2582,13 @@ function retrieveEvent(eventID, postHook = null) {
   }).fail(function(data) {
     console.error(data);
     toast({
-      message: 'Failed to retrieve the event.',
+      message: data.status == 404
+        ? 'That event doesn\'t exist. Sorry about that.'
+        : data.status == 402
+        ? 'That event hasn\'t yet been published. Sorry about that.'
+        : data.status == 403
+        ? 'Access denied.'
+        : 'An internal error prevented us from showing your event. Sorry about that.',
       type: 'is-danger'
     });
   });
@@ -2959,6 +2973,18 @@ function loadSite() {
       console.log(err);
     });
   });
+
+  if(urlParams.has('action')) {
+    switch(urlParams.get('action')) {
+    case 'payment-success':
+      toast({ message: 'Your event was successfully published!', type: 'is-success' });
+      break;
+      
+    case 'payment-canceled':
+      toast({ message: 'Event publishing was canceled.', type: 'is-danger' });
+      break;
+    }
+  }
 
   setTimeout(() => {
     $('.pageloader').removeClass('is-active');
