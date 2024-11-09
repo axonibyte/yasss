@@ -405,6 +405,7 @@ public class Event {
     this.firstDraftTimestamp = firstDraftTimestamp;
     this.emailOnSubmission = emailOnSubmission;
     this.allowMultiUserSignups = allowMultiUserSignups;
+    this.isPublished = isPublished;
   }
 
   /**

@@ -17,6 +17,7 @@ import java.util.List;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
+import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.Activity;
 import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
@@ -27,6 +28,7 @@ import com.crowdease.yasss.model.Window;
 import com.crowdease.yasss.model.Detail.Type;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 import com.crowdease.yasss.model.User.AccessLevel;
+import com.stripe.exception.StripeException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -78,6 +80,8 @@ public final class CreateEventEndpoint extends APIEndpoint {
           || null != user && !auth.atLeast(user))
         throw new EndpointException(req, "access denied", 403);
 
+      boolean paymentRequired = null != YasssCore.getStripe() && !auth.atLeast(AccessLevel.ADMIN);
+
       Event event = new Event(
           null,
           deserializer.has("admin")
@@ -94,7 +98,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
           deserializer.has("allowMultiUserSignups")
               ? deserializer.getBool("allowMultiUserSignups")
               : false,
-          false);
+          paymentRequired);
 
       if(event.getShortDescription().isBlank())
         throw new EndpointException(req, "malformed argument (string: shortDescription)", 400);
@@ -293,7 +297,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
       }
 
       res.status(201);
-      return new JSONObject()
+      JSONObject resJSO = new JSONObject()
           .put("status", "ok")
           .put("info", "successfully created event")
           .put("event", new JSONObject()
@@ -303,6 +307,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
               .put("longDescription", event.getLongDescription())
               .put("emailOnSubmission", event.emailOnSubmissionEnabled())
               .put("allowMultiUserSignups", event.allowMultiUserSignups())
+              .put("isPublished", event.isPublished())
               .put(
                   "activities",
                   (JSONArray)activities
@@ -358,11 +363,20 @@ public final class CreateEventEndpoint extends APIEndpoint {
                           (a, b) -> {
                             for(final Object o : b) a.put(o);
                           })));
+
+      if(paymentRequired)
+        resJSO.put(
+            "paymentRedirect",
+            YasssCore.getStripe().startCheckout(event.getID()));
+
+      return resJSO;
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
+    } catch(StripeException e) {
+      throw new EndpointException(req, "stripe malfunction", 500, e);
     }
   }
 
