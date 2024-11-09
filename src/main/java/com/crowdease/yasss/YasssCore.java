@@ -78,6 +78,7 @@ public class YasssCore {
   private static String apiHost = "";
   private static StripeDriver stripe = null;
   private static boolean authRequired = true;
+  private static boolean debugEnabled = false;
 
   /**
    * Entry-point.
@@ -106,6 +107,8 @@ public class YasssCore {
       } catch(BadParamException e) {
         logger.warn("No configuration file specified.");
       }
+
+      debugEnabled = config.getBoolean(ParamEnum.DEBUG_ENABLED);
 
       database = new Database(
           config.getString(ParamEnum.DB_LOCATION),
@@ -304,6 +307,16 @@ public class YasssCore {
    */
   public static String getAPIHost() {
     return apiHost;
+  }
+
+  /**
+   * Determines whether or not debug logs should be enabled.
+   * Note that this is mostly for the email workflow and frontend logs.
+   *
+   * @return {@code true} if debug logs are enabled
+   */
+  public static boolean debugEnabled() {
+    return debugEnabled;
   }
 
 }

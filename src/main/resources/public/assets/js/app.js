@@ -1,3 +1,4 @@
+var debug = false;
 var captchaRequired = true;
 var userData = null;
 var urlParams = null;
@@ -8,6 +9,10 @@ var eventTableData;
 clearTable();
 
 var eventChanges = {};
+
+function logDebug(o) {
+  if(debug) console.debug(o);
+}
 
 function clearTable() {
   eventTableData = {
@@ -238,14 +243,14 @@ function renderEventTable(parent, step = 1) {
       '',
       'is-warning');
   } else {
-    console.log(`render ${cols}-column table at step ${step}`);
+    logDebug(`render ${cols}-column table at step ${step}`);
   
     let idx = 0;
     addCell(grid, '', '', ''); // this is the space in the top-left part of the grid
-    console.log(eventTableData);
+    logDebug(eventTableData);
     
     for(let a = step - 1; a < cols + step - 2; ++a) {
-      console.log(`add activity ${a} with label ${eventTableData.activities[a].label}`);
+      logDebug(`add activity ${a} with label ${eventTableData.activities[a].label}`);
       addCell(
         grid,
         eventTableData.activities[a].label,
@@ -257,7 +262,7 @@ function renderEventTable(parent, step = 1) {
     }
       
     for(let w = 0; w < eventTableData.windows.length; ++w) {
-      console.log(`add window ${w} with label ${eventTableData.windows[w].label}`);
+      logDebug(`add window ${w} with label ${eventTableData.windows[w].label}`);
       addCell(
         grid,
         eventTableData.windows[w].label,
@@ -396,7 +401,7 @@ function updateSelectedVol() {
     idx = -1;
   } else {
     let vol = eventTableData.volunteers[idx];
-    console.log(vol);
+    logDebug(vol);
   }
   eventTableData.currentVol = idx;
   let step = eventTableData.step;
@@ -496,7 +501,7 @@ function renderEventActivityModal(newActivity = true, savFn = null, delFn = null
   activityVolunteerCap: 0,
   slotVolunteerCapDefault: 0
 }) {
-  console.log(activity);
+  logDebug(activity);
 
   $('#edit-activity-sav').unbind('click');
   $('#edit-activity-del').unbind('click');
@@ -683,7 +688,7 @@ function renderEventSlotModal(savFn = null, slot = {
   if(0 <= slot.activity) {
     $('#edit-slot-activity-btn').on('click', () => {
       $('#edit-slot-modal').removeClass('is-active');
-      console.log(`click on activity tbl idx ${eventTableData.activities[slot.activity].data.tblIdx}`);
+      logDebug(`click on activity tbl idx ${eventTableData.activities[slot.activity].data.tblIdx}`);
       $('.event-cell')[eventTableData.activities[slot.activity].data.tblIdx].click();
     }).show();
   } else $('#edit-slot-activity-btn').hide();
@@ -692,7 +697,7 @@ function renderEventSlotModal(savFn = null, slot = {
   if(0 <= slot.window) {
     $('#edit-slot-window-btn').on('click', () => {
       $('#edit-slot-modal').removeClass('is-active');
-      console.log(`click on window tbl idx ${eventTableData.windows[slot.window].data.tblIdx}`);
+      logDebug(`click on window tbl idx ${eventTableData.windows[slot.window].data.tblIdx}`);
       $('.event-cell')[eventTableData.windows[slot.window].data.tblIdx].click();
     }).show();
   } else $('#edit-slot-window-btn').hide();
@@ -751,7 +756,7 @@ function renderVolEditModal(newVol = true, savFn = null, delFn = null, vol = {
             .addClass('label')
             .html(label));
     let tblIdx = detail.data.tblIdx;
-    console.log(`detail type: ${detail.data.type} at tblIdx ${tblIdx}`);
+    logDebug(`detail type: ${detail.data.type} at tblIdx ${tblIdx}`);
     
     switch(detail.data.type) {
     case 'BOOLEAN':
@@ -815,7 +820,7 @@ function renderVolEditModal(newVol = true, savFn = null, delFn = null, vol = {
           .append(field));
 
     if(undefined !== vol.details[tblIdx]) {
-      console.log(`set #vol-detail-${tblIdx} to ${vol.details[tblIdx].value}`);
+      logDebug(`set #vol-detail-${tblIdx} to ${vol.details[tblIdx].value}`);
       if('BOOLEAN' == detail.data.type) {
         $(`#vol-detail-${tblIdx}`).prop('checked', vol.details[tblIdx].value);
       } else {
@@ -850,7 +855,7 @@ function renderProfileUpdateModal(savFn = null) {
     url: `/v1/users/${userData.account}`,
     type: 'GET',
     success: function(res) {
-      console.log(res);
+      logDebug(res);
       
       $('#profile-modal-email').closest('div.field').show();
       $('#profile-modal-email').attr('placeholder', res.user.email);
@@ -1078,8 +1083,8 @@ function validateVolEditModal(newVals = null) {
     $('#edit-vol-modal').find('input').not('#vol-detail-name').each(function() {
       let idx = Number($(this).attr('id').substr(11));
       let detail = eventTableData.details[idx];
-      console.log(`elem: ${$(this).attr('id')} = ${$(this).val()}`);
-      console.log(detail.data);
+      logDebug(`elem: ${$(this).attr('id')} = ${$(this).val()}`);
+      logDebug(detail.data);
       
       if('BOOLEAN' == eventTableData.details[idx].data.type)
         var deetVal = $(this).is(':checked');
@@ -1187,7 +1192,7 @@ function retrieveUserOwnedEvents(uId, andThen) {
       userData.ownedEvents = [];
       for(let i = 0, event; event = res.events[i]; i++)
         userData.ownedEvents.push(event.id);
-      console.log(`user ${userData.account} owns events ${JSON.stringify(userData.ownedEvents)}`);
+      logDebug(`user ${userData.account} owns events ${JSON.stringify(userData.ownedEvents)}`);
     },
     complete: function(res) {
       if('function' === typeof andThen) andThen();
@@ -1214,7 +1219,7 @@ function registerUser() {
       
       (async () => {
         let sigReq = await genCreds(userEmail, userPass, '', '');
-        console.log(sigReq);
+        logDebug(sigReq);
         
         $.ajax({
           url: '/v1/users',
@@ -1229,7 +1234,7 @@ function registerUser() {
             'X-CAPTCHA-TOKEN': captchaRes
           }
         }).done(function(data) {
-          console.log(data);
+          logDebug(data);
           toast({
             message: 'Your new account was successfully created :)',
             type: 'is-success'
@@ -1250,7 +1255,7 @@ function registerUser() {
     });
     
   } catch(e) {
-    console.log(e);
+    console.error(e);
     toast({ message: e, type: 'is-danger' });
     setLoaderBtn($('#auth-modal-register-btn'), false);
   }
@@ -1272,7 +1277,7 @@ function injectAuth(options, session = null, captcha = null) {
     Object.assign(options.headers, headers);
   else options.headers = headers;
 
-  console.log(`options are ${JSON.stringify(options)}`);
+  logDebug(`options are ${JSON.stringify(options)}`);
   return options;
 }
 
@@ -1299,7 +1304,7 @@ function saveSession(res, onSuccess = null, onFailure = null) {
   }
 
   if('function' === typeof onSuccess) {
-    console.log(res);
+    logDebug(res);
     if('ok' == res.responseJSON.status)
       onSuccess(res);
     else if('function' !== typeof onFailure) toast({
@@ -1375,7 +1380,7 @@ function userLogin() {
     })();
   
   } catch(e) {
-    console.log(e);
+    console.error(e);
     toast({ message: e, type: 'is-danger' });
     setLoaderBtn($('#auth-modal-login-btn'), false);
   }
@@ -1402,7 +1407,7 @@ function refreshUserSession(session = null, fn = null) {
       type: 'GET',
       complete: res => saveSession(res, fn, fn)
     }, session)).done(function(data) {
-      console.log('Refreshed user session.');
+      logDebug('Refreshed user session.');
       Cookies.set('user', JSON.stringify(userData));
     }).fail(function(data) {
       // this only fires if the API can't be reached
@@ -1453,7 +1458,7 @@ function profileUpdate() {
       }).fail(function(data) {
         toast({ message: 'Couldn\'t update your profile... sorry.', type: 'is-danger' });
       }).always(function(data) {
-        console.log(data);
+        logDebug(data);
         setLoaderBtn($('#profile-modal-update-btn'), false);
       });
     };
@@ -1466,7 +1471,7 @@ function profileUpdate() {
           '',
           ''
         );
-        console.log(sigReq);
+        logDebug(sigReq);
         userPatch.pubkey = sigReq.pubkey;
         updateUser();
       })();
@@ -1476,7 +1481,7 @@ function profileUpdate() {
     return true;
     
   } catch(e) {
-    console.log(e);
+    console.error(e);
     toast({ message: e, type: 'is-danger' });
     setLoaderBtn($('#profile-modal-update-btn'), false);
   }
@@ -1509,7 +1514,7 @@ function accountReset(user, token) {
         }).fail(function(data) {
           toast({ message: 'Couldn\'t reset your account... sorry.', type: 'is-danger' });
         }).always(function(data) {
-          console.log(data);
+          logDebug(data);
           setLoaderBtn($('#profile-modal-update-btn'), false);
           $('#profile-modal').removeClass('is-active');
         });
@@ -1518,7 +1523,7 @@ function accountReset(user, token) {
     })();
     
   } catch(e) {
-    console.log(e);
+    console.error(e);
     toast({ message: e, type: 'is-danger' });
     setLoaderBtn($('#profile-modal-update-btn'), false);
   }
@@ -1539,7 +1544,7 @@ function promptAccountReset() {
         type: 'POST',
         complete: res => saveSession(res)
       }, null, captchaRes)).always(function(data) {
-        console.log(data);
+        logDebug(data);
         toast({
           message: `If an account with the email address ${userEmail} exists, a reset email will be sent.`,
           type: 'is-info'
@@ -1549,7 +1554,7 @@ function promptAccountReset() {
     });
     
   } catch(e) {
-    console.log(e);
+    console.error(e);
     toast({ message: e, type: 'is-danger' });
     setLoaderBtn($('#auth-modal-reset-btn'), false);
   }
@@ -1570,14 +1575,14 @@ function accountVerify(user, token) {
     }).fail(function(data) {
       toast({ message: 'Couldn\'t verify your account... sorry.', type: 'is-danger' });
     }).always(function(data) {
-      console.log(data);
+      logDebug(data);
     });
   });
 }
 
 function onPubdActivityClick(d) {
   if(!eventTableData.editing) return;
-  console.log('editing an activity');
+  logDebug('editing an activity');
 
   renderEventActivityModal(newActivity = false, savFn = function(activity) { // on save
     let a = validateActivityModal({ idx: activity.idx });
@@ -1594,7 +1599,7 @@ function onPubdActivityClick(d) {
 
 function onPubdWindowClick(d) {
   if(!eventTableData.editing) return;
-  console.log('editing a window');
+  logDebug('editing a window');
 
   renderEventWindowModal(newWindow = false, savFn = function(window) { // on save
     let w = validateWindowModal({ idx: window.idx });
@@ -1608,7 +1613,7 @@ function onPubdWindowClick(d) {
     return true;
   }, d);
   
-  console.log(d);
+  logDebug(d);
 }
 
 function getCurrentRSVPState(slot) {
@@ -1636,7 +1641,7 @@ function onPubdSlotClick(d) {
   let rsvpState = getCurrentRSVPState(d);
   
   if(eventTableData.editing) {
-    console.log('editing a slot');
+    logDebug('editing a slot');
 
     renderEventSlotModal(function(slot) {
       let s = validateSlotModal({
@@ -1655,8 +1660,8 @@ function onPubdSlotClick(d) {
       && d.slotEnabled
       && (rsvpState.hasRSVP || !rsvpState.atCapacity)) {
     
-    console.log('(un)volunteering for a slot');
-    console.log(d);
+    logDebug('(un)volunteering for a slot');
+    logDebug(d);
     let vol = eventTableData.volunteers[eventTableData.currentVol];
     let idx = vol.rsvps.findIndex(elem => elem.activity == d.activity && elem.window == d.window);
     
@@ -1724,12 +1729,12 @@ function onPubdSlotClick(d) {
     }
   }
   
-  console.log(d);
+  logDebug(d);
 }
 
 function onPubdDetailClick(d) {
   if(!eventTableData.editing) return;
-  console.log('editing a detail');
+  logDebug('editing a detail');
 
   renderEventDetailModal(false, function(detail) {
     let f = validateFieldModal({ tblIdx: detail.tblIdx });
@@ -1743,11 +1748,11 @@ function onPubdDetailClick(d) {
     return true;
   }, d);
   
-  console.log(d);
+  logDebug(d);
 }
 
 function pubEventCreation(captchaRes = null) {
-  console.log('publishing new event probably');
+  logDebug('publishing new event probably');
 
   eventData = {
     activities: [],
@@ -1809,7 +1814,7 @@ function pubEventCreation(captchaRes = null) {
     eventData.details.push(detailObj);
   }
 
-  console.log(eventData);
+  logDebug(eventData);
   
   $.ajax(injectAuth({
     url: '/v1/events',
@@ -1818,7 +1823,7 @@ function pubEventCreation(captchaRes = null) {
     dataType: 'json',
     complete: res => saveSession(res)
   }, null, captchaRes)).done(function(data) {
-    console.log(data);
+    logDebug(data);
     toast({ message: 'Successfully created your event!', type: 'is-success' });
 
     if(data.paymentRedirect) { // redirect to payment portal
@@ -1835,7 +1840,7 @@ function pubEventCreation(captchaRes = null) {
     }
 
   }).fail(function(data) {
-    console.log(data);
+    console.error(data);
     toast({ message: 'Couldn\'t create your event... sorry.', type: 'is-danger' });
   });
 }
@@ -1853,8 +1858,8 @@ function pubEventSummaryUpdate(summary) {
   if(eventTableData.summary.allowMultiuserSignups !== summary.allowMultiuserSignups)
     changes.allowMultiUserSignups = summary.allowMultiuserSignups;
 
-  console.log('changes:');
-  console.log(changes);
+  logDebug('changes:');
+  logDebug(changes);
 
   if(!Object.keys(changes).length) return;
   
@@ -1870,8 +1875,8 @@ function pubEventSummaryUpdate(summary) {
         summary.description,
         true);
       refreshTable();
-      console.log(`event summary ${eventTableData.summary.id} updated`);
-      console.log(r);
+      logDebug(`event summary ${eventTableData.summary.id} updated`);
+      logDebug(r);
     })
   })).fail(function(data) {
     console.error(data);
@@ -1915,7 +1920,7 @@ function pubActivityCreation(activity) {
 }
 
 function pubActivityUpdate(activity) {
-  console.log(activity);
+  logDebug(activity);
   
   let current = eventTableData.activities[activity.idx].data;
   let changes = {};
@@ -1938,8 +1943,8 @@ function pubActivityUpdate(activity) {
     complete: res => saveSession(res, r => {
       Object.assign(current, activity);
       eventTableData.activities[activity.idx].label = activity.label;
-      console.log(`activity ${current.id} updated`);
-      console.log(r);
+      logDebug(`activity ${current.id} updated`);
+      logDebug(r);
       refreshTable();
     })
   })).fail(function(data) {
@@ -1954,7 +1959,7 @@ function pubActivityDeletion(aIdx) {
     type: 'DELETE',
     complete: res => saveSession(res, r => {
       rmActivity(aIdx);
-      console.log(`activity ${aId} deleted`);
+      logDebug(`activity ${aId} deleted`);
       refreshTable();
     })
   })).fail(function(data) {
@@ -2014,8 +2019,8 @@ function pubWindowUpdate(win) {
     complete: res => saveSession(res, r => {
       Object.assign(current, win);
       eventTableData.windows[win.idx].label = fmtDateRange(win.startDate, win.endDate);
-      console.log(`window ${current.id} updated`);
-      console.log(r);
+      logDebug(`window ${current.id} updated`);
+      logDebug(r);
       refreshTable();
     })
   })).fail(function(data) {
@@ -2030,7 +2035,7 @@ function pubWindowDeletion(wIdx) {
     type: 'DELETE',
     complete: res => saveSession(res, r => {
       rmWindow(wIdx);
-      console.log(`window ${wId} deleted`);
+      logDebug(`window ${wId} deleted`);
       refreshTable();
     })
   })).fail(function(data) {
@@ -2050,8 +2055,8 @@ function pubSlotUpdate(slot) {
       complete: res => saveSession(res, r => {
         Object.assign(current.data, slot);
         current.label = 'Unavailable';
-        console.log(`deleted slot for activity ${aId}, window ${wId}`);
-        console.log(r);
+        logDebug(`deleted slot for activity ${aId}, window ${wId}`);
+        logDebug(r);
         refreshTable();
       })
     })).fail(function(data) {
@@ -2069,8 +2074,8 @@ function pubSlotUpdate(slot) {
       complete: res => saveSession(res, r => {
         Object.assign(current.data, slot);
         current.label = 'Available'; // TODO maybe change label if cap reached
-        console.log(`updated slot for activity ${aId}, window ${wId}`);
-        console.log(r);
+        logDebug(`updated slot for activity ${aId}, window ${wId}`);
+        logDebug(r);
         refreshTable();
       })
     })).fail(function(data) {
@@ -2104,7 +2109,7 @@ function pubDetailCreation(detail) {
 }
 
 function pubDetailUpdate(detail) {
-  console.log(`tbl idx is ${detail.tblIdx}`);
+  logDebug(`tbl idx is ${detail.tblIdx}`);
   let current = eventTableData.details[detail.tblIdx].data;
   let changes = {};
   if(current.type !== detail.type)
@@ -2125,8 +2130,8 @@ function pubDetailUpdate(detail) {
     dataType: 'json',
     complete: res => saveSession(res, r => {
       Object.assign(current, detail);
-      console.log(`detail ${current.id} updated`);
-      console.log(r);
+      logDebug(`detail ${current.id} updated`);
+      logDebug(r);
       renderFieldTable();
     })
   })).fail(function(data) {
@@ -2141,7 +2146,7 @@ function pubDetailDeletion(dIdx) {
     type: 'DELETE',
     complete: res => saveSession(res, r => {
       rmDetail(dIdx);
-      console.log(`detail ${dId} deleted`);
+      logDebug(`detail ${dId} deleted`);
       renderFieldTable();
     })
   })).fail(function(data) {
@@ -2150,8 +2155,8 @@ function pubDetailDeletion(dIdx) {
 }
 
 function pubVolCreation(vol, onComplete = null) {
-  console.log('publishing new volunteer');
-  console.log(vol);
+  logDebug('publishing new volunteer');
+  logDebug(vol);
 
   volObj = structuredClone(vol);
   for(let i = Object.keys(volObj.details).length - 1; i >= 0; i--) {
@@ -2171,7 +2176,7 @@ function pubVolCreation(vol, onComplete = null) {
     }
   }
 
-  console.log(JSON.stringify(volObj));
+  logDebug(JSON.stringify(volObj));
 
   $.ajax(injectAuth({
     url: `/v1/events/${eventTableData.summary.id}/volunteers`,
@@ -2189,8 +2194,8 @@ function pubVolCreation(vol, onComplete = null) {
 }
 
 function pubVolUpdate(vol) {
-  console.log('publishing volunteer updates');
-  console.log(vol);
+  logDebug('publishing volunteer updates');
+  logDebug(vol);
 
   volObj = structuredClone(vol);
   for(let i = Object.keys(volObj.details).length - 1; i >= 0; i--) {
@@ -2204,7 +2209,7 @@ function pubVolUpdate(vol) {
     if(volObj.user) delete volObj.user;
   }
 
-  console.log(JSON.stringify(volObj));
+  logDebug(JSON.stringify(volObj));
 
   $.ajax(injectAuth({
     url: `/v1/events/${eventTableData.summary.id}/volunteers/${vol.id}`,
@@ -2222,7 +2227,7 @@ function pubVolDeletion(vId) {
     url: `/v1/events/${eventTableData.summary.id}/volunteers/${vId}`,
     type: 'DELETE',
     complete: res => saveSession(res, r => {
-      console.log(`volunteer ${vId} deleted`);
+      logDebug(`volunteer ${vId} deleted`);
     })
   })).fail(function(data) {
     console.error(data);
@@ -2230,7 +2235,7 @@ function pubVolDeletion(vId) {
 }
 
 function pubRSVPCreation(activity, window, volunteer, fn = null) {
-  console.log(`publishing rsvp for activity ${activity}, window ${window} on behalf of ${volunteer}`);
+  logDebug(`publishing rsvp for activity ${activity}, window ${window} on behalf of ${volunteer}`);
 
   $.ajax(injectAuth({
     url: `/v1/events/${eventTableData.summary.id}/activities/${activity}/windows/${window}/volunteers/${volunteer}`,
@@ -2244,7 +2249,7 @@ function pubRSVPCreation(activity, window, volunteer, fn = null) {
 }
 
 function pubRSVPDeletion(activity, window, volunteer, fn = null) {
-  console.log(`removing rsvp from activity ${activity}, window ${window} on behalf of ${volunteer}`);
+  logDebug(`removing rsvp from activity ${activity}, window ${window} on behalf of ${volunteer}`);
 
   $.ajax(injectAuth({
     url: `/v1/events/${eventTableData.summary.id}/activities/${activity}/windows/${window}/volunteers/${volunteer}`,
@@ -2273,16 +2278,32 @@ function pubRSVPS(captchaRes = null) {
   }, null, captchaRes));
 }
 
+function loadMarkdown(file) {
+  logDebug(`pulling ${file}`);
+
+  $.ajax({
+    url: file,
+    type: 'GET'
+  }).done(function(data) {
+    let converter = new showdown.Converter();
+    let content = converter.makeHtml(data);
+
+    $('#md-viewer-modal .content').html(content);
+    $('#md-viewer-modal a').addClass('has-text-primary');
+    $('#md-viewer-modal').addClass('is-active');
+  });
+}
+
 function retrieveEvent(eventID, postHook = null) {
-  console.log(`retrieving ${eventID} probably`);
+  logDebug(`retrieving ${eventID} probably`);
 
   $.ajax(injectAuth({
     url: `/v1/events/${eventID}`,
     type: 'GET',
     complete: res => saveSession(res)
   })).done(function(data) {
-    console.log('Successfully retrieved event data.');
-    console.log(data);
+    logDebug('Successfully retrieved event data.');
+    logDebug(data);
 
     clearTable();
 
@@ -2316,13 +2337,13 @@ function retrieveEvent(eventID, postHook = null) {
       }, []);
     }
 
-    console.log(wins);
+    logDebug(wins);
 
     for(let a = 0, act; act = data.event.activities[a]; a++) {
       let slots = new Array(Object.keys(wins).length).fill(undefined);
       for(let s = 0, slot; slot = act.slots[s]; s++) {
-        console.log(`slot window = ${slot.window}`);
-        console.log(`wins = ${wins[slot.window]}`);
+        logDebug(`slot window = ${slot.window}`);
+        logDebug(`wins = ${wins[slot.window]}`);
         slots[wins[slot.window]] = {
           id: slot.id,
           slotEnabled: true,
@@ -2331,8 +2352,8 @@ function retrieveEvent(eventID, postHook = null) {
           rsvps: slot.rsvps ? slot.rsvps : []
         };
       }
-      console.log(`slots no 1 len ${slots.length}`);
-      console.log(slots);
+      logDebug(`slots no 1 len ${slots.length}`);
+      logDebug(slots);
       slots = slots.map((s) => {
         return {
           fn: onPubdSlotClick,
@@ -2344,8 +2365,8 @@ function retrieveEvent(eventID, postHook = null) {
           } : s
         };
       });
-      console.log(`slots no 2 len ${slots.length}`);
-      console.log(slots);
+      logDebug(`slots no 2 len ${slots.length}`);
+      logDebug(slots);
       mkActivity({
         label: act.shortDescription,
         fn: onPubdActivityClick,
@@ -2480,7 +2501,7 @@ function retrieveEvent(eventID, postHook = null) {
       renderCAPTCHA(pubRSVPS);
     });
 
-    console.log(eventTableData);
+    logDebug(eventTableData);
     refreshTable();
     $('#announcements-section').hide();
     $('#view-event-section').show();
@@ -2601,11 +2622,14 @@ function loadCAPTCHA() {
     url: '/v1',
     type: 'GET',
     complete: res => {
+      // check to see if debug logs are enabled
+      debug = res.responseJSON.debug;
+      
       if(!res.responseJSON.captcha) {
-        console.log('CAPTCHA disabled')
+        logDebug('CAPTCHA disabled')
         captchaRequired = false;
       } else {
-        console.log(`CAPTCHA site key is ${res.responseJSON.captcha}`);
+        logDebug(`CAPTCHA site key is ${res.responseJSON.captcha}`);
         grecaptcha.enterprise.render('captcha', {
           sitekey: res.responseJSON.captcha,
           callback: res => {
@@ -2615,7 +2639,7 @@ function loadCAPTCHA() {
             captchaCallback = null;
           }
         });
-        console.log('CAPTCHA loaded');
+        logDebug('CAPTCHA loaded');
       }
 
       // inbound verification links
@@ -2675,7 +2699,7 @@ function loadSite() {
   const viewTableSliderObserver = new MutationObserver(function(mutationsList) {
     mutationsList.forEach(function(mutation) {
       if('characterData' === mutation.type || 'childList' === mutation.type) {
-        console.log(`slider moved to ${viewTableSliderOutput.text()}`);
+        logDebug(`slider moved to ${viewTableSliderOutput.text()}`);
         renderEventTable($('#view-event-table'), Number(viewTableSliderOutput.text()));
       }
     });
@@ -2930,7 +2954,7 @@ function loadSite() {
     let elems = [];
     $(this).attr('class').split(/\s+/).forEach((elem) => {
       if(elem.startsWith('toggle-')) {
-        console.log(`toggle ${elem}`);
+        logDebug(`toggle ${elem}`);
         $(`.${elem}`).not('.toggle').toggle();
       }
     });
@@ -2970,8 +2994,18 @@ function loadSite() {
       var _url = window.URL.createObjectURL(blob);
       window.open(_url, "_blank").focus();
     }).catch(err => {
-      console.log(err);
+      console.error(err);
     });
+  });
+
+  // terms of service
+  $('#terms-link-footer').on('click', () => {
+    loadMarkdown('/terms.txt');
+  });
+
+  // privacy policy
+  $('#privacy-link-footer').on('click', () => {
+    loadMarkdown('/privacy.txt');
   });
 
   if(urlParams.has('action')) {
@@ -2983,8 +3017,66 @@ function loadSite() {
     case 'payment-canceled':
       toast({ message: 'Event publishing was canceled.', type: 'is-danger' });
       break;
+
+    case 'terms':
+      loadMarkdown('/terms.txt');
+      break;
+
+    case 'privacy':
+      loadMarkdown('/privacy.txt');
+      break;
     }
   }
+
+  console.log(`
+
+             =======                                            ==              
+          =============                                   ============+         
+        +===============                                ================        
+        ================+                               ================        
+       +================                                +===============        
+       =================                                ================        
+       =================                                ================        
+       =================                                ================        
+       =================     ++==+=          +++==      ================        
+       =================  ===========+    ===========   ================        
+       ================= ==============  ============+  ================        
+       +================ ==============  =============  ================        
+       +================  +===========   ============   ================        
+       =================    +=+====         ======+     ================        
+       =================                                ================        
+       +================                                ================        
+        ================+                              ================+        
+        ==================                             ================+        
+        ===================                          +==================        
+        ====================+                       +==================+        
+         =======================                  ======================        
+          ==========================          +========================+        
+           ============================================================+        
+            ===========================================================+        
+              =========================================================+        
+                 ======================================================         
+           +==       +=================================+ ==============         
+        +========+         +======================       ==============         
+        ===========                                      ==============         
+       ============+                                     +=============         
+       ==============+                                   ==============         
+       +===============+                               +===============         
+        ===================                          +=================         
+        =====================+                    +===================+         
+         ========================++         +++========================         
+           ===========================================================          
+            +========================================================           
+              ====================================================+             
+                ================================================+               
+                   +=========================================+                  
+                        ++============================+==                       
+                                     =++++                                      
+
+
+                   Yasss! Copyright (c) 2024 CrowdEase, LLC.
+
+  `);
 
   setTimeout(() => {
     $('.pageloader').removeClass('is-active');
@@ -3002,7 +3094,7 @@ $(function() {
     let userCookie = JSON.parse(Cookies.get('user'));
     if(userCookie) userData = userCookie;
   } catch(e) {
-    console.log('no auth cookie detected');
+    logDebug('no auth cookie detected');
     $('#account-nav').hide();
     $('#logout-nav').hide();
     $('#login-nav').show();

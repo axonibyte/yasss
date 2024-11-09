@@ -1,0 +1,37 @@
+# Privacy Policy
+
+We want you to be aware of exactly what sort of information we're retaining when
+you use our platform. We strongly believe in your right to privacy as much as is
+possible when using a platform like ours. We do not use any of your information
+for marketing purposes and we do not resell your information. All of what we
+collect is either for our systems analysis, our security, or for your ease of use
+of this platform. The following uses are all-encompassing.
+
+- We use Google reCAPTCHA to ensure that folks using our platform as guests aren't
+  abusing our platform. Your IP address and CAPTCHA response gets sent to Google.
+  We aren't privvy to what they use that data for, but we do retain statistics on
+  that data so that we can get a better idea of how many fraudsters are using
+  our platform.
+- We use Mailjet as our outbound SMTP platform for mailing transactional emails.
+  These emails are purely for your ease and are used for things like resetting
+  and verifying accounts or sending notifications when someone submits an RSVP
+  to your event. You can avoid this third-party service altogether by simply
+  refraining from creating an account with us. We're not privvy to what Mailjet
+  might additionally do with your data.
+- We use Stripe to process payments. They have to keep certain records on file
+  for PCI/DSS compliance. They may ask for additional information from you when
+  you pay for an event but if you're only here to submit an RSVP, you'll never
+  encounter this. We keep track of some of those records (mainly the invoices)
+  purely for financial accounting purposes, and we never store your financial
+  data like credit cards and the like. We're not privvy to what Stripe additionally
+  uses any of your data for.
+- Lastly, we of course retain all events and accounts that are created directly
+  on our platform. When creating an account, we don't ask for your name--only
+  your email address. These can be deleted without breaking any events created
+  with those accounts, so please feel free to reach out to us at any time if you
+  really want to delete your account. Keep in mind that we necessarily keep all
+  of the submitted values for any fields that might be associated with events,
+  which includes the names of event participants. These are always exclusively
+  used for the convenience of the event coordinator--we never use them for
+  marketing purposes, and they are never sold to third parties.
+

@@ -98,7 +98,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
           deserializer.has("allowMultiUserSignups")
               ? deserializer.getBool("allowMultiUserSignups")
               : false,
-          paymentRequired);
+          !paymentRequired);
 
       if(event.getShortDescription().isBlank())
         throw new EndpointException(req, "malformed argument (string: shortDescription)", 400);
@@ -367,7 +367,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
       if(paymentRequired)
         resJSO.put(
             "paymentRedirect",
-            YasssCore.getStripe().startCheckout(event.getID()));
+            YasssCore.getStripe().startCheckout(event));
 
       return resJSO;
       

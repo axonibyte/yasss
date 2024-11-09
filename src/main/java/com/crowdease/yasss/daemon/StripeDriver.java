@@ -13,7 +13,6 @@ import com.crowdease.yasss.model.Event;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Price;
-import com.stripe.model.PriceCollection;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.PriceListParams;
 import com.stripe.param.checkout.SessionCreateParams;
@@ -26,7 +25,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Handles Stripe interactions.
@@ -62,7 +62,7 @@ public final class StripeDriver {
    * @throws SQLException if a database malfunction occurs
    * @throws StripeException if a Stripe malfunction occurs
    */
-  public String startCheckout(UUID eventID) throws SQLException, StripeException {
+  public String startCheckout(Event event) throws SQLException, StripeException {
     var prices = Price.list(
         PriceListParams.builder()
         .addLookupKey(lookupKey)
@@ -75,6 +75,11 @@ public final class StripeDriver {
           String.format(
               "failed to find prices associated with lookup key %1$s",
               lookupKey));
+
+    logger.info(
+        "lookup key {} found to be associated with price ID {}",
+        lookupKey,
+        prices.get(0).getId());
     
     Session session = Session.create(
         SessionCreateParams.builder()
@@ -83,7 +88,7 @@ public final class StripeDriver {
                 String.format(
                     "%1$s?action=payment-success&event=%2$s&share",
                     YasssCore.getAPIHost(),
-                    eventID.toString()))
+                    event.getID().toString()))
             .setCancelUrl(
                 String.format(
                     "%1$s?action=payment-canceled",
@@ -97,6 +102,7 @@ public final class StripeDriver {
                     .setQuantity(1L)
                     .setPrice(prices.get(0).getId())
                     .build())
+            .putMetadata("event_id", event.getID().toString())
             .build());
     
     Connection con = null;
@@ -110,7 +116,7 @@ public final class StripeDriver {
                   "event",
                   "session_id")
               .toString());
-      stmt.setBytes(1, SQLBuilder.uuidToBytes(eventID));
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(event.getID()));
       stmt.setString(2, session.getId());
       stmt.executeUpdate();
     } catch(SQLException e) {
@@ -123,13 +129,93 @@ public final class StripeDriver {
   }
 
   /**
-   * Fulfills a Stripe checkout session, if it's been paid.
+   * Fulfills any checkout session associated with an event, if at least one of
+   * the associated checkout sessions have been paid.
    *
-   * @param sessionID the ID of the session supposedly paid
+   * @param event the {@link Event}
+   * @return {@code true} if at least one session associated with the event was
+   *         marked as paid (will return {@code false} if no sessions were found,
+   *         even if the event is already published)
    * @throws SQLException if a database malfunction occurs
    * @throws StripeException if a Stripe malfunction occurs
    */
-  public void fulfillCheckout(String sessionID) throws SQLException, StripeException {
+  public boolean fulfillCheckout(Event event) throws SQLException, StripeException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+
+    Set<String> checkoutSessions = new HashSet<>();
+
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(
+          new SQLBuilder()
+          .select(
+              YasssCore.getDB().getPrefix() + "checkout_session",
+              "session_id")
+          .where("event")
+          .toString());
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(event.getID()));
+      res = stmt.executeQuery();
+
+      while(res.next())
+        checkoutSessions.add(
+            res.getString("session_id"));
+
+      logger.info(
+          "found {} checkout session(s) associated with event {}",
+          checkoutSessions.size(),
+          event.getID().toString());
+
+      for(var sessionID : checkoutSessions) {
+        Session session = Session.retrieve(
+            sessionID,
+            SessionRetrieveParams.builder()
+                .addExpand("line_items")
+                .build(),
+            null);
+
+        logger.info(
+            "checkout session {} for event {} has payment status {}",
+            sessionID,
+            event.getID().toString(),
+            session.getPaymentStatus());
+        
+        if(!session.getPaymentStatus().equalsIgnoreCase("unpaid")) {
+          event.publish(true);
+          event.commit();
+          
+          YasssCore.getDB().close(null, stmt, res);
+          stmt = con.prepareStatement(
+              new SQLBuilder()
+                  .delete(
+                      YasssCore.getDB().getPrefix() + "checkout_session")
+                  .where("event")
+                  .toString());
+          stmt.setBytes(1, SQLBuilder.uuidToBytes(event.getID()));
+          stmt.executeUpdate();
+          return true;
+        }
+      }
+      
+    } catch(SQLException e) {
+      throw e;
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+
+    return false;
+  }
+
+  /**
+   * Fulfills a Stripe checkout session, if it's been paid.
+   *
+   * @param sessionID the ID of the session supposedly paid
+   * @return true if the checkout session was fulfilled (either just now or previously)
+   * @throws SQLException if a database malfunction occurs
+   * @throws StripeException if a Stripe malfunction occurs
+   */
+  public boolean fulfillCheckout(String sessionID) throws SQLException, StripeException {
     Session session = Session.retrieve(
         sessionID,
         SessionRetrieveParams.builder()
@@ -137,13 +223,12 @@ public final class StripeDriver {
             .build(),
         null);
     
-    if("unpaid" == session.getPaymentStatus()) {
+    if(session.getPaymentStatus().equalsIgnoreCase("unpaid")) {
       logger.error(
           "failed to fulfill Stripe session {} (unpaid)",
           sessionID);
 
-      return;
-      
+      return false;
     }
       
     Connection con = null;
@@ -170,35 +255,35 @@ public final class StripeDriver {
       
       if(null == event) {
         logger.error("session {} was mapped to a nonexistent event!", sessionID);
+        return false;
+      }
+        
+      if(event.isPublished()) {
+        logger.warn(
+            "tried to fulfill checkout session {} but event {} is already published",
+            sessionID,
+            event.getID().toString());
         
       } else {
-        
-        if(event.isPublished()) {
-          logger.warn(
-              "tried to fulfill checkout session {} but event {} is already published",
-              sessionID,
-              event.getID().toString());
-          
-        } else {
-          logger.info(
-              "fulfilled checkout session {} and published event {}",
-              sessionID,
-              event.getID().toString());
-          event.publish(true);
-          event.commit();
-        }
-        
-        YasssCore.getDB().close(null, stmt, res);
-        stmt = con.prepareStatement(
-            new SQLBuilder()
-                .delete(
-                    YasssCore.getDB().getPrefix() + "checkout_session")
-                .where("event")
-                .toString());
-        stmt.setBytes(1, SQLBuilder.uuidToBytes(event.getID()));
-        stmt.executeUpdate();
-        
+        logger.info(
+            "fulfilled checkout session {} and published event {}",
+            sessionID,
+            event.getID().toString());
+        event.publish(true);
+        event.commit();
       }
+      
+      YasssCore.getDB().close(null, stmt, res);
+      stmt = con.prepareStatement(
+          new SQLBuilder()
+              .delete(
+                  YasssCore.getDB().getPrefix() + "checkout_session")
+              .where("event")
+              .toString());
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(event.getID()));
+      stmt.executeUpdate();
+
+      return true;
       
     } catch(SQLException e) {
       throw e;
