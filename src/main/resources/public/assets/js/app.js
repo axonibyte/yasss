@@ -419,7 +419,9 @@ function renderVolDropdown() {
       $('<option/>')
         .text('Add a volunteer!'));
   } else {
-    $('#view-event-chg-vol').show();
+    if(!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel)
+      $('#view-event-chg-vol').show();
+    else $('#view-event-chg-vol').hide();
     $('#view-event-volunteer select').prop('disabled', false);
     //$('#view-event-volunteer option').first().text('Select a volunteer...');
     //$('#view-event-volunteer option').not(':first').remove();
@@ -1345,7 +1347,8 @@ function userLogin() {
             $('#account-nav').show();
             userData = {
               account: userAccount,
-              session: userSession
+              session: userSession,
+              accessLevel: res.getResponseHeader('axb-access-level')
             };
             Cookies.set('user', JSON.stringify(userData));
             toast({
@@ -1581,7 +1584,10 @@ function accountVerify(user, token) {
 }
 
 function onPubdActivityClick(d) {
-  if(!eventTableData.editing) return;
+  if(!eventTableData.editing
+      || eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
+  
   logDebug('editing an activity');
 
   renderEventActivityModal(newActivity = false, savFn = function(activity) { // on save
@@ -1598,7 +1604,9 @@ function onPubdActivityClick(d) {
 }
 
 function onPubdWindowClick(d) {
-  if(!eventTableData.editing) return;
+  if(!eventTableData.editing
+      || eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
   logDebug('editing a window');
 
   renderEventWindowModal(newWindow = false, savFn = function(window) { // on save
@@ -1638,6 +1646,9 @@ function getCurrentRSVPState(slot) {
 }
 
 function onPubdSlotClick(d) {
+  if(eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
+  
   let rsvpState = getCurrentRSVPState(d);
   
   if(eventTableData.editing) {
@@ -1733,7 +1744,9 @@ function onPubdSlotClick(d) {
 }
 
 function onPubdDetailClick(d) {
-  if(!eventTableData.editing) return;
+  if(!eventTableData.editing
+      || eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
   logDebug('editing a detail');
 
   renderEventDetailModal(false, function(detail) {
@@ -2315,7 +2328,8 @@ function retrieveEvent(eventID, postHook = null) {
       notifyOnSignup: data.event.emailOnSubmission,
       allowMultiuserSignups: data.event.allowMultiUserSignups,
       admin: data.event.admin,
-      volunteersMaxed: data.event.volunteersMaxed
+      volunteersMaxed: data.event.volunteersMaxed,
+      expired: data.event.expired
     }
     renderEventTableMeta(
       eventTableData.summary.title,
@@ -2430,10 +2444,11 @@ function retrieveEvent(eventID, postHook = null) {
     });
 
     $('#view-event-add-vol').unbind('click');
-    if(eventTableData.summary.allowMultiuserSignups
-        || userData && userData.account == eventTableData.summary.admin
-        || !eventTableData.summary.volunteersMaxed
-        && !eventTableData.volunteers.filter(v => !v.id).length) {
+    if((!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel)
+       && (eventTableData.summary.allowMultiuserSignups
+           || userData && userData.account == eventTableData.summary.admin
+           || !eventTableData.summary.volunteersMaxed
+           && !eventTableData.volunteers.filter(v => !v.id).length)) {
       
       $('#view-event-add-vol').on('click', () => {
         renderVolEditModal(true, function(vol) {
@@ -2524,10 +2539,19 @@ function retrieveEvent(eventID, postHook = null) {
     $('#view-event-add-field').hide();
     $('#view-event-publish-event').hide();
 
+    if(!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel) {
+      $('#view-event-expired').hide();
+      $('#view-event-save-rsvps').show();
+    } else {
+      $('#view-event-save-rsvps').hide();
+      $('#view-event-expired').show();
+    }
+
     if(userData
         && userData.account
         && eventTableData.summary.admin
-        && eventTableData.summary.admin == userData.ccount)
+        && eventTableData.summary.admin == userData.account
+        && (!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel))
       $('#view-event-modify-event').show();
     else $('#view-event-modify-event').hide();
     $('#view-event-modify-event').unbind('click');

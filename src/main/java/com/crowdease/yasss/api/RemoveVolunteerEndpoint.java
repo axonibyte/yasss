@@ -16,6 +16,7 @@ import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONObject;
 
@@ -63,6 +64,9 @@ public final class RemoveVolunteerEndpoint extends APIEndpoint {
       if(!auth.atLeast(User.getUser(volunteer.getUser()))
           && !auth.atLeast(event))
         throw new EndpointException(req, "access denied", 403);
+
+      if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+        throw new EndpointException(req, "event expired", 412);
       
       volunteer.delete();
       

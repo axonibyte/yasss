@@ -16,6 +16,7 @@ import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User.AccessLevel;
 import com.crowdease.yasss.model.Window;
 
 import org.json.JSONObject;
@@ -53,6 +54,9 @@ public final class ModifyWindowEndpoint extends APIEndpoint {
         if(null != event) {
           if(!auth.atLeast(event))
             throw new EndpointException(req, "access denied", 403);
+
+          if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+            throw new EndpointException(req, "event expired", 412);
           
           window = event.getWindow(
               UUID.fromString(

@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -1052,6 +1053,45 @@ public class Event {
     }
 
     return null;
+  }
+
+  /**
+   * Determines whether or not this event has expired. The event is considered
+   * expired if it has at least one window and the begin date of its earliest
+   * window is before the current date and time.
+   *
+   * @return {@code true} iff this event has expired
+   * @throws SQLException if a database malfunction occurs
+   */
+  public boolean isExpired() throws SQLException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(
+          new SQLBuilder()
+          .select(
+              YasssCore.getDB().getPrefix() + "event_window",
+              "begin_time")
+          .where("event")
+          .order("begin_time", Order.ASC)
+          .limit(1)
+          .toString());
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
+      res = stmt.executeQuery();
+
+      if(res.next())
+        return res.getTimestamp("begin_time").before(new Date());
+      
+    } catch(SQLException e) {
+      throw e;
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+
+    return false;
   }
 
   /**

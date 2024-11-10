@@ -22,6 +22,7 @@ import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -69,6 +70,9 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
       if(!auth.atLeast(User.getUser(volunteer.getUser()))
           && !auth.atLeast(event))
         throw new EndpointException(req, "access denied", 403);
+
+      if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+        throw new EndpointException(req, "event expired", 412);
 
       JSONDeserializer deserializer = new JSONDeserializer(req.body())
         .tokenize("name", false)

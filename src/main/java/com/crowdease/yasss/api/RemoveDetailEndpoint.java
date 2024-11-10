@@ -15,6 +15,7 @@ import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Detail;
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONObject;
 
@@ -52,6 +53,9 @@ public final class RemoveDetailEndpoint extends APIEndpoint {
         if(null != event) {
           if(!auth.atLeast(event))
             throw new EndpointException(req, "access denied");
+
+          if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+            throw new EndpointException(req, "event expired", 412);
           
           detail = event.getDetail(
               UUID.fromString(

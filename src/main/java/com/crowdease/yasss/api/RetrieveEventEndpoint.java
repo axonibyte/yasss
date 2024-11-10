@@ -170,7 +170,8 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
                               null)
                       : 1 >= event.countVolunteers(
                           null,
-                          req.ip())));
+                          req.ip()))
+              .put("expired", event.isExpired()));
 
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);

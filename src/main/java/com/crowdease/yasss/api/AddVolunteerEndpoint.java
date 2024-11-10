@@ -96,6 +96,9 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           || null != user && !auth.atLeast(user))
         throw new EndpointException(req, "access denied", 403);
 
+      if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+        throw new EndpointException(req, "event expired", 412);
+
       if(!event.allowMultiUserSignups()
           && !auth.atLeast(event)
           && (null == user
