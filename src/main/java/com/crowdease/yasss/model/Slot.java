@@ -20,6 +20,7 @@ import java.util.Map.Entry;
 
 import com.axonibyte.lib.db.Comparison;
 import com.axonibyte.lib.db.SQLBuilder;
+import com.axonibyte.lib.db.Wrapper;
 import com.axonibyte.lib.db.Comparison.ComparisonOp;
 import com.axonibyte.lib.db.SQLBuilder.Join;
 import com.axonibyte.lib.db.SQLBuilder.Order;
@@ -114,7 +115,8 @@ public class Slot {
                   "v.user",
                   "v.event",
                   "v.name",
-                  "v.reminders_enabled")
+                  "v.reminders_enabled",
+                  "v.ip_addr")
               .tableAlias("r")
               .join(
                   Join.INNER,
@@ -126,6 +128,7 @@ public class Slot {
                       ComparisonOp.EQUAL_TO))
               .where("r.activity", "r.event_window")
               .order("r.last_update", Order.ASC)
+              .wrap(new Wrapper(6, "INET_NTOA"))
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(activity));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(window));
@@ -144,7 +147,8 @@ public class Slot {
                 SQLBuilder.bytesToUUID(
                     res.getBytes("v.event")),
                 res.getString("v.name"),
-                res.getBoolean("v.reminders_enabled")));
+                res.getBoolean("v.reminders_enabled"),
+                res.getString("v.ip_addr")));
       }
 
       if(!rsvps.isEmpty()) {
@@ -260,7 +264,8 @@ public class Slot {
                   "v.user",
                   "v.event",
                   "v.name",
-                  "v.reminders_enabled")
+                  "v.reminders_enabled",
+                  "v.ip_addr")
               .tableAlias("r")
               .join(
                   Join.INNER,
@@ -275,6 +280,7 @@ public class Slot {
                   "r.event_window",
                   "r.volunteer")
               .limit(1)
+              .wrap(new Wrapper(5, "INET_NTOA"))
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(activity));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(window));
@@ -291,7 +297,8 @@ public class Slot {
                 SQLBuilder.bytesToUUID(
                     res.getBytes("v.event")),
                 res.getString("v.name"),
-                res.getBoolean("v.reminders_enabled")));
+                res.getBoolean("v.reminders_enabled"),
+                res.getString("v.ip_addr")));
       
     } catch(SQLException e) {
       throw e;

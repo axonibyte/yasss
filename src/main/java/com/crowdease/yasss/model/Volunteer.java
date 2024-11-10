@@ -20,6 +20,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 
 import com.axonibyte.lib.db.SQLBuilder;
+import com.axonibyte.lib.db.Wrapper;
 import com.crowdease.yasss.YasssCore;
 
 /**
@@ -34,6 +35,7 @@ public class Volunteer {
   private UUID id;
   private UUID user;
   private String name;
+  private String ipAddr;
   private Map<Detail, String> details = new HashMap<>();
   private boolean remindersEnabled;
 
@@ -47,13 +49,16 @@ public class Volunteer {
    *        has signed up for
    * @param remindersEnabled {@code true} iff the volunteer should be sent
    *        notifications when the event is about to start
+   * @param ipAddr the IP address of the actor responsible for creating this
+   *        volunteer
    */
-  public Volunteer(UUID id, UUID user, UUID event, String name, boolean remindersEnabled) {
+  public Volunteer(UUID id, UUID user, UUID event, String name, boolean remindersEnabled, String ipAddr) {
     this.id = id;
     this.user = user;
     this.event = event;
     this.name = name;
     this.remindersEnabled = remindersEnabled;
+    this.ipAddr = ipAddr;
   }
 
   /**
@@ -94,6 +99,28 @@ public class Volunteer {
    */
   public Volunteer setUser(UUID user) {
     this.user = user;
+    return this;
+  }
+
+  /**
+   * Retrieves the associated user's IP address. An IP address should be returned,
+   * even if a {@link User} account was not created and associated with this
+   * volunteer.
+   *
+   * @return the creator's IP address
+   */
+  public String userIP() {
+    return ipAddr;
+  }
+
+  /**
+   * Sets the IP address associated with the actor that created this volunteer.
+   *
+   * @param the creator's IP address
+   * @return this {@link Volunteer} instance
+   */
+  public Volunteer setUserIP(String ipAddr) {
+    this.ipAddr = ipAddr;
     return this;
   }
 
@@ -249,19 +276,22 @@ public class Volunteer {
                   "user",
                   "event",
                   "name",
-                  "reminders_enabled")
+                  "reminders_enabled",
+                  "ip_addr")
               .where("id")
+              .wrap(new Wrapper(5, "INET_ATON"))
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(user));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(event));
       stmt.setString(3, name);
       stmt.setBoolean(4, remindersEnabled);
-      stmt.setBytes(5, SQLBuilder.uuidToBytes(id));
+      stmt.setString(5, ipAddr);
+      stmt.setBytes(6, SQLBuilder.uuidToBytes(id));
       
-      boolean updated = 0 == stmt.executeUpdate();
+      boolean noRecord = 0 == stmt.executeUpdate();
       YasssCore.getDB().close(null, stmt, null);
       
-      if(updated) { // record doesn't exist, so make it
+      if(noRecord) { // record doesn't exist, so make it
         YasssCore.getDB().close(null, stmt, null);
         stmt = con.prepareStatement(
             new SQLBuilder()
@@ -271,13 +301,16 @@ public class Volunteer {
                     "user",
                     "event",
                     "name",
-                    "reminders_enabled")
+                    "reminders_enabled",
+                    "ip_addr")
+                .wrap(new Wrapper(6, "INET_ATON"))
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
         stmt.setBytes(2, SQLBuilder.uuidToBytes(user));
         stmt.setBytes(3, SQLBuilder.uuidToBytes(event));
         stmt.setString(4, name);
         stmt.setBoolean(5, remindersEnabled);
+        stmt.setString(6, ipAddr);
         stmt.executeUpdate();
         
       } else { // record existed, so wipe stale deets

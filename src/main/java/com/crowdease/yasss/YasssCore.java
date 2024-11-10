@@ -37,6 +37,7 @@ import com.crowdease.yasss.api.ModifyEventEndpoint;
 import com.crowdease.yasss.api.ModifyUserEndpoint;
 import com.crowdease.yasss.api.ModifyVolunteerEndpoint;
 import com.crowdease.yasss.api.ModifyWindowEndpoint;
+import com.crowdease.yasss.api.PublicTextEndpoint;
 import com.crowdease.yasss.api.RemoveActivityEndpoint;
 import com.crowdease.yasss.api.RemoveDetailEndpoint;
 import com.crowdease.yasss.api.RemoveEventEndpoint;
@@ -184,6 +185,7 @@ public class YasssCore {
               new ModifyUserEndpoint(),
               new ModifyVolunteerEndpoint(),
               new ModifyWindowEndpoint(),
+              new PublicTextEndpoint(),
               new RemoveActivityEndpoint(),
               new RemoveDetailEndpoint(),
               new RemoveEventEndpoint(),
@@ -199,6 +201,20 @@ public class YasssCore {
               new UnsetSlotEndpoint(),
               new VerifyUserEndpoint())
           .build();
+
+      for(var textFile : PublicTextEndpoint.TextFile.values()) {
+        try {
+          PublicTextEndpoint.loadResource(
+              textFile,
+              config.getString(textFile));
+        } catch(BadParamException e) {
+          logger.error(
+              "could not load {} ({}): {}",
+              textFile.name(),
+              textFile.toString(),
+              e.getMessage());
+        }
+      }
 
       Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override public void run() {
@@ -220,7 +236,7 @@ public class YasssCore {
       } else {
         try {
           Files.copy(
-              YasssCore.class.getResourceAsStream("/yasss.cfg"),
+              YasssCore.class.getResourceAsStream("/defaults/yasss.cfg"),
               Paths.get(diskConfig.toURI()));
           logger.warn("Saved default config file. Please modify and try again!");
         } catch(IOException e2) {

@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -22,6 +23,7 @@ import java.util.UUID;
 
 import com.axonibyte.lib.db.Comparison;
 import com.axonibyte.lib.db.SQLBuilder;
+import com.axonibyte.lib.db.Wrapper;
 import com.axonibyte.lib.db.Comparison.ComparisonOp;
 import com.axonibyte.lib.db.SQLBuilder.Join;
 import com.axonibyte.lib.db.SQLBuilder.Order;
@@ -880,9 +882,11 @@ public class Event {
               "id",
               "user",
               "name",
-              "reminders_enabled")
+              "reminders_enabled",
+              "ip_addr")
           .where("event")
           .order("name", Order.ASC)
+          .wrap(new Wrapper(5, "INET_NTOA"))
           .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       res = stmt.executeQuery();
@@ -897,7 +901,8 @@ public class Event {
                     res.getBytes("user")),
                 id,
                 res.getString("name"),
-                res.getBoolean("reminders_enabled")));
+                res.getBoolean("reminders_enabled"),
+                res.getString("ip_addr")));
 
       if(!volunteers.isEmpty()) {
         Map<UUID, Map<Detail, String>> details = new LinkedHashMap<>();
@@ -948,6 +953,58 @@ public class Event {
   }
 
   /**
+   * Counts volunteers associated with this event, optionally filtered.
+   *
+   * @param user the {@link UUID} of the user by which counted volunteers are
+   *        to be filtered, or {@code null} to count volunteers without regard
+   *        to their associated users
+   * @param ipAddr the IP address by which counted volunteers are to be filtered,
+   *        or {@code null} to count volunteers without regard to their associated
+   *        IP addresses
+   * @return a number representing the number of potentially-filtered volunteers
+   *         associated with this event
+   * @throws SQLException if a database malfunction occurs
+   */
+  public int countVolunteers(UUID user, String ipAddr) throws SQLException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+
+    SQLBuilder query = new SQLBuilder()
+      .select(
+          YasssCore.getDB().getPrefix() + "volunteer")
+      .count("id", "vol_count")
+      .where("event");
+    if(null != ipAddr)
+      query
+        .where("ip_addr")
+        .wrap(
+            new Wrapper(2, "INET_ATON"));
+    if(null != admin)
+      query.where("user");
+
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(query.toString());
+      int idx = 0;
+      stmt.setBytes(++idx, SQLBuilder.uuidToBytes(id));
+      if(null != admin)
+        stmt.setBytes(++idx, SQLBuilder.uuidToBytes(admin));
+      if(null != ipAddr)
+        stmt.setString(++idx, ipAddr);
+      res = stmt.executeQuery();
+
+      res.next();
+      return res.getInt("vol_count");
+      
+    } catch(SQLException e) {
+      throw e;
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+  }
+
+  /**
    * Retrieves a particular volunteer associated with this event.
    *
    * @param volunteerID the {@link UUID} associated with the {@link Volunteer}
@@ -969,9 +1026,11 @@ public class Event {
               YasssCore.getDB().getPrefix() + "volunteer",
               "user",
               "name",
-              "reminders_enabled")
+              "reminders_enabled",
+              "ip_addr")
           .where("id", "event")
           .limit(1)
+          .wrap(new Wrapper(4, "INET_NTOA"))
           .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(volunteerID));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(id));
@@ -984,7 +1043,8 @@ public class Event {
                 res.getBytes("user")),
             id,
             res.getString("name"),
-            res.getBoolean("reminders_enabled"));
+            res.getBoolean("reminders_enabled"),
+            res.getString("ip_addr"));
 
     } catch(SQLException e) {
       throw e;
@@ -993,6 +1053,45 @@ public class Event {
     }
 
     return null;
+  }
+
+  /**
+   * Determines whether or not this event has expired. The event is considered
+   * expired if it has at least one window and the begin date of its earliest
+   * window is before the current date and time.
+   *
+   * @return {@code true} iff this event has expired
+   * @throws SQLException if a database malfunction occurs
+   */
+  public boolean isExpired() throws SQLException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(
+          new SQLBuilder()
+          .select(
+              YasssCore.getDB().getPrefix() + "event_window",
+              "begin_time")
+          .where("event")
+          .order("begin_time", Order.ASC)
+          .limit(1)
+          .toString());
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
+      res = stmt.executeQuery();
+
+      if(res.next())
+        return res.getTimestamp("begin_time").before(new Date());
+      
+    } catch(SQLException e) {
+      throw e;
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+
+    return false;
   }
 
   /**

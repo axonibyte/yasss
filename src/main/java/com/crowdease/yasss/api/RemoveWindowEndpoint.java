@@ -15,6 +15,7 @@ import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.Window;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONObject;
 
@@ -52,6 +53,9 @@ public final class RemoveWindowEndpoint extends APIEndpoint {
         if(null != event) {
           if(!auth.atLeast(event))
             throw new EndpointException(req, "access denied", 403);
+
+          if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+            throw new EndpointException(req, "event expired", 412);
           
           window = event.getWindow(
               UUID.fromString(

@@ -19,6 +19,7 @@ import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.Window;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONObject;
 
@@ -61,6 +62,9 @@ public final class SetSlotEndpoint extends APIEndpoint {
         if(null != event) {
           if(!auth.atLeast(event))
             throw new EndpointException(req, "access denied", 403);
+
+          if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+            throw new EndpointException(req, "event expired", 412);
           
           activity = event.getActivity(
               UUID.fromString(

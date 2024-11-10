@@ -214,6 +214,7 @@ public final class EventReportEndpoint extends Endpoint {
       String nextSession = token.process();
       user = token.getUser();
 
+      res.header(APIEndpoint.ACCESS_LEVEL_HEADER, user.getAccessLevel().name());
       res.header(APIEndpoint.ACCOUNT_HEADER, user.getID().toString());
       res.header(APIEndpoint.SESSION_HEADER, nextSession);
       

@@ -14,6 +14,7 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 import com.axonibyte.lib.db.SQLBuilder;
+import com.axonibyte.lib.db.Wrapper;
 import com.crowdease.yasss.YasssCore;
 
 /**
@@ -80,9 +81,11 @@ public class RSVP {
                   "user",
                   "event",
                   "name",
-                  "reminders_enabled")
+                  "reminders_enabled",
+                  "ip_addr")
               .where("id")
               .limit(1)
+              .wrap(new Wrapper(5, "INET_NTOA"))
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(volunteer));
       res = stmt.executeQuery();
@@ -95,7 +98,8 @@ public class RSVP {
             SQLBuilder.bytesToUUID(
                 res.getBytes("event")),
             res.getString("name"),
-            res.getBoolean("reminders_enabled"));
+            res.getBoolean("reminders_enabled"),
+            res.getString("ip_addr"));
       
     } catch(SQLException e) {
       throw e;

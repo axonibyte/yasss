@@ -52,27 +52,39 @@
     </section>
 
     <!-- call to action -->
-    <section id="announcements-section" class="section">
+    <section id="coa-section" class="section">
       <div class="card">
         <div class="card-content">
           <div class="content has-text-centered">
-            <p class="subtitle">Welcome, friend!</h1>
-            <p>
-              Our team built this tool for our own use because we were tired of
-              dealing with other sign-up tools that require costly subscriptions.
-              We've designed it to be super straightforward and hassle-free, and
-              if you'd like you can use it too! You're more than welcome to
-              <a class="has-text-primary" href="https://bitbucket.org/axonibyte/yasss">host it yourself for free</a>,
-              but if that's not your style, we can host your sign-up form for you.
-              It's super easy to create an event, and if you're happy with it you
-              can publish it on this platform for a $4.99 one-time fee... no
-              subscription required. Click the button below to get started.
-            </p>
+            <p class="subtitle">Welcome, friend!</p>
+            <p id="coa-content" class="mb-5"></p>
             <div class="buttons is-centered">
               <button
                 id="create-event-cta"
                 class="button is-primary is-medium">Create an Event!</button>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- event listing section -->
+    <section id="list-event-section" class="section">
+      <div class="grid">
+        <div class="cell">
+          <div id="list-event-admin-box" class="box">
+            <p class="subtitle has-text-centered">Your Upcoming Events</p>
+            <ul class="block-list is-centered">
+              <li>Loading...</li>
+            </ul>
+          </div>
+        </div>
+        <div class="cell">
+          <div id="list-event-rsvp-box" class="box">
+            <p class="subtitle has-text-centered">Your Upcoming RSVPS</p>
+            <ul class="block-list is-centered">
+              <li>Loading...</li>
+            </ul>
           </div>
         </div>
       </div>
@@ -98,6 +110,9 @@
                   <button
                     id="view-event-view-report"
                     class="button is-light is-outlined is-primary is-small">View Report</button>
+                  <button
+                    id="view-event-share"
+                    class="button is-light is-outlined is-primary is-small">Share</button>
                 </div>
               </div>
 
@@ -209,6 +224,11 @@
                 id="view-event-close-editor"
                 class="button is-primary"
                 style="display: none;">Close Event Editor</button>
+              <button
+                id="view-event-expired"
+                class="button"
+                style="display: none;"
+                disabled>This event has expired.</button>
             </div>
           </div>
         </div>
@@ -249,7 +269,7 @@
     </div>
 
     <!-- terms and/or privacy modal -->
-    <div id="md-viewer-modal" class="modal">
+    <div id="md-view-modal" class="modal">
       <div class="modal-background"></div>
       <div class="modal-card">
         <header class="modal-card-head">

@@ -96,6 +96,21 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           || null != user && !auth.atLeast(user))
         throw new EndpointException(req, "access denied", 403);
 
+      if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+        throw new EndpointException(req, "event expired", 412);
+
+      if(!event.allowMultiUserSignups()
+          && !auth.atLeast(event)
+          && (null == user
+              && 1 >= event.countVolunteers(
+                  auth.getActor().getID(),
+                  null)
+              || null != user
+                  && 1 >= event.countVolunteers(
+                      null,
+                      req.ip())))
+        throw new EndpointException(req, "volunteer cap reached", 412);             
+
       String name = deserializer.getString("name").strip();
       if(name.isBlank())
         throw new EndpointException(req, "malformed argument (name)", 400);
@@ -107,7 +122,8 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           deserializer.getString("name"),
           deserializer.has("remindersEnabled")
               ? deserializer.getBool("remindersEnabled")
-              : false);
+              : false,
+          req.ip());
       Map<UUID, Detail> fields = event.getDetails()
           .stream()
           .collect(

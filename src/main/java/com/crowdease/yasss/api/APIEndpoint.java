@@ -35,6 +35,7 @@ import spark.Response;
  */
 public abstract class APIEndpoint extends JSONEndpoint {
 
+  public static final String ACCESS_LEVEL_HEADER = "AXB-ACCESS-LEVEL";
   public static final String ACCOUNT_HEADER = "AXB-ACCOUNT";
   public static final String SESSION_HEADER = "AXB-SESSION";
   
@@ -64,6 +65,7 @@ public abstract class APIEndpoint extends JSONEndpoint {
       String nextSession = token.process();
       user = token.getUser();
 
+      res.header(ACCESS_LEVEL_HEADER, user.getAccessLevel().name());
       res.header(ACCOUNT_HEADER, user.getID().toString());
       res.header(SESSION_HEADER, nextSession);
       

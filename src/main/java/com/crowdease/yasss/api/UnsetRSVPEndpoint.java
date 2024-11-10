@@ -20,6 +20,7 @@ import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.Volunteer;
+import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONObject;
 
@@ -81,6 +82,9 @@ public final class UnsetRSVPEndpoint extends APIEndpoint {
       if(!auth.atLeast(User.getUser(rsvp.getValue().getUser()))
           && !auth.atLeast(event))
         throw new EndpointException(req, "access denied", 403);
+
+      if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
+        throw new EndpointException(req, "event expired", 412);
 
       rsvp.getKey().delete();
 

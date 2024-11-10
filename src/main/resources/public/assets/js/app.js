@@ -419,7 +419,9 @@ function renderVolDropdown() {
       $('<option/>')
         .text('Add a volunteer!'));
   } else {
-    $('#view-event-chg-vol').show();
+    if(!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel)
+      $('#view-event-chg-vol').show();
+    else $('#view-event-chg-vol').hide();
     $('#view-event-volunteer select').prop('disabled', false);
     //$('#view-event-volunteer option').first().text('Select a volunteer...');
     //$('#view-event-volunteer option').not(':first').remove();
@@ -1281,25 +1283,98 @@ function injectAuth(options, session = null, captcha = null) {
   return options;
 }
 
+function setUpcomingEvents(container, events) {
+  let list = $(`${container} ul`);
+  list.empty();
+  if(!events.length) {
+    list.removeClass('is-primary');
+    list.addClass('is-centered');
+    list.append(
+      $('<li/>').text('No events.'));
+  } else {
+    list.removeClass('is-centered');
+    list.addClass('is-primary');
+    events.forEach(event => {
+      let card = $('<li/>').text(event.shortDescription);
+      card.on('click', () => {
+        logDebug(`event link ${event.id} clicked`);
+        retrieveEvent(event.id);
+      });
+      list.append(card);
+    });
+  }
+}
+
+function toggleAuthUI(loggedIn) {
+  if(loggedIn) {
+    $('#login-nav').hide();
+    $('#logout-nav').show();
+    $('#account-nav').show();
+    if(!eventTableData.summary.id) {
+
+      let now = Date.now();
+
+      $.ajax(injectAuth({
+        url: '/v1/events',
+        type: 'GET',
+        data: {
+          admin: userData.account,
+          earliest: now
+        },
+        complete: res => {
+          logDebug(`pulled events administrated by user ${userData.account}:`);
+          logDebug(res);
+          setUpcomingEvents('#list-event-admin-box', res.responseJSON.events);
+        }
+      })).fail(function(data) {
+        console.error(data);
+      });
+
+      $.ajax(injectAuth({
+        url: '/v1/events',
+        type: 'GET',
+        data: {
+          volunteer: userData.account,
+          earliest: now
+        },
+        complete: res => {
+          logDebug(`pulled events RSVP'd to by user ${userData.account}:`);
+          logDebug(res);
+          setUpcomingEvents('#list-event-rsvp-box', res.responseJSON.events);
+        }
+      })).fail(function(data) {
+        console.error(data);
+      });
+      
+      $('#coa-section').hide();
+      $('#list-event-section').show();
+    }
+  } else {
+    $('#account-nav').hide();
+    $('#logout-nav').hide();
+    $('#login-nav').show();
+    if(!eventTableData.summary.id) {
+      $('#list-event-section').hide();
+      $('#coa-section').show();
+    }
+  }
+}
+
 function saveSession(res, onSuccess = null, onFailure = null) {
   let userSession = res.getResponseHeader('axb-session');
   
   if(userData) {
     if(userSession) {
       userData.session = userSession;
-      $('#login-nav').hide();
-      $('#logout-nav').show();
-      $('#account-nav').show();
+      toggleAuthUI(true);
     } else {
-      $('#account-nav').hide();
-      $('#logout-nav').hide();
-      $('#login-nav').show();
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
       });
       userData = null;
       Cookies.remove('user');
+      toggleAuthUI(false);
     }
   }
 
@@ -1340,12 +1415,10 @@ function userLogin() {
           let userAccount = res.getResponseHeader('axb-account');
           let userSession = res.getResponseHeader('axb-session');
           if(userAccount && userSession) {
-            $('#login-nav').hide();
-            $('#logout-nav').show();
-            $('#account-nav').show();
             userData = {
               account: userAccount,
-              session: userSession
+              session: userSession,
+              accessLevel: res.getResponseHeader('axb-access-level')
             };
             Cookies.set('user', JSON.stringify(userData));
             toast({
@@ -1358,6 +1431,8 @@ function userLogin() {
               if(eventTableData.summary.id)
                 retrieveEvent(eventTableData.summary.id);
             });
+            
+            toggleAuthUI(true);
             
           } else {
             toast({
@@ -1395,9 +1470,7 @@ function userLogout() {
     message: 'You\'ve been logged out!',
     type: 'is-warning'
   });
-  $('#account-nav').hide();
-  $('#logout-nav').hide();
-  $('#login-nav').show();
+  toggleAuthUI(false);
 }
 
 function refreshUserSession(session = null, fn = null) {
@@ -1416,14 +1489,12 @@ function refreshUserSession(session = null, fn = null) {
       Cookies.remove('user');
       console.error('Failed to refresh user session.');
       console.error(data);
-      $('#account-nav').hide();
-      $('#logout-nav').hide();
-      $('#login-nav').show();
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
       });
       userData = null;
+      toggleAuthUI(false);
     });
   } else if('function' === typeof fn) fn();
 
@@ -1551,7 +1622,7 @@ function promptAccountReset() {
         });
         setLoaderBtn($('#auth-modal-reset-btn'), false);
       });
-    });
+    }, () => setLoaderBtn($('#auth-modal-reset-btn'), false));
     
   } catch(e) {
     console.error(e);
@@ -1581,7 +1652,10 @@ function accountVerify(user, token) {
 }
 
 function onPubdActivityClick(d) {
-  if(!eventTableData.editing) return;
+  if(!eventTableData.editing
+      || eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
+  
   logDebug('editing an activity');
 
   renderEventActivityModal(newActivity = false, savFn = function(activity) { // on save
@@ -1598,7 +1672,9 @@ function onPubdActivityClick(d) {
 }
 
 function onPubdWindowClick(d) {
-  if(!eventTableData.editing) return;
+  if(!eventTableData.editing
+      || eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
   logDebug('editing a window');
 
   renderEventWindowModal(newWindow = false, savFn = function(window) { // on save
@@ -1638,6 +1714,9 @@ function getCurrentRSVPState(slot) {
 }
 
 function onPubdSlotClick(d) {
+  if(eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
+  
   let rsvpState = getCurrentRSVPState(d);
   
   if(eventTableData.editing) {
@@ -1733,7 +1812,9 @@ function onPubdSlotClick(d) {
 }
 
 function onPubdDetailClick(d) {
-  if(!eventTableData.editing) return;
+  if(!eventTableData.editing
+      || eventTableData.summary.expired
+      && (!userData || 'ADMIN' !== userData.accessLevel)) return;
   logDebug('editing a detail');
 
   renderEventDetailModal(false, function(detail) {
@@ -2278,19 +2359,20 @@ function pubRSVPS(captchaRes = null) {
   }, null, captchaRes));
 }
 
-function loadMarkdown(file) {
-  logDebug(`pulling ${file}`);
+function loadMarkdown(resource, container, modal) {
+  logDebug(`pulling ${resource}`);
 
   $.ajax({
-    url: file,
+    url: resource,
     type: 'GET'
   }).done(function(data) {
     let converter = new showdown.Converter();
     let content = converter.makeHtml(data);
 
-    $('#md-viewer-modal .content').html(content);
-    $('#md-viewer-modal a').addClass('has-text-primary');
-    $('#md-viewer-modal').addClass('is-active');
+    $(container).html(content);
+    $(`${container} a`).addClass('has-text-primary');
+    if(modal)
+      $(modal).addClass('is-active');
   });
 }
 
@@ -2313,7 +2395,9 @@ function retrieveEvent(eventID, postHook = null) {
       description: data.event.longDescription,
       notifyOnSignup: data.event.emailOnSubmission,
       allowMultiuserSignups: data.event.allowMultiUserSignups,
-      admin: data.event.admin
+      admin: data.event.admin,
+      volunteersMaxed: data.event.volunteersMaxed,
+      expired: data.event.expired
     }
     renderEventTableMeta(
       eventTableData.summary.title,
@@ -2428,41 +2512,51 @@ function retrieveEvent(eventID, postHook = null) {
     });
 
     $('#view-event-add-vol').unbind('click');
-    $('#view-event-add-vol').on('click', () => {
-      renderVolEditModal(true, function(vol) {
-        let data = validateVolEditModal();
-
-        if(null == data) return false;
-        else if(!userData && !eventTableData.volunteers.length) {
-          renderGuestAuthPrompt(
-            '.guest-on-voladd',
-            () => {
-              resetAuthModal();
-              $('#guest-auth-prompt-modal').removeClass('is-active');
-              $('#authentication-modal').addClass('is-active');
-              return true;
-            },
-            () => {
-              $('#edit-vol-modal').removeClass('is-active');
-              //pubVolCreation(data);
-              mkVolunteer(data);
-              renderVolDropdown();
-              $('#view-event-volunteer select option').last().prop('selected', true);
-              updateSelectedVol();
-              return true;
-            });
+    if((!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel)
+       && (eventTableData.summary.allowMultiuserSignups
+           || userData && userData.account == eventTableData.summary.admin
+           || !eventTableData.summary.volunteersMaxed
+           && !eventTableData.volunteers.filter(v => !v.id).length)) {
+      
+      $('#view-event-add-vol').on('click', () => {
+        renderVolEditModal(true, function(vol) {
+          let data = validateVolEditModal();
           
-          return false;
-        }
+          if(null == data) return false;
+          else if(!userData && !eventTableData.volunteers.length) {
+            renderGuestAuthPrompt(
+              '.guest-on-voladd',
+              () => {
+                resetAuthModal();
+                $('#guest-auth-prompt-modal').removeClass('is-active');
+                $('#authentication-modal').addClass('is-active');
+                return true;
+              },
+              () => {
+                $('#edit-vol-modal').removeClass('is-active');
+                //pubVolCreation(data);
+                mkVolunteer(data);
+                renderVolDropdown();
+                $('#view-event-volunteer select option').last().prop('selected', true);
+                updateSelectedVol();
+                return true;
+              });
+            
+            return false;
+          }
 
-        //pubVolCreation(data);
-        mkVolunteer(data);
-        renderVolDropdown();
-        $('#view-event-volunteer select option').last().prop('selected', true);
-        updateSelectedVol();
-        return true;
+          //pubVolCreation(data);
+          mkVolunteer(data);
+          renderVolDropdown();
+          $('#view-event-volunteer select option').last().prop('selected', true);
+          updateSelectedVol();
+          return true;
+        });
       });
-    });
+
+      $('#view-event-add-vol').show();
+      
+    } else $('#view-event-add-vol').hide();
 
     $('#view-event-chg-vol').unbind('click');
     $('#view-event-chg-vol').on('click', () => {
@@ -2503,7 +2597,8 @@ function retrieveEvent(eventID, postHook = null) {
 
     logDebug(eventTableData);
     refreshTable();
-    $('#announcements-section').hide();
+    $('#coa-section').hide();
+    $('#list-event-section').hide();
     $('#view-event-section').show();
     $('#view-event-add-activity').unbind('click');
     $('#view-event-add-activity').hide();
@@ -2513,10 +2608,19 @@ function retrieveEvent(eventID, postHook = null) {
     $('#view-event-add-field').hide();
     $('#view-event-publish-event').hide();
 
+    if(!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel) {
+      $('#view-event-expired').hide();
+      $('#view-event-save-rsvps').show();
+    } else {
+      $('#view-event-save-rsvps').hide();
+      $('#view-event-expired').show();
+    }
+
     if(userData
         && userData.account
         && eventTableData.summary.admin
-        && eventTableData.summary.admin == userData.ccount)
+        && eventTableData.summary.admin == userData.account
+        && (!eventTableData.summary.expired || userData && 'ADMIN' === userData.accessLevel))
       $('#view-event-modify-event').show();
     else $('#view-event-modify-event').hide();
     $('#view-event-modify-event').unbind('click');
@@ -2672,11 +2776,13 @@ function loadCAPTCHA() {
   })
 }
 
-function renderCAPTCHA(callback = null) {
+function renderCAPTCHA(callback = null, onClose = null) {
   if(!userData) {
     captchaCallback = callback;
     grecaptcha.enterprise.reset();
     $('#captcha-modal').addClass('is-active');
+    if('function' === typeof onClose)
+      $('#captcha-modal button.delete').one('click', onClose);
   } else callback();
 }
 
@@ -2690,6 +2796,11 @@ function loadSite() {
       $('#share-event-modal').addClass('is-active');
     } : null);
   }
+
+  $('#view-event-share').on('click', () => {
+    $('#share-event-url').val(`${window.location.origin}?event=${eventTableData.summary.id}`);
+    $('#share-event-modal').addClass('is-active');
+  });
 
   $('#share-event-copy').on('click', () => {
     navigator.clipboard.writeText($('#share-event-url').val());
@@ -2720,7 +2831,8 @@ function loadSite() {
       let s = validateSummaryModal();
       if(null === s) return false;
 
-      $('#announcements-section').hide();
+      $('#coa-section').hide();
+      $('#list-event-section').hide();
       $('#view-event-volunteer').hide();
       clearTable();
 
@@ -2998,14 +3110,17 @@ function loadSite() {
     });
   });
 
+  // call to action
+  loadMarkdown('/v1/texts/coa', '#coa-content', null); 
+
   // terms of service
   $('#terms-link-footer').on('click', () => {
-    loadMarkdown('/terms.txt');
+    loadMarkdown('/v1/texts/terms', '#md-view-modal .content', '#md-view-modal');
   });
 
   // privacy policy
   $('#privacy-link-footer').on('click', () => {
-    loadMarkdown('/privacy.txt');
+    loadMarkdown('/v1/texts/privacy', '#md-view-modal .content', '#md-view-modal');
   });
 
   if(urlParams.has('action')) {
@@ -3019,11 +3134,11 @@ function loadSite() {
       break;
 
     case 'terms':
-      loadMarkdown('/terms.txt');
+      loadMarkdown('/v1/texts/terms', '#md-view-modal .content', '#md-view-modal');
       break;
 
     case 'privacy':
-      loadMarkdown('/privacy.txt');
+      loadMarkdown('/v1/texts/privacy', '#md-view-modal .content', '#md-view-modal');
       break;
     }
   }
@@ -3092,12 +3207,13 @@ $(function() {
 
   try {
     let userCookie = JSON.parse(Cookies.get('user'));
-    if(userCookie) userData = userCookie;
+    if(userCookie) {
+      userData = userCookie;
+      toggleAuthUI(true);
+    }
   } catch(e) {
     logDebug('no auth cookie detected');
-    $('#account-nav').hide();
-    $('#logout-nav').hide();
-    $('#login-nav').show();
+    toggleAuthUI(false);
   }
 
   refreshUserSession(
