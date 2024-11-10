@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import com.axonibyte.lib.db.Comparison;
 import com.axonibyte.lib.db.SQLBuilder;
+import com.axonibyte.lib.db.Wrapper;
 import com.axonibyte.lib.db.Comparison.ComparisonOp;
 import com.axonibyte.lib.db.SQLBuilder.Join;
 import com.axonibyte.lib.db.SQLBuilder.Order;
@@ -880,9 +881,11 @@ public class Event {
               "id",
               "user",
               "name",
-              "reminders_enabled")
+              "reminders_enabled",
+              "ip_addr")
           .where("event")
           .order("name", Order.ASC)
+          .wrap(new Wrapper(5, "INET_NTOA"))
           .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       res = stmt.executeQuery();
@@ -897,7 +900,8 @@ public class Event {
                     res.getBytes("user")),
                 id,
                 res.getString("name"),
-                res.getBoolean("reminders_enabled")));
+                res.getBoolean("reminders_enabled"),
+                res.getString("ip_addr")));
 
       if(!volunteers.isEmpty()) {
         Map<UUID, Map<Detail, String>> details = new LinkedHashMap<>();
@@ -969,9 +973,11 @@ public class Event {
               YasssCore.getDB().getPrefix() + "volunteer",
               "user",
               "name",
-              "reminders_enabled")
+              "reminders_enabled",
+              "ip_addr")
           .where("id", "event")
           .limit(1)
+          .wrap(new Wrapper(4, "INET_NTOA"))
           .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(volunteerID));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(id));
@@ -984,7 +990,8 @@ public class Event {
                 res.getBytes("user")),
             id,
             res.getString("name"),
-            res.getBoolean("reminders_enabled"));
+            res.getBoolean("reminders_enabled"),
+            res.getString("ip_addr"));
 
     } catch(SQLException e) {
       throw e;

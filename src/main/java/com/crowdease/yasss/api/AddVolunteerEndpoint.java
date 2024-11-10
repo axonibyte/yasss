@@ -107,7 +107,8 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           deserializer.getString("name"),
           deserializer.has("remindersEnabled")
               ? deserializer.getBool("remindersEnabled")
-              : false);
+              : false,
+          req.ip());
       Map<UUID, Detail> fields = event.getDetails()
           .stream()
           .collect(
