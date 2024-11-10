@@ -2314,7 +2314,8 @@ function retrieveEvent(eventID, postHook = null) {
       description: data.event.longDescription,
       notifyOnSignup: data.event.emailOnSubmission,
       allowMultiuserSignups: data.event.allowMultiUserSignups,
-      admin: data.event.admin
+      admin: data.event.admin,
+      volunteersMaxed: data.event.volunteersMaxed
     }
     renderEventTableMeta(
       eventTableData.summary.title,
@@ -2429,41 +2430,50 @@ function retrieveEvent(eventID, postHook = null) {
     });
 
     $('#view-event-add-vol').unbind('click');
-    $('#view-event-add-vol').on('click', () => {
-      renderVolEditModal(true, function(vol) {
-        let data = validateVolEditModal();
-
-        if(null == data) return false;
-        else if(!userData && !eventTableData.volunteers.length) {
-          renderGuestAuthPrompt(
-            '.guest-on-voladd',
-            () => {
-              resetAuthModal();
-              $('#guest-auth-prompt-modal').removeClass('is-active');
-              $('#authentication-modal').addClass('is-active');
-              return true;
-            },
-            () => {
-              $('#edit-vol-modal').removeClass('is-active');
-              //pubVolCreation(data);
-              mkVolunteer(data);
-              renderVolDropdown();
-              $('#view-event-volunteer select option').last().prop('selected', true);
-              updateSelectedVol();
-              return true;
-            });
+    if(eventTableData.summary.allowMultiuserSignups
+        || userData && userData.account == eventTableData.summary.admin
+        || !eventTableData.summary.volunteersMaxed
+        && !eventTableData.volunteers.filter(v => !v.id).length) {
+      
+      $('#view-event-add-vol').on('click', () => {
+        renderVolEditModal(true, function(vol) {
+          let data = validateVolEditModal();
           
-          return false;
-        }
+          if(null == data) return false;
+          else if(!userData && !eventTableData.volunteers.length) {
+            renderGuestAuthPrompt(
+              '.guest-on-voladd',
+              () => {
+                resetAuthModal();
+                $('#guest-auth-prompt-modal').removeClass('is-active');
+                $('#authentication-modal').addClass('is-active');
+                return true;
+              },
+              () => {
+                $('#edit-vol-modal').removeClass('is-active');
+                //pubVolCreation(data);
+                mkVolunteer(data);
+                renderVolDropdown();
+                $('#view-event-volunteer select option').last().prop('selected', true);
+                updateSelectedVol();
+                return true;
+              });
+            
+            return false;
+          }
 
-        //pubVolCreation(data);
-        mkVolunteer(data);
-        renderVolDropdown();
-        $('#view-event-volunteer select option').last().prop('selected', true);
-        updateSelectedVol();
-        return true;
+          //pubVolCreation(data);
+          mkVolunteer(data);
+          renderVolDropdown();
+          $('#view-event-volunteer select option').last().prop('selected', true);
+          updateSelectedVol();
+          return true;
+        });
       });
-    });
+
+      $('#view-event-add-vol').show();
+      
+    } else $('#view-event-add-vol').hide();
 
     $('#view-event-chg-vol').unbind('click');
     $('#view-event-chg-vol').on('click', () => {

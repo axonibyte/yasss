@@ -146,20 +146,31 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
 
       res.status(200);
       return new JSONObject()
-        .put("status", "ok")
-        .put("info", "successfully retrieved event")
-        .put("event", new JSONObject()
-             .put("id", event.getID())
-             .put("admin", event.getAdmin())
-             .put("shortDescription", event.getShortDescription())
-             .put("longDescription", event.getLongDescription())
-             .put("emailOnSubmission", event.emailOnSubmissionEnabled())
-             .put("allowMultiUserSignups", event.allowMultiUserSignups())
-             .put("isPublished", event.isPublished())
-             .put("activities", activityArr)
-             .put("windows", windowArr)
-             .put("details", detailArr)
-             .put("volunteers", volunteerArr));
+          .put("status", "ok")
+          .put("info", "successfully retrieved event")
+          .put("event", new JSONObject()
+              .put("id", event.getID())
+              .put("admin", event.getAdmin())
+              .put("shortDescription", event.getShortDescription())
+              .put("longDescription", event.getLongDescription())
+              .put("emailOnSubmission", event.emailOnSubmissionEnabled())
+              .put("allowMultiUserSignups", event.allowMultiUserSignups())
+              .put("isPublished", event.isPublished())
+              .put("activities", activityArr)
+              .put("windows", windowArr)
+              .put("details", detailArr)
+              .put("volunteers", volunteerArr)
+              .put(
+                  "volunteersMaxed",
+                  event.allowMultiUserSignups() || auth.atLeast(event)
+                      ? false
+                      : auth.is(Authorization.IS_AUTHENTICATED)
+                          ? 1 >= event.countVolunteers(
+                              auth.getActor().getID(),
+                              null)
+                      : 1 >= event.countVolunteers(
+                          null,
+                          req.ip())));
 
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
