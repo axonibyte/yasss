@@ -166,6 +166,21 @@ public enum ParamEnum {
    * Required only if payments are enabled; the price ID for the event line item.
    */
   PAYMENTS_STRIPE_LOOKUP_KEY(new Param("payments.stripe.lookupKey")),
+
+  /**
+   * Path to the "call to action" markdown file.
+   */
+  TEXTS_CALL_TO_ACTION(new Param("texts.callToAction")),
+
+  /**
+   * Path to the "terms of service" markdown file.
+   */
+  TEXTS_TERMS_OF_SERVICE(new Param("texts.termsOfService")),
+
+  /**
+   * Path to the "privacy policy" markdown file.
+   */
+  TEXTS_PRIVACY_POLICY(new Param("texts.privacyPolicy")),
   
   /**
    * The global secret for the ticket engine and, ultimately, all users.

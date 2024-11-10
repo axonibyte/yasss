@@ -71,7 +71,7 @@ public class DiskResource {
         try(BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
           StringBuilder stringBuilder = new StringBuilder();
           for(String line; (line = reader.readLine()) != null;)
-            stringBuilder.append(line.trim());
+            stringBuilder.append(line.trim()).append('\n');
           data = stringBuilder.toString();
         }
     } catch(IOException e) { } finally {
