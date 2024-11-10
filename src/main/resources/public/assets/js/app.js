@@ -1283,25 +1283,99 @@ function injectAuth(options, session = null, captcha = null) {
   return options;
 }
 
+function setUpcomingEvents(container, events) {
+  let list = $(`${container} ul`);
+  list.empty();
+  if(!events.length) {
+    list.removeClass('is-primary');
+    list.addClass('is-centered');
+    list.append(
+      $('<li/>').text('No events.'));
+  } else {
+    list.removeClass('is-centered');
+    list.addClass('is-primary');
+    events.forEach(event => {
+      let card = $('<li/>').text(event.shortDescription);
+      card.on('click', () => {
+        logDebug(`event link ${event.id} clicked`);
+        retrieveEvent(event.id);
+      });
+      list.append(card);
+    });
+  }
+}
+
+function toggleAuthUI(loggedIn) {
+  if(loggedIn) {
+    $('#login-nav').hide();
+    $('#logout-nav').show();
+    $('#account-nav').show();
+    if(!eventTableData.summary.id) {
+
+      let now = Date.now();
+      console.log('foo');
+
+      $.ajax(injectAuth({
+        url: '/v1/events',
+        type: 'GET',
+        data: {
+          admin: userData.account,
+          earliest: now
+        },
+        complete: res => {
+          logDebug(`pulled events administrated by user ${userData.account}:`);
+          logDebug(res);
+          setUpcomingEvents('#list-event-admin-box', res.responseJSON.events);
+        }
+      })).fail(function(data) {
+        console.error(data);
+      });
+
+      $.ajax(injectAuth({
+        url: '/v1/events',
+        type: 'GET',
+        data: {
+          volunteer: userData.account,
+          earliest: now
+        },
+        complete: res => {
+          logDebug(`pulled events RSVP'd to by user ${userData.account}:`);
+          logDebug(res);
+          setUpcomingEvents('#list-event-rsvp-box', res.responseJSON.events);
+        }
+      })).fail(function(data) {
+        console.error(data);
+      });
+      
+      $('#coa-section').hide();
+      $('#list-event-section').show();
+    }
+  } else {
+    $('#account-nav').hide();
+    $('#logout-nav').hide();
+    $('#login-nav').show();
+    if(!eventTableData.summary.id) {
+      $('#list-event-section').hide();
+      $('#coa-section').show();
+    }
+  }
+}
+
 function saveSession(res, onSuccess = null, onFailure = null) {
   let userSession = res.getResponseHeader('axb-session');
   
   if(userData) {
     if(userSession) {
       userData.session = userSession;
-      $('#login-nav').hide();
-      $('#logout-nav').show();
-      $('#account-nav').show();
+      toggleAuthUI(true);
     } else {
-      $('#account-nav').hide();
-      $('#logout-nav').hide();
-      $('#login-nav').show();
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
       });
       userData = null;
       Cookies.remove('user');
+      toggleAuthUI(false);
     }
   }
 
@@ -1342,9 +1416,6 @@ function userLogin() {
           let userAccount = res.getResponseHeader('axb-account');
           let userSession = res.getResponseHeader('axb-session');
           if(userAccount && userSession) {
-            $('#login-nav').hide();
-            $('#logout-nav').show();
-            $('#account-nav').show();
             userData = {
               account: userAccount,
               session: userSession,
@@ -1361,6 +1432,8 @@ function userLogin() {
               if(eventTableData.summary.id)
                 retrieveEvent(eventTableData.summary.id);
             });
+            
+            toggleAuthUI(true);
             
           } else {
             toast({
@@ -1398,9 +1471,7 @@ function userLogout() {
     message: 'You\'ve been logged out!',
     type: 'is-warning'
   });
-  $('#account-nav').hide();
-  $('#logout-nav').hide();
-  $('#login-nav').show();
+  toggleAuthUI(false);
 }
 
 function refreshUserSession(session = null, fn = null) {
@@ -1419,14 +1490,12 @@ function refreshUserSession(session = null, fn = null) {
       Cookies.remove('user');
       console.error('Failed to refresh user session.');
       console.error(data);
-      $('#account-nav').hide();
-      $('#logout-nav').hide();
-      $('#login-nav').show();
       toast({
         message: 'Your user session was lost! Please log in again.',
         type: 'is-danger'
       });
       userData = null;
+      toggleAuthUI(false);
     });
   } else if('function' === typeof fn) fn();
 
@@ -2530,6 +2599,7 @@ function retrieveEvent(eventID, postHook = null) {
     logDebug(eventTableData);
     refreshTable();
     $('#coa-section').hide();
+    $('#list-event-section').hide();
     $('#view-event-section').show();
     $('#view-event-add-activity').unbind('click');
     $('#view-event-add-activity').hide();
@@ -2726,6 +2796,11 @@ function loadSite() {
     } : null);
   }
 
+  $('#view-event-share').on('click', () => {
+    $('#share-event-url').val(`${window.location.origin}?event=${eventTableData.summary.id}`);
+    $('#share-event-modal').addClass('is-active');
+  });
+
   $('#share-event-copy').on('click', () => {
     navigator.clipboard.writeText($('#share-event-url').val());
     toast({ message: 'Copied!', type: 'is-success' });
@@ -2756,6 +2831,7 @@ function loadSite() {
       if(null === s) return false;
 
       $('#coa-section').hide();
+      $('#list-event-section').hide();
       $('#view-event-volunteer').hide();
       clearTable();
 
@@ -3130,12 +3206,13 @@ $(function() {
 
   try {
     let userCookie = JSON.parse(Cookies.get('user'));
-    if(userCookie) userData = userCookie;
+    if(userCookie) {
+      userData = userCookie;
+      toggleAuthUI(true);
+    }
   } catch(e) {
     logDebug('no auth cookie detected');
-    $('#account-nav').hide();
-    $('#logout-nav').hide();
-    $('#login-nav').show();
+    toggleAuthUI(false);
   }
 
   refreshUserSession(
