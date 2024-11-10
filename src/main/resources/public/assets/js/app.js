@@ -1313,7 +1313,6 @@ function toggleAuthUI(loggedIn) {
     if(!eventTableData.summary.id) {
 
       let now = Date.now();
-      console.log('foo');
 
       $.ajax(injectAuth({
         url: '/v1/events',
@@ -1623,7 +1622,7 @@ function promptAccountReset() {
         });
         setLoaderBtn($('#auth-modal-reset-btn'), false);
       });
-    });
+    }, () => setLoaderBtn($('#auth-modal-reset-btn'), false));
     
   } catch(e) {
     console.error(e);
@@ -2777,11 +2776,13 @@ function loadCAPTCHA() {
   })
 }
 
-function renderCAPTCHA(callback = null) {
+function renderCAPTCHA(callback = null, onClose = null) {
   if(!userData) {
     captchaCallback = callback;
     grecaptcha.enterprise.reset();
     $('#captcha-modal').addClass('is-active');
+    if('function' === typeof onClose)
+      $('#captcha-modal button.delete').one('click', onClose);
   } else callback();
 }
 
