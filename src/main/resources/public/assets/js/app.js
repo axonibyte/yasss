@@ -2278,19 +2278,20 @@ function pubRSVPS(captchaRes = null) {
   }, null, captchaRes));
 }
 
-function loadMarkdown(file) {
-  logDebug(`pulling ${file}`);
+function loadMarkdown(resource, container, modal) {
+  logDebug(`pulling ${resource}`);
 
   $.ajax({
-    url: file,
+    url: resource,
     type: 'GET'
   }).done(function(data) {
     let converter = new showdown.Converter();
     let content = converter.makeHtml(data);
 
-    $('#md-viewer-modal .content').html(content);
-    $('#md-viewer-modal a').addClass('has-text-primary');
-    $('#md-viewer-modal').addClass('is-active');
+    $(container).html(content);
+    $(`${container} a`).addClass('has-text-primary');
+    if(modal)
+      $(modal).addClass('is-active');
   });
 }
 
@@ -2503,7 +2504,7 @@ function retrieveEvent(eventID, postHook = null) {
 
     logDebug(eventTableData);
     refreshTable();
-    $('#announcements-section').hide();
+    $('#coa-section').hide();
     $('#view-event-section').show();
     $('#view-event-add-activity').unbind('click');
     $('#view-event-add-activity').hide();
@@ -2720,7 +2721,7 @@ function loadSite() {
       let s = validateSummaryModal();
       if(null === s) return false;
 
-      $('#announcements-section').hide();
+      $('#coa-section').hide();
       $('#view-event-volunteer').hide();
       clearTable();
 
@@ -2998,14 +2999,17 @@ function loadSite() {
     });
   });
 
+  // call to action
+  loadMarkdown('/v1/texts/coa', '#coa-content', null); 
+
   // terms of service
   $('#terms-link-footer').on('click', () => {
-    loadMarkdown('/terms.txt');
+    loadMarkdown('/v1/texts/terms', '#md-view-modal .content', '#md-view-modal');
   });
 
   // privacy policy
   $('#privacy-link-footer').on('click', () => {
-    loadMarkdown('/privacy.txt');
+    loadMarkdown('/v1/texts/privacy', '#md-view-modal .content', '#md-view-modal');
   });
 
   if(urlParams.has('action')) {
@@ -3019,11 +3023,11 @@ function loadSite() {
       break;
 
     case 'terms':
-      loadMarkdown('/terms.txt');
+      loadMarkdown('/v1/texts/terms', '#md-view-modal .content', '#md-view-modal');
       break;
 
     case 'privacy':
-      loadMarkdown('/privacy.txt');
+      loadMarkdown('/v1/texts/privacy', '#md-view-modal .content', '#md-view-modal');
       break;
     }
   }
