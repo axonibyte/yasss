@@ -52,7 +52,7 @@ public final class TicketEngine implements Runnable {
         Credentialed signer = new Credentialed(UUID.randomUUID(), null, null, null);
         try {
           signer.regenerateKeypair();
-          logger.info("generated new signer");
+          logger.debug("generated new signer");
         } catch(CryptoException e) {
           logger.error("failed to generate signer: {}", e.getMessage());
           e.printStackTrace();
