@@ -499,6 +499,10 @@ function renderEventSummaryModal(newEvent = true, savFn = null, summary = {
     $('#edit-event-multiuser-switch').parent().hide();
     $('#edit-event-submit').hide();
   }
+
+  if(userData && userData.account)
+    $('#unauth-notif-alert').hide();
+  else $('#unauth-notif-alert').show();
   
   $('#edit-event-modal').addClass('is-active');
 }
