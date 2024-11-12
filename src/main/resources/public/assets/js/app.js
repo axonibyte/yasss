@@ -211,6 +211,7 @@ function rmVolunteer(target) {
 function renderEventTableMeta(title, description, editable) {
   $('#view-event-short-descr').text(title);
   $('#view-event-long-descr').text(description);
+  
   if(editable) {
     $('#view-event-volunteer').hide();
     $('#view-event-details').show();
@@ -220,12 +221,17 @@ function renderEventTableMeta(title, description, editable) {
     $('#view-event-volunteer').show();
     $('#view-event-edit-summary').hide();
   }
+  
   if(userData
       && userData.account
       && eventTableData.summary.admin
       && eventTableData.summary.admin == userData.account)
     $('#view-event-view-report').show();
   else $('#view-event-view-report').hide();
+  
+  if(eventTableData.summary.id)
+    $('#view-event-share').show();
+  else $('#view-event-share').hide();
 }
 
 function renderEventTable(parent, step = 1) {
@@ -493,8 +499,8 @@ function renderEventSummaryModal(newEvent = true, savFn = null, summary = {
     $('#edit-event-multiuser-switch').parent().hide();
     $('#edit-event-submit').hide();
   }
-
-  $('#edit-event-modal').addClass('is-active');  
+  
+  $('#edit-event-modal').addClass('is-active');
 }
 
 function renderEventActivityModal(newActivity = true, savFn = null, delFn = null, activity = {
