@@ -92,7 +92,7 @@ public class Detail implements Comparable<Detail> {
    * @param label the label of the detail
    * @param hint the hint for the detail
    * @param priority the detail's priority, to influence retrieval order
-   * @param requried {@code true} if a volunteer must answer the question
+   * @param required {@code true} if a volunteer must answer the question
 a   */
   public Detail(UUID id, UUID event, Type type, String label, String hint, int priority, boolean required) {
     this.id = id;

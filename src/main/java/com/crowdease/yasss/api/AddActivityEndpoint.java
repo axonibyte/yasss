@@ -100,7 +100,7 @@ public final class AddActivityEndpoint extends APIEndpoint {
       if(0 > activity.getMaxSlotVolunteersDefault() || 255 < activity.getMaxSlotVolunteersDefault())
         throw new EndpointException(
             req,
-            "malformed argument (int: maxSlotVolunteerDefault)",
+            "malformed argument (int: maxSlotVolunteersDefault)",
             400);
 
       if(0 > activity.getPriority() || 255 < activity.getPriority())

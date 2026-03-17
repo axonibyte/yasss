@@ -108,7 +108,7 @@ public final class ModifyActivityEndpoint extends APIEndpoint {
            || 255 < activity.getMaxActivityVolunteers())
           throw new EndpointException(
               req,
-              "malformed argument (int: maxSlotVolunteerDefault)",
+              "malformed argument (int: maxSlotVolunteersDefault)",
               400);
       }
       

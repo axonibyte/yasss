@@ -9,11 +9,11 @@
       "type": "content-block",
       "text": [
         [
-          "Don't forget that you have an event coming up!"
+          "Don't forget that you have an event coming up!",
           "[[EVENT_TITLE]] is scheduled to begin on [[EVENT_DATE]]."
         ],
         [
-          "Here are your RSVPS:"
+          "Here are your RSVPS:",
           "[[RSVP_LIST]]"
         ]
       ]

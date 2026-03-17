@@ -353,3 +353,6 @@ gradle-app.setting
 *.hprof
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,emacs,java,eclipse,intellij,netbeans,gradle
+
+# Frontend dependencies
+frontend/node_modules/

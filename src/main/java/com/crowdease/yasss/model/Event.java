@@ -255,7 +255,7 @@ public class Event {
    * @param earliest the inclusive lower bound for the event {@link Timestamp} criteria
    * @return the number of entries that would be returned in total, should this
    *         query be made, without regard to the pagination specification
-   * @throws SQLexception if a database malfunction occurs
+   * @throws SQLException if a database malfunction occurs
    */
   public static int countEvents(UUID adminID, UUID volunteerID, String labelSubstr, Timestamp earliest)
       throws SQLException {
