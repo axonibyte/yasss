@@ -356,3 +356,4 @@ gradle-app.setting
 
 # Frontend dependencies
 frontend/node_modules/
+src/main/resources/public/
