@@ -227,12 +227,10 @@ public final class EventReportEndpoint extends Endpoint {
       throw new EndpointException(req, "internal server error", 500, e);
     }
     
-    return new Authorization(
-        user,
-        YasssCore.getCAPTCHAValidator().verify(
-            req.headers(com.axonibyte.lib.http.captcha.CAPTCHAValidator.CAPTCHA_HEADER),
-            null,
-            req.ip()));
+    // This endpoint extends Endpoint rather than APIEndpoint, so it cannot
+    // inherit the helper; both live in this package, so call it directly
+    // rather than duplicating the null-validator handling.
+    return new Authorization(user, APIEndpoint.verifyHuman(req));
   }
   
 }

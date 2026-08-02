@@ -221,7 +221,7 @@ public class YasssCore {
           logger.info("Shutting down...");
           apiDriver.halt();
           ticketEngine.stop();
-          captchaValidator.close();
+          if(null != captchaValidator) captchaValidator.close(); // null when CAPTCHAs are disabled
           logger.info("Goodbye! ^_^");
         }
       });

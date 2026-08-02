@@ -99,17 +99,23 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
       if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
         throw new EndpointException(req, "event expired", 412);
 
-      if(!event.allowMultiUserSignups()
-          && !auth.atLeast(event)
-          && (null == user
-              && 1 >= event.countVolunteers(
-                  auth.getActor().getID(),
-                  null)
-              || null != user
-                  && 1 >= event.countVolunteers(
-                      null,
-                      req.ip())))
-        throw new EndpointException(req, "volunteer cap reached", 412);             
+      // When multi-user signups are disallowed, a given identity gets one
+      // volunteer entry. Identity is the account when there is one, and the
+      // originating IP otherwise.
+      //
+      // Three things were wrong here. The account and IP branches were swapped,
+      // so an anonymous caller was counted by account -- dereferencing a null
+      // actor and yielding a 500 instead of a signup. And the comparison was
+      // reversed: `1 >= count` treats a count of zero as "cap reached", so the
+      // very first signup was rejected. Guest RSVP could not have worked.
+      if(!event.allowMultiUserSignups() && !auth.atLeast(event)) {
+        UUID actorID = null == auth.getActor() ? null : auth.getActor().getID();
+        int existing = null != actorID
+            ? event.countVolunteers(actorID, null)
+            : event.countVolunteers(null, req.ip());
+        if(1 <= existing)
+          throw new EndpointException(req, "volunteer cap reached", 412);
+      }
 
       String name = deserializer.getString("name").strip();
       if(name.isBlank())

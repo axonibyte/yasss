@@ -980,18 +980,26 @@ public class Event {
         .where("ip_addr")
         .wrap(
             new Wrapper(2, "INET_ATON"));
-    if(null != admin)
+    // Was gated on (and bound to) `admin`, this event's owner, rather than the
+    // `user` parameter -- so the per-user signup cap counted the wrong thing
+    // entirely and could never be scoped to the caller.
+    if(null != user)
       query.where("user");
 
     try {
       con = YasssCore.getDB().connect();
       stmt = con.prepareStatement(query.toString());
       int idx = 0;
+      // Bind in the same order the WHERE clauses were added above: event,
+      // ip_addr, user. The previous order bound user before ip_addr, which
+      // silently swapped the two whenever both filters were supplied. Callers
+      // pass exactly one today, so it never bit -- but the INET_ATON wrapper
+      // is pinned to parameter 2, so the ordering is load-bearing.
       stmt.setBytes(++idx, SQLBuilder.uuidToBytes(id));
-      if(null != admin)
-        stmt.setBytes(++idx, SQLBuilder.uuidToBytes(admin));
       if(null != ipAddr)
         stmt.setString(++idx, ipAddr);
+      if(null != user)
+        stmt.setBytes(++idx, SQLBuilder.uuidToBytes(user));
       res = stmt.executeQuery();
 
       res.next();

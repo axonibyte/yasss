@@ -43,9 +43,6 @@ public final class ListEventsEndpoint extends APIEndpoint {
    * {@inheritDoc}
    */
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
-    if(!auth.atLeast(AccessLevel.ADMIN))
-      throw new EndpointException(req, "access denied", 403);
-    
     try {
       JSONDeserializer deserializer = deserializeQueryParams(req)
         .tokenize("admin", false)
@@ -54,6 +51,7 @@ public final class ListEventsEndpoint extends APIEndpoint {
         .tokenize("earliest", false)
         .tokenize("latest", false)
         .tokenize("limit", false)
+        .tokenize("page", false) // was read below but never registered, so any ?page= 400'd
         .check();
 
       if(deserializer.has("latest")
@@ -66,19 +64,27 @@ public final class ListEventsEndpoint extends APIEndpoint {
       String labelSubstr = deserializer.getString("label");
       Timestamp earliest = deserializer.getTimestamp("earliest");
       Timestamp latest = deserializer.getTimestamp("latest");
-      
+
+      // An ADMIN may list anything. Anyone else may list only their own events
+      // -- which is what the logged-in dashboard does, and what an unconditional
+      // ADMIN check made impossible. This has to run after deserialization so
+      // the scoping arguments are available.
+      if(!auth.atLeast(AccessLevel.ADMIN)) {
+        UUID self = null == auth.getActor() ? null : auth.getActor().getID();
+        boolean scopedToSelf = null != self
+            && (self.equals(adminID) || self.equals(volunteerID));
+        if(!scopedToSelf)
+          throw new EndpointException(req, "access denied", 403);
+      }
+
       Integer limit = 10; // skipped if `latest` is specified
       if(deserializer.has("limit")) {
-        limit = deserializer.getInt("limit");
-        if(1 > limit)
-          throw new EndpointException(req, "malformed argument (limit)", 400);
+        limit = queryInt(req, deserializer, "limit");
       }
 
       Integer page = 1; // skipped if `latest` is specified
       if(deserializer.has("page")) {
-        page = deserializer.getInt("page");
-        if(1 > page)
-          throw new EndpointException(req, "malformed argument (page)", 400);
+        page = queryInt(req, deserializer, "page");
       }
 
       int eventCount = Event.countEvents(adminID, volunteerID, labelSubstr, earliest);

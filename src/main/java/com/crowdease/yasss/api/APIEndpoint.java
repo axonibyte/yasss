@@ -78,12 +78,41 @@ public abstract class APIEndpoint extends JSONEndpoint {
       throw new EndpointException(req, "internal server error", 500, e);
     }
     
-    return new Authorization(
-        user,
-        YasssCore.getCAPTCHAValidator().verify(
-            req.headers(com.axonibyte.lib.http.captcha.CAPTCHAValidator.CAPTCHA_HEADER),
-            null,
-            req.ip()));
+    return new Authorization(user, verifyHuman(req));
+  }
+
+  /**
+   * Determines whether the caller should be treated as human.
+   *
+   * <p>The CAPTCHA validator is only constructed when {@code auth.captcha.required}
+   * is enabled, and the shipped default is disabled -- so this must tolerate a
+   * null validator. Note that returning {@code false} in that case would be
+   * wrong: registration, credential reset, account verification, anonymous
+   * event publication and anonymous volunteer signup all gate on
+   * {@code IS_HUMAN}, and would become unreachable in exactly the deployments
+   * that never asked for CAPTCHAs in the first place. No CAPTCHA configured
+   * means the check does not apply, not that it fails.
+   *
+   * @param req the HTTP {@link Request}
+   * @return {@code true} if the caller passes the human check
+   */
+  protected static boolean verifyHuman(Request req) {
+    return verifyHuman(
+        req.headers(com.axonibyte.lib.http.captcha.CAPTCHAValidator.CAPTCHA_HEADER),
+        req.ip());
+  }
+
+  /**
+   * Determines whether a caller should be treated as human, given their CAPTCHA
+   * token and originating address.
+   *
+   * @param captchaToken the value of the CAPTCHA header, or {@code null}
+   * @param ipAddr the caller's IP address
+   * @return {@code true} if the caller passes the human check
+   */
+  protected static boolean verifyHuman(String captchaToken, String ipAddr) {
+    var validator = YasssCore.getCAPTCHAValidator();
+    return null == validator || validator.verify(captchaToken, null, ipAddr);
   }
 
   /**
@@ -127,5 +156,35 @@ public abstract class APIEndpoint extends JSONEndpoint {
     }
     return new JSONDeserializer(map);
   }
-  
+
+  /**
+   * Reads a positive integer from deserialized query parameters.
+   *
+   * <p>{@link #deserializeQueryParams(Request)} necessarily stores every value
+   * as a {@link String}, but {@code JSONDeserializer.getInt} casts to
+   * {@link Integer} -- so reading a numeric query argument the ordinary way
+   * throws a {@link ClassCastException} and surfaces as a confusing 400. This
+   * parses leniently instead. It is deliberately local to query handling rather
+   * than a change to {@code getInt}, which would alter behavior for every
+   * endpoint that reads a request body.
+   *
+   * @param req the HTTP {@link Request}
+   * @param deserializer the {@link JSONDeserializer} holding the query params
+   * @param token the parameter name
+   * @return the parsed value
+   * @throws EndpointException with a 400 if the value is absent, unparseable, or below 1
+   */
+  protected static int queryInt(Request req, JSONDeserializer deserializer, String token)
+      throws EndpointException {
+    int value;
+    try {
+      value = Integer.parseInt(String.valueOf(deserializer.get(token)).strip());
+    } catch(NumberFormatException | DeserializationException e) {
+      throw new EndpointException(req, String.format("malformed argument (%1$s)", token), 400);
+    }
+    if(1 > value)
+      throw new EndpointException(req, String.format("malformed argument (%1$s)", token), 400);
+    return value;
+  }
+
 }

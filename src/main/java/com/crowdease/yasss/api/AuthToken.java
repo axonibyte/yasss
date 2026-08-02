@@ -64,7 +64,8 @@ public class AuthToken {
           new String(
               Base64.decode(header[1])));
 
-      System.err.println(payload.toString());
+      // The decoded payload carries the caller's credentials and signature;
+      // it must never be logged.
 
       String sig = payload.getString("sig");
       String creds = payload.getString("creds");
@@ -90,11 +91,14 @@ public class AuthToken {
       if(null == user)
         throw new AuthException("user does not exist");
 
+      // Note the `else`: without it this fell straight through into signature
+      // verification, so disabling the signin requirement did not actually
+      // bypass authentication the way the log message claims it does.
       if(!YasssCore.authRequired()) {
         logger.warn(
             "user {} underwent de facto authentication by virtue of disabled auth requirement",
             user.getID().toString());
-      } if(user.verifySig(creds, sig)
+      } else if(user.verifySig(creds, sig)
           && (null == user.getEncMFASecret()
               || user.verifyTOTP(
                   credsJSO.getString("mfa")))) {

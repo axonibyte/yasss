@@ -78,8 +78,8 @@ public class ResetUserEndpoint extends APIEndpoint {
         if(!deserializer.has("token") && !deserializer.has("pubkey"))
           throw new EmptyBodyException();
 
-        System.err.println(deserializer.getString("token"));
-        
+        // The reset token is an account-takeover credential; never log it.
+
         if(!YasssCore.getTicketEngine().verify(
             user.getID().toString(),
             deserializer.getString("token"))) {

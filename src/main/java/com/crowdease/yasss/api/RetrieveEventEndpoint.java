@@ -161,14 +161,20 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
               .put("details", detailArr)
               .put("volunteers", volunteerArr)
               .put(
+                  // `1 >= count` reported an event as maxed when nobody had
+                  // signed up at all, and as not-maxed once two entries
+                  // existed. Guarding on a null actor rather than on
+                  // IS_AUTHENTICATED matters because atLeast() short-circuits
+                  // to true when the signin requirement is disabled, leaving
+                  // getActor() null.
                   "volunteersMaxed",
                   event.allowMultiUserSignups() || auth.atLeast(event)
                       ? false
-                      : auth.is(Authorization.IS_AUTHENTICATED)
-                          ? 1 >= event.countVolunteers(
+                      : null != auth.getActor()
+                          ? 1 <= event.countVolunteers(
                               auth.getActor().getID(),
                               null)
-                      : 1 >= event.countVolunteers(
+                      : 1 <= event.countVolunteers(
                           null,
                           req.ip()))
               .put("expired", event.isExpired()));
