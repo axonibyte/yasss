@@ -4,8 +4,9 @@ Every deliberate departure from what shipped on `main`, so each one can be revie
 vetoed individually. Requirement (c)/(d) of the rewrite is to duplicate main's **intended**
 behavior and aesthetics — this file is where "intended" gets pinned down.
 
-Grouped by kind. Line references are to `frontend/.reference/app.js` and
-`frontend/.reference/index.html` (the legacy sources, kept until Phase 6).
+Grouped by kind. References to `app.js` and the legacy `index.html` point at sources that
+were removed once the rewrite reached parity; they are fully described by `docs/legacy/`
+and remain in git history (see `frontend/.reference/README.md`).
 
 ---
 
@@ -20,7 +21,6 @@ Decision: normalize typos, grammar, and punctuation; list every change here.
 | Terms/Privacy modal title | *(never populated — empty header bar)* | "Terms of Service" / "Privacy Policy" |
 | `validateVolEditModal` integer error | "This needs to be an integer." | "This needs to be a number." (the pattern permits up to 9 decimals) |
 | `registerUser` error | "Your password should be at least one character in length" | …"in length." |
-
 | Activity modal label | "Acitvity Volunteer Cap" | "Activity Volunteer Cap" |
 | Toasts generally | inconsistent trailing periods | consistent |
 
@@ -38,13 +38,12 @@ Decision: normalize typos, grammar, and punctuation; list every change here.
 | `EventListBox.svelte` | click handler bound to `<li>` | a real `<button>` inside the `<li>` | Entries were unreachable by keyboard and unannounced by assistive tech. The `<li>` still carries the bulma-block-list styling, so the appearance is unchanged. |
 | Modal fields | `<div class="label">` | `<label class="label" for=…>` | Bulma styles by class so it renders identically, but the legacy fields had no accessible association. |
 | `CoaSection.svelte` | markdown HTML injected into a `<p>` | rendered into a `<div>` | The content contains block elements, so the browser was reparenting invalid nesting. Same resulting appearance. |
-
-| Slot modal ×2 | `<button class="tag is-warning">Edit</span>` (opens button, closes span) | valid `<button>…</button>` |
-| Volunteer modal | first `div.field` never closed | properly closed |
-| Event summary modal | dead classes `set-output`, `edit-event-notify-out`, `edit-event-multuser-out` | dropped |
-| Activity header cells | `data-tooltip` without a `has-tooltip-*` class | `has-tooltip-top` added, so tooltips actually render |
-| Grid cells | `.html(label)` — XSS on activity short descriptions | text interpolation; window headers render two nodes rather than a `<br />` string |
-| Grid cells, detail rows | click handlers on non-interactive elements | real `<button>` inside the styled container |
+| Slot modal ×2 | `<button class="tag is-warning">Edit</span>` (opens button, closes span) | valid `<button>…</button>` | The browser silently repaired it |
+| Volunteer modal | first `div.field` never closed | properly closed | As above |
+| Event summary modal | dead classes `set-output`, `edit-event-notify-out`, `edit-event-multuser-out` | dropped | No CSS and no JS referenced them |
+| Activity header cells | `data-tooltip` without a `has-tooltip-*` class | `has-tooltip-top` added | Tooltips never actually rendered |
+| Grid cells | `.html(label)` — XSS on activity short descriptions | text interpolation; window headers render two nodes rather than a `<br />` string | |
+| Grid cells, detail rows | click handlers on non-interactive elements | real `<button>` inside the styled container | Keyboard-unreachable and unannounced |
 
 ---
 
