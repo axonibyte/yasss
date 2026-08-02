@@ -21,11 +21,7 @@ Decision: normalize typos, grammar, and punctuation; list every change here.
 | `validateVolEditModal` integer error | "This needs to be an integer." | "This needs to be a number." (the pattern permits up to 9 decimals) |
 | `registerUser` error | "Your password should be at least one character in length" | …"in length." |
 
-Pending, to apply when the owning component is written:
-
-| Where | Was | Will be |
-|---|---|---|
-| `#edit-activity-modal` label | "Acitvity Volunteer Cap" | "Activity Volunteer Cap" |
+| Activity modal label | "Acitvity Volunteer Cap" | "Activity Volunteer Cap" |
 | Toasts generally | inconsistent trailing periods | consistent |
 
 ---
@@ -43,16 +39,12 @@ Pending, to apply when the owning component is written:
 | Modal fields | `<div class="label">` | `<label class="label" for=…>` | Bulma styles by class so it renders identically, but the legacy fields had no accessible association. |
 | `CoaSection.svelte` | markdown HTML injected into a `<p>` | rendered into a `<div>` | The content contains block elements, so the browser was reparenting invalid nesting. Same resulting appearance. |
 
-Pending, to apply when the owning component is written:
-
-| Where | Was | Will be |
-|---|---|---|
-| `#edit-slot-modal` ×2 | `<button class="tag is-warning">Edit</span>` (opens button, closes span) | valid `<button>…</button>` |
-| `#edit-vol-modal` | first `div.field` never closed | properly closed |
-| Most modal fields | `<div class="label">` | `<label class="label" for="…">` — real label association |
+| Slot modal ×2 | `<button class="tag is-warning">Edit</span>` (opens button, closes span) | valid `<button>…</button>` |
+| Volunteer modal | first `div.field` never closed | properly closed |
 | Event summary modal | dead classes `set-output`, `edit-event-notify-out`, `edit-event-multuser-out` | dropped |
-| Activity/window/slot cells | `data-tooltip` without a `has-tooltip-*` class | class added so tooltips actually render |
-| `addCell` | `.html(label)` — XSS on activity short descriptions | text interpolation; window headers emit real `<br />` |
+| Activity header cells | `data-tooltip` without a `has-tooltip-*` class | `has-tooltip-top` added, so tooltips actually render |
+| Grid cells | `.html(label)` — XSS on activity short descriptions | text interpolation; window headers render two nodes rather than a `<br />` string |
+| Grid cells, detail rows | click handlers on non-interactive elements | real `<button>` inside the styled container |
 
 ---
 
@@ -68,15 +60,28 @@ Pending, to apply when the owning component is written:
 | Terms/Privacy fetch | no failure handling | toasts on failure | A fetch error left the modal silently blank. |
 | Dashboard lists | refetched on essentially every API response | load once, driven by the account | The legacy refetched from inside its response-header handling. |
 
-Pending — the full bug-disposition table lives in the approved plan. The four that change
-visible UX, with the decisions already taken:
+The four that change visible UX, as decided:
 
-| Ref | Behavior | Decision |
+| Ref | Behavior | Outcome |
 |---|---|---|
-| behavior §6.10 | Volunteers are never POSTed at add time; only "Submit RSVPs" persists them, and the success toast fires before any request resolves | **Keep deferred persistence**, but fire the toast after the requests resolve, add failure handling, and add a warn-on-unload guard |
-| behavior §2.7 | The custom-fields table is built then hidden from every non-admin | **Keep hidden** — matches shipped behavior |
-| behavior §6.19 | A required BOOLEAN detail can never fail validation | **Fix** — "required" becomes enforceable, which is what the server already enforces |
-| behavior §3.1 | Client email regex is unanchored and lowercase-only, disagreeing with the server | **Anchor it** (making client and server agree) and **keep the lowercase rule**, since `Detail.Type.EMAIL` is applied with `matches()` and no `CASE_INSENSITIVE`. Add auto-lowercase-on-blur so it is not a trap. |
+| behavior §6.10 | Volunteers are never POSTed at add time; only "Submit RSVPs" persists them, and the success toast fires before any request resolves | **Deferred persistence kept.** The toast now follows the requests, failures are reported and name the volunteers that did not save, and a `beforeunload` guard warns before unsubmitted work is lost. |
+| behavior §2.7 | The custom-fields table is built then hidden from every non-admin | **Kept hidden**, matching shipped behavior. |
+| behavior §6.19 | A required BOOLEAN detail can never fail validation | **Fixed** — "required" is now enforceable, which is what the server already enforces when the detail is absent. |
+| behavior §3.1 | Client email regex is unanchored and lowercase-only, disagreeing with the server | **Anchored** (client and server now agree) with the **lowercase rule kept**, since `Detail.Type.EMAIL` is applied via `matches()` without `CASE_INSENSITIVE`. Inputs lowercase on blur so it is not a trap. |
+
+Further behavior changes from the later phases:
+
+| Where | Was | Now | Why |
+|---|---|---|---|
+| Slot model | flat `slots[w * activities.length + a]` | owned by the activity, keyed by window | Root of four confirmed bugs; also mirrors the wire format |
+| Publish payload | slots walked with the wrong stride, omitting pairs | one explicit entry per (activity, window) pair | The server *enables* any slot the payload omits, so this silently turned on slots the user had disabled |
+| Selected volunteer | array index, `NaN` when nothing selected | object reference or `null` | Indexing with `NaN` made the next slot click throw |
+| Removing a volunteer | left their id in slot RSVP lists and never decremented counts | releases their slots | Grid kept showing them as booked until reload |
+| Un-RSVP for an unpersisted volunteer | `splice(-1, 1)` removed another volunteer's entry | guarded on a real id | |
+| Grid paging | refresh dropped its step argument | visible range derived from the step | Table snapped back to the first four columns while the slider thumb stayed put |
+| Report object URL | never revoked | revoked after the tab takes it | |
+| Window picker | one `Date` aliased between `startDate` and `startTime`; `minDate` pinned to tomorrow even when editing | distinct instances; floor applies only to new windows | An existing window starting in the past was uneditable |
+| Slot modal jump links | synthesized a click on a cell found by a stored index | plain callbacks with the entity in hand | The index was stale or undefined once the grid had scrolled |
 
 ---
 
@@ -106,3 +111,6 @@ visible UX, with the decisions already taken:
 | `build.gradle` | no frontend test hook | `testFrontend` task; `check.dependsOn testFrontend` |
 | `.gitignore` | — | added Playwright output dirs |
 | `frontend/` | — | added `.nvmrc` pinning 22.20.0 alongside `engines.node` |
+| `bitbucket-pipelines.yml` | only `main` built or tested anything | every branch runs the frontend and build steps in parallel | This is how a frontend that had never been executed reached a release branch. |
+| `bitbucket-pipelines.yml` | `gradlew clean test shadowJar` | `gradlew clean check shadowJar`, plus a Playwright step on `mcr.microsoft.com/playwright` | `check` covers the Java and frontend unit suites; the browser suite is separate so the build step stays quick |
+| `frontend/.reference/` | legacy `app.js` and `index.html` kept during the port | **deleted**; `axb-sig-req.min.js` **retained** | The first two are fully described by `docs/legacy/` and recoverable from git. The signing bundle stays as an executable oracle for regenerating the credential vectors — a deliberate departure from the plan, which called for deleting all of it. |

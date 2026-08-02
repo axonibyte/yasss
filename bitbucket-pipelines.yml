@@ -9,6 +9,23 @@ mirror: &mirror
     - cd ${BITBUCKET_REPO_SLUG}.git
     - git push --mirror git@github.com:${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}.git
 
+# Unit, component and browser tests. Runs on the Playwright image so the
+# browsers and their system libraries are already present -- installing them
+# into the JDK image on every build is minutes of wasted wall clock.
+frontend: &frontend
+  name: frontend tests
+  image: mcr.microsoft.com/playwright:v1.62.1-noble
+  caches:
+    - npm
+  script:
+    - cd frontend
+    - npm ci
+    - npm run test
+    - npm run build
+    - npm run test:e2e
+  artifacts:
+    - frontend/playwright-report/**
+
 build: &build
   name: build and test artifacts
   image:
@@ -17,8 +34,11 @@ build: &build
     password: $DO_REG_SECRET
   caches:
     - gradle
+    - npm
   script:
-    - bash ./gradlew clean test shadowJar --info
+    # `check` rather than `test`: it runs the Java suite and the frontend unit
+    # tests. The browser suite is its own step above so this one stays quick.
+    - bash ./gradlew clean check shadowJar --info
   artifacts:
     - build/libs/*.jar
 
@@ -34,16 +54,31 @@ publish: &publish
             --form files=@"${f}" --form files=@"${f}.sha256"
       done
 
+definitions:
+  caches:
+    npm: frontend/node_modules
+
 pipelines:
   branches:
     '**':
       - step:
           <<: *mirror
+      # Previously only `main` built anything, so a branch could never be shown
+      # to be green before merging -- which is how a frontend that had never
+      # been executed once reached a release branch.
+      - parallel:
+          - step:
+              <<: *frontend
+          - step:
+              <<: *build
     main:
       - step:
           <<: *mirror
-      - step:
-          <<: *build
+      - parallel:
+          - step:
+              <<: *frontend
+          - step:
+              <<: *build
       - step:
           <<: *publish
   tags:
