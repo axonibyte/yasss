@@ -39,6 +39,9 @@ Pending, to apply when the owning component is written:
 | `index.html` | reCAPTCHA `<script>` loaded unconditionally at boot | loaded on demand by `lib/captcha.js`, only when `GET /v1` reports a site key | Legacy called `grecaptcha.enterprise.reset()` on a never-rendered widget when CAPTCHA was disabled, which threw and left anonymous publish/RSVP/register dead. (`app.js:2779-2787`, behavior §6.17) |
 | `NavBar.svelte` | `<nav class="navbar" role="navigation">` | `role` dropped | `navigation` is `<nav>`'s implicit role; no behavioral or a11y change. |
 | `NavBar.svelte` | `<img src="assets/img/...">` (relative) | `/assets/img/...` (absolute) | Everything else was already absolute; relative would 404 on any non-root path. |
+| `EventListBox.svelte` | click handler bound to `<li>` | a real `<button>` inside the `<li>` | Entries were unreachable by keyboard and unannounced by assistive tech. The `<li>` still carries the bulma-block-list styling, so the appearance is unchanged. |
+| Modal fields | `<div class="label">` | `<label class="label" for=…>` | Bulma styles by class so it renders identically, but the legacy fields had no accessible association. |
+| `CoaSection.svelte` | markdown HTML injected into a `<p>` | rendered into a `<div>` | The content contains block elements, so the browser was reparenting invalid nesting. Same resulting appearance. |
 
 Pending, to apply when the owning component is written:
 
@@ -57,7 +60,13 @@ Pending, to apply when the owning component is written:
 
 | Where | Was | Now | Why |
 |---|---|---|---|
-| *(none yet)* | | | |
+| Session cookie | no `path`, `sameSite` or `secure` | `path=/`, `SameSite=Lax`, `secure` on https | |
+| Session token | rotated in memory, persisted only by `refreshUserSession` | persisted on every rotation | Reloading between rotations logged the user out. |
+| reCAPTCHA | script loaded for every visitor | injected only once the server reports a site key | |
+| Error tags | cleared only on the next submit attempt | cleared per-field on input | |
+| Profile update | modal closed before the PATCH resolved | awaits the request, closes on success | A failure used to toast behind a dismissed dialog. |
+| Terms/Privacy fetch | no failure handling | toasts on failure | A fetch error left the modal silently blank. |
+| Dashboard lists | refetched on essentially every API response | load once, driven by the account | The legacy refetched from inside its response-header handling. |
 
 Pending — the full bug-disposition table lives in the approved plan. The four that change
 visible UX, with the decisions already taken:
