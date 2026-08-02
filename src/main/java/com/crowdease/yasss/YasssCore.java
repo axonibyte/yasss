@@ -167,7 +167,11 @@ public class YasssCore {
                   ParamEnum.API_ALLOWED_ORIGINS))
           .addExposedHeaders(
               APIEndpoint.ACCOUNT_HEADER,
-              APIEndpoint.SESSION_HEADER)
+              APIEndpoint.SESSION_HEADER,
+              // Set on every authenticated response and read by the client to
+              // drive admin overrides, but previously not exposed -- so it
+              // silently vanished cross-origin, e.g. the Vite dev server.
+              APIEndpoint.ACCESS_LEVEL_HEADER)
           .addEndpoints(
               new APIInfoEndpoint(),
               new AddActivityEndpoint(),

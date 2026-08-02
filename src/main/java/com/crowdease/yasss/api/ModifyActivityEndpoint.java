@@ -104,8 +104,10 @@ public final class ModifyActivityEndpoint extends APIEndpoint {
       if(deserializer.has("maxSlotVolunteersDefault")) {
         activity.setMaxSlotVolunteersDefault(
             deserializer.getInt("maxSlotVolunteersDefault"));
-        if(0 > activity.getMaxSlotVolunteersDefault()
-           || 255 < activity.getMaxActivityVolunteers())
+        // Compared getMaxActivityVolunteers() on the upper bound, so an
+      // out-of-range slot default slipped through to a TINYINT UNSIGNED column.
+      if(0 > activity.getMaxSlotVolunteersDefault()
+           || 255 < activity.getMaxSlotVolunteersDefault())
           throw new EndpointException(
               req,
               "malformed argument (int: maxSlotVolunteersDefault)",

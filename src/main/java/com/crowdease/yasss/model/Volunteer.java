@@ -277,9 +277,9 @@ public class Volunteer {
                   "event",
                   "name",
                   "reminders_enabled",
-                  "ip_addr")
+                  "ip_addr_bin")
               .where("id")
-              .wrap(new Wrapper(5, "INET_ATON"))
+              .wrap(new Wrapper(5, "INET6_ATON"))
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(user));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(event));
@@ -302,8 +302,8 @@ public class Volunteer {
                     "event",
                     "name",
                     "reminders_enabled",
-                    "ip_addr")
-                .wrap(new Wrapper(6, "INET_ATON"))
+                    "ip_addr_bin")
+                .wrap(new Wrapper(6, "INET6_ATON"))
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
         stmt.setBytes(2, SQLBuilder.uuidToBytes(user));

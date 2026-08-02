@@ -9,7 +9,9 @@ apply plugin: 'maven-publish'
 apply plugin: 'com.github.johnrengelman.shadow'
 
 repositories {
-  jcenter()
+  // jcenter is sunset and read-only; a cold cache is one policy change away
+  // from an unbuildable repo.
+  mavenCentral()
   maven {
     url "https://jitpack.io"
   }

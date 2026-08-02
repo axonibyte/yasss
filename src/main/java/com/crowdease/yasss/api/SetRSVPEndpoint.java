@@ -77,6 +77,11 @@ public final class SetRSVPEndpoint extends APIEndpoint {
       if(null == slot)
         throw new EndpointException(req, "slot not found", 404);
 
+      // Only `slot` was null-checked, so a syntactically-valid volunteer UUID
+      // that belongs to another event dereferenced null into a 500.
+      if(null == volunteer)
+        throw new EndpointException(req, "volunteer not found", 404);
+
       if(!auth.atLeast(User.getUser(volunteer.getUser()))
           && !auth.atLeast(event))
         throw new EndpointException(req, "access denied", 403);

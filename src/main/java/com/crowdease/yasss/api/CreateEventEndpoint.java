@@ -353,6 +353,9 @@ public final class CreateEventEndpoint extends APIEndpoint {
                       .map(
                           d -> new JSONObject()
                               .put("id", d.getID())
+                              // Every other detail serialization includes the
+                              // type; this one omitted it.
+                              .put("type", d.getType())
                               .put("label", d.getLabel())
                               .put("hint", d.getHint())
                               .put("priority", d.getPriority())

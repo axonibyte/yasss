@@ -82,10 +82,10 @@ public class RSVP {
                   "event",
                   "name",
                   "reminders_enabled",
-                  "ip_addr")
+                  "ip_addr_bin")
               .where("id")
               .limit(1)
-              .wrap(new Wrapper(5, "INET_NTOA"))
+              .wrap(new Wrapper(5, "INET6_NTOA"))
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(volunteer));
       res = stmt.executeQuery();
@@ -99,7 +99,7 @@ public class RSVP {
                 res.getBytes("event")),
             res.getString("name"),
             res.getBoolean("reminders_enabled"),
-            res.getString("ip_addr"));
+            res.getString("ip_addr_bin"));
       
     } catch(SQLException e) {
       throw e;

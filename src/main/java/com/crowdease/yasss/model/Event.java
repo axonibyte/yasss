@@ -883,10 +883,10 @@ public class Event {
               "user",
               "name",
               "reminders_enabled",
-              "ip_addr")
+              "ip_addr_bin")
           .where("event")
           .order("name", Order.ASC)
-          .wrap(new Wrapper(5, "INET_NTOA"))
+          .wrap(new Wrapper(5, "INET6_NTOA"))
           .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       res = stmt.executeQuery();
@@ -902,7 +902,7 @@ public class Event {
                 id,
                 res.getString("name"),
                 res.getBoolean("reminders_enabled"),
-                res.getString("ip_addr")));
+                res.getString("ip_addr_bin")));
 
       if(!volunteers.isEmpty()) {
         Map<UUID, Map<Detail, String>> details = new LinkedHashMap<>();
@@ -977,9 +977,9 @@ public class Event {
       .where("event");
     if(null != ipAddr)
       query
-        .where("ip_addr")
+        .where("ip_addr_bin")
         .wrap(
-            new Wrapper(2, "INET_ATON"));
+            new Wrapper(2, "INET6_ATON"));
     // Was gated on (and bound to) `admin`, this event's owner, rather than the
     // `user` parameter -- so the per-user signup cap counted the wrong thing
     // entirely and could never be scoped to the caller.
@@ -993,7 +993,7 @@ public class Event {
       // Bind in the same order the WHERE clauses were added above: event,
       // ip_addr, user. The previous order bound user before ip_addr, which
       // silently swapped the two whenever both filters were supplied. Callers
-      // pass exactly one today, so it never bit -- but the INET_ATON wrapper
+      // pass exactly one today, so it never bit -- but the INET6_ATON wrapper
       // is pinned to parameter 2, so the ordering is load-bearing.
       stmt.setBytes(++idx, SQLBuilder.uuidToBytes(id));
       if(null != ipAddr)
@@ -1035,10 +1035,10 @@ public class Event {
               "user",
               "name",
               "reminders_enabled",
-              "ip_addr")
+              "ip_addr_bin")
           .where("id", "event")
           .limit(1)
-          .wrap(new Wrapper(4, "INET_NTOA"))
+          .wrap(new Wrapper(4, "INET6_NTOA"))
           .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(volunteerID));
       stmt.setBytes(2, SQLBuilder.uuidToBytes(id));
@@ -1052,7 +1052,7 @@ public class Event {
             id,
             res.getString("name"),
             res.getBoolean("reminders_enabled"),
-            res.getString("ip_addr"));
+            res.getString("ip_addr_bin"));
 
     } catch(SQLException e) {
       throw e;

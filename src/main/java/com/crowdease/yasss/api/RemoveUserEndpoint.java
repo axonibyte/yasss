@@ -31,7 +31,9 @@ public final class RemoveUserEndpoint extends APIEndpoint {
    * Instantiates the endpoint.
    */
   public RemoveUserEndpoint() {
-    super("/users", APIVersion.VERSION_1, HTTPMethod.DELETE);
+    // Was "/users", while onCall reads req.params("user") -- so the parameter
+    // was always null and this endpoint could only ever 404.
+    super("/users/:user", APIVersion.VERSION_1, HTTPMethod.DELETE);
   }
 
   /**
@@ -58,7 +60,7 @@ public final class RemoveUserEndpoint extends APIEndpoint {
       res.status(200);
       return new JSONObject()
           .put("status", "ok")
-          .put("info", "successfully deleted event");
+          .put("info", "successfully deleted user");
       
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);

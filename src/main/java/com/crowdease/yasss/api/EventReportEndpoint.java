@@ -92,6 +92,12 @@ public final class EventReportEndpoint extends Endpoint {
                                   detail.getValue()))));
         }
 
+        // A volunteer with no custom-field answers leaves this list empty, and
+        // an event is free to have no custom fields at all -- so seed a row
+        // rather than indexing into nothing.
+        if(rows.isEmpty())
+          rows.add(new HTMLElem("tr"));
+
         rows.get(0).insert(
             0,
             new HTMLElem("td")
@@ -176,6 +182,11 @@ public final class EventReportEndpoint extends Endpoint {
               slot.getWindow().toString(),
               activity.getShortDescription());
           
+          // Same hazard: a fully-capped slot whose RSVPs were all cancelled
+          // yields no rows and no remaining blanks to add.
+          if(rows.isEmpty())
+            rows.add(new HTMLElem("tr"));
+
           rows.get(0).insert(
               0,
               new HTMLElem("td")
