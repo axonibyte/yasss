@@ -27,5 +27,3 @@ export function base64ToBytes(b64) {
 /** UTF-8 encode, matching `Buffer.from(str)` in the legacy bundle. */
 export const utf8 = (str) => new TextEncoder().encode(str);
 
-/** Base64 of a UTF-8 string. */
-export const stringToBase64 = (str) => bytesToBase64(utf8(str));

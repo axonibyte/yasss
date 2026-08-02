@@ -51,8 +51,10 @@ public final class RemoveDetailEndpoint extends APIEndpoint {
                 req.params("event")));
 
         if(null != event) {
+          // Omitting the code makes EndpointException default to 500, so this
+          // reported an authorization failure as a server error.
           if(!auth.atLeast(event))
-            throw new EndpointException(req, "access denied");
+            throw new EndpointException(req, "access denied", 403);
 
           if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
             throw new EndpointException(req, "event expired", 412);

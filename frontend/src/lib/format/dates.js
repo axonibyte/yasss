@@ -29,10 +29,6 @@ export function fmtDateRangeParts(begin, end) {
   return { begin: fmtDateTime(begin), end: fmtDateTime(end) };
 }
 
-/** Single-line variant, used where a `<br />` would not fit. */
-export const fmtDateRange = (begin, end) =>
-  `${fmtDateTime(begin)} - ${fmtDateTime(end)}`;
-
 /** Tomorrow at the given time — the window picker's default bounds. */
 export function tomorrowAt(hours, minutes = 0) {
   const d = new Date();

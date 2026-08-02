@@ -156,16 +156,3 @@ export function detailChangesToApi(next, previous = {}) {
   if (next.required !== previous.required) changes.required = next.required;
   return changes;
 }
-
-// --- volunteers ------------------------------------------------------------
-
-export function volunteerFromApi(v) {
-  return {
-    id: v.id,
-    user: v.user ?? null,
-    name: v.name ?? '',
-    remindersEnabled: Boolean(v.remindersEnabled),
-    // [{detail: <uuid>, value}] — callers map detail ids to client keys
-    details: Array.isArray(v.details) ? v.details : [],
-  };
-}

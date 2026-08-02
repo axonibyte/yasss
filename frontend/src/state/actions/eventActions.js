@@ -70,5 +70,3 @@ export async function openReport(eventId) {
   }
 }
 
-/** Confirmation shown after a successful publish. */
-export const publishedToast = () => toastSuccess('Successfully created your event!');
