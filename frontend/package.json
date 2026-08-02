@@ -12,7 +12,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vectors": "node tools/gen-creds-vectors.mjs"
+    "vectors": "node tools/gen-creds-vectors.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:all": "vitest run && playwright test"
   },
   "dependencies": {
     "@creativebulma/bulma-tooltip": "1.2.0",
@@ -28,10 +31,13 @@
     "scrypt-js": "^3.0.1"
   },
   "devDependencies": {
+    "@hono/node-server": "^2.0.12",
+    "@playwright/test": "^1.62.1",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/svelte": "^5.4.2",
     "@testing-library/user-event": "^14.6.1",
+    "hono": "^4.12.33",
     "jsdom": "^30.0.1",
     "sass": "^1.102.0",
     "svelte": "^5.56.8",
