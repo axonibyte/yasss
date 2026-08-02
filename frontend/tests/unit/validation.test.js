@@ -1,0 +1,257 @@
+/**
+ * Validation rules — docs/legacy/01-behavior.md §3, mirrored against the
+ * server-side checks in docs/legacy/03-api-contract.md §3.
+ *
+ * Several cases here exist specifically to pin behavior the legacy got wrong;
+ * those are called out inline.
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  validateSummary, validateActivity, validateWindow, validateSlot,
+  validateDetail, validateVolunteer, validateLogin, validateRegistration,
+  validateProfileUpdate, validatePasswordReset, CAP_MIN, CAP_MAX,
+} from '../../src/lib/validation/forms.js';
+import * as patterns from '../../src/lib/validation/patterns.js';
+import { DETAIL_TYPES, typeLabel } from '../../src/lib/validation/detailTypes.js';
+
+describe('patterns are anchored', () => {
+  // The legacy regexes had no ^ or $, so junk around a valid value passed the
+  // client and then 400'd server-side, where Matcher.matches() is implicitly
+  // anchored (behavior §3.1).
+  it('rejects an email with surrounding text', () => {
+    expect(patterns.EMAIL.test('hello foo@bar.com world')).toBe(false);
+    expect(patterns.EMAIL.test('foo@bar.com')).toBe(true);
+  });
+
+  it('rejects a number with surrounding text', () => {
+    expect(patterns.INTEGER.test('abc12')).toBe(false);
+    expect(patterns.INTEGER.test('12')).toBe(true);
+  });
+
+  it('rejects a phone number with surrounding text', () => {
+    expect(patterns.PHONE.test('call me at 555-555-5555 ok')).toBe(false);
+    expect(patterns.PHONE.test('555-555-5555')).toBe(true);
+  });
+});
+
+describe('email case sensitivity', () => {
+  // Detail.Type.EMAIL is compiled without CASE_INSENSITIVE, so an uppercase
+  // address is a genuine 400. We keep the rule and lowercase on the way in.
+  it('rejects uppercase, matching the server', () => {
+    expect(patterns.EMAIL.test('BOB@EXAMPLE.COM')).toBe(false);
+  });
+
+  it('lowercases account emails rather than rejecting them', () => {
+    const v = validateLogin({ email: '  BOB@Example.COM ', password: 'pw' });
+    expect(v.ok).toBe(true);
+    expect(v.values.email).toBe('bob@example.com');
+  });
+
+  it('lowercases EMAIL detail values', () => {
+    expect(DETAIL_TYPES.EMAIL.serialize('  Foo@Bar.CO ')).toBe('foo@bar.co');
+  });
+});
+
+describe('validateSummary', () => {
+  it('requires a title', () => {
+    expect(validateSummary({ title: '   ' }).ok).toBe(false);
+    expect(validateSummary({ title: '   ' }).errors.title)
+      .toBe('The title of your event cannot be blank.');
+  });
+
+  it('trims and coerces', () => {
+    const v = validateSummary({ title: '  Party  ', description: '  fun  ', notifyOnSignup: 1 });
+    expect(v.values).toEqual({
+      title: 'Party', description: 'fun', notifyOnSignup: true, allowMultiuserSignups: false,
+    });
+  });
+});
+
+describe('validateActivity', () => {
+  it('requires a label', () => {
+    expect(validateActivity({ label: '' }).errors.label)
+      .toBe('The label for your activity cannot be blank.');
+  });
+
+  it('treats 0 as unlimited and skips the range check', () => {
+    const v = validateActivity({ label: 'x', volunteerCap: 0, slotCapDefault: 0 });
+    expect(v.ok).toBe(true);
+  });
+
+  it.each([
+    [CAP_MIN, true], [CAP_MAX, true], [CAP_MAX + 1, false], [-1, false], [1.5, false],
+  ])('cap %s -> valid=%s', (cap, valid) => {
+    expect(validateActivity({ label: 'x', volunteerCap: cap }).ok).toBe(valid);
+  });
+
+  it('reports both cap errors at once', () => {
+    const v = validateActivity({ label: 'x', volunteerCap: 999, slotCapDefault: 999 });
+    expect(Object.keys(v.errors).sort()).toEqual(['slotCapDefault', 'volunteerCap']);
+  });
+});
+
+describe('validateWindow', () => {
+  const t = (h) => new Date(2030, 0, 1, h);
+
+  it('requires both ends', () => {
+    expect(validateWindow({ begin: t(9), end: null }).ok).toBe(false);
+    expect(validateWindow({ begin: null, end: t(9) }).errors.range)
+      .toBe('Please specify the entire window range.');
+  });
+
+  it('rejects an end before the beginning', () => {
+    // The legacy had no ordering check; the server rejects it as a 500.
+    expect(validateWindow({ begin: t(17), end: t(9) }).ok).toBe(false);
+  });
+
+  it('accepts a well-ordered range', () => {
+    expect(validateWindow({ begin: t(9), end: t(17) }).ok).toBe(true);
+  });
+
+  it('accepts a zero-length range, which the server nulls the end of', () => {
+    expect(validateWindow({ begin: t(9), end: t(9) }).ok).toBe(true);
+  });
+});
+
+describe('validateSlot', () => {
+  it('ignores the cap when the slot is disabled', () => {
+    const v = validateSlot({ enabled: false, cap: 9999 });
+    expect(v.ok).toBe(true);
+    expect(v.values).toEqual({ enabled: false, cap: 0 });
+  });
+
+  it('enforces the cap when enabled', () => {
+    expect(validateSlot({ enabled: true, cap: 256 }).ok).toBe(false);
+    expect(validateSlot({ enabled: true, cap: 255 }).ok).toBe(true);
+  });
+});
+
+describe('validateDetail', () => {
+  it('rejects an unselected type', () => {
+    expect(validateDetail({ type: undefined, label: 'x' }).errors.type)
+      .toBe('Please make sure to select a detail type.');
+    expect(validateDetail({ type: 'NOPE', label: 'x' }).ok).toBe(false);
+  });
+
+  it('requires a label', () => {
+    expect(validateDetail({ type: 'STRING', label: '  ' }).errors.label)
+      .toBe("The field label can't be empty.");
+  });
+});
+
+describe('validateVolunteer', () => {
+  const details = [
+    { key: 'd1', type: 'STRING', required: false },
+    { key: 'd2', type: 'EMAIL', required: false },
+    { key: 'd3', type: 'BOOLEAN', required: true },
+    { key: 'd4', type: 'INTEGER', required: false },
+    { key: 'd5', type: 'PHONE', required: false },
+  ];
+
+  it('requires a name', () => {
+    const v = validateVolunteer({ name: '  ', values: new Map([['d3', true]]) }, details);
+    expect(v.errors.name).toBe('Please provide a name.');
+  });
+
+  it('enforces required BOOLEAN details', () => {
+    // behavior §6.19: the legacy compared a boolean against '' so an unticked
+    // required checkbox always passed. "Required" now means "must be ticked",
+    // which is what the server enforces when the detail is absent.
+    const unticked = validateVolunteer({ name: 'A', values: new Map([['d3', false]]) }, details);
+    expect(unticked.ok).toBe(false);
+    expect(unticked.errors.d3).toBe('This field is required.');
+
+    const ticked = validateVolunteer({ name: 'A', values: new Map([['d3', true]]) }, details);
+    expect(ticked.ok).toBe(true);
+  });
+
+  it('omits blank optional details rather than sending empty strings', () => {
+    const v = validateVolunteer({
+      name: 'A', values: new Map([['d1', ''], ['d3', true]]),
+    }, details);
+    expect(v.ok).toBe(true);
+    expect(v.values.details.map((d) => d.detailKey)).toEqual(['d3']);
+  });
+
+  it('validates each type against its pattern', () => {
+    const v = validateVolunteer({
+      name: 'A',
+      values: new Map([['d2', 'not-an-email'], ['d3', true], ['d4', 'abc'], ['d5', 'xyz']]),
+    }, details);
+    expect(v.errors.d2).toBe('This needs to be an email address.');
+    expect(v.errors.d4).toBe('This needs to be a number.');
+    expect(v.errors.d5).toBe('This needs to be a phone number.');
+  });
+
+  it('serializes booleans as strings, as the API expects', () => {
+    const v = validateVolunteer({ name: 'A', values: new Map([['d3', true]]) }, details);
+    expect(v.values.details).toEqual([{ detailKey: 'd3', value: 'true' }]);
+  });
+
+  it('skips details of an unrecognized type instead of throwing', () => {
+    // The legacy threw here and returned null with no toast at all — a form
+    // that could not be submitted and gave no reason (behavior §6.19).
+    const v = validateVolunteer(
+      { name: 'A', values: new Map() },
+      [{ key: 'bad', type: 'MYSTERY', required: true }]);
+    expect(v.ok).toBe(true);
+  });
+
+  it('accepts a plain object as well as a Map', () => {
+    const v = validateVolunteer({ name: 'A', values: { d3: true } }, details);
+    expect(v.ok).toBe(true);
+  });
+});
+
+describe('credential forms', () => {
+  it('rejects a mistyped registration confirmation', () => {
+    const v = validateRegistration({ email: 'a@b.co', password: 'x', confirmPassword: 'y' });
+    expect(v.errors.confirmPassword)
+      .toBe('Oops! You might have mistyped your password confirmation.');
+  });
+
+  it('requires a non-empty registration password', () => {
+    const v = validateRegistration({ email: 'a@b.co', password: '', confirmPassword: '' });
+    expect(v.errors.password)
+      .toBe('Your password should be at least one character in length.');
+  });
+
+  it('treats an entirely empty profile update as a valid no-op', () => {
+    const v = validateProfileUpdate({ email: '', password: '', confirmPassword: '' });
+    expect(v.ok).toBe(true);
+    expect(v.values).toEqual({ email: null, password: null });
+  });
+
+  it('only checks the profile confirmation when a password was entered', () => {
+    expect(validateProfileUpdate({ email: 'a@b.co', password: '', confirmPassword: 'junk' }).ok)
+      .toBe(true);
+    expect(validateProfileUpdate({ password: 'x', confirmPassword: 'y' }).ok).toBe(false);
+  });
+
+  it('validates a password reset without an email', () => {
+    // accountReset signs with an empty email; only the password matters.
+    expect(validatePasswordReset({ password: 'x', confirmPassword: 'x' }).ok).toBe(true);
+    expect(validatePasswordReset({ password: 'x', confirmPassword: 'z' }).ok).toBe(false);
+  });
+});
+
+describe('detail type registry', () => {
+  it('maps ids to the legacy display labels', () => {
+    expect(typeLabel('STRING')).toBe('Text');
+    expect(typeLabel('BOOLEAN')).toBe('True/False');
+    expect(typeLabel('INTEGER')).toBe('Whole Number');
+    expect(typeLabel('EMAIL')).toBe('Email Address');
+    expect(typeLabel('PHONE')).toBe('Phone Number');
+  });
+
+  it('falls back to INVALID for unknown ids, as the legacy did', () => {
+    expect(typeLabel('WHATEVER')).toBe('INVALID');
+  });
+
+  it('accepts decimals for INTEGER, matching the server pattern', () => {
+    // Named "Whole Number" but the server permits 9 decimal places, hence the
+    // message says "number" rather than "integer".
+    expect(DETAIL_TYPES.INTEGER.pattern.test('1.5')).toBe(true);
+    expect(DETAIL_TYPES.INTEGER.pattern.test('-1')).toBe(false);
+  });
+});

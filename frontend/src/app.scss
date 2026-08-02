@@ -9,7 +9,8 @@
 
 @use 'bulma/css/bulma.min.css';
 @use 'bulma-block-list/src/block-list.scss';
-@use 'bulma-pageloader/dist/css/bulma-pageloader.min.css';
+// vendored — the upstream package is deprecated at every version; see the file header
+@use './vendor/bulma-pageloader.css';
 @use 'bulma-slider/dist/css/bulma-slider.min.css';
 @use 'bulma-switch/dist/css/bulma-switch.min.css';
 @use '@creativebulma/bulma-tooltip/dist/bulma-tooltip.min.css';
