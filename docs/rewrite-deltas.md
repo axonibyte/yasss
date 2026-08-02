@@ -15,17 +15,17 @@ Decision: normalize typos, grammar, and punctuation; list every change here.
 
 | Where | Was | Now |
 |---|---|---|
-| *(none yet — modals arrive in Phase 2)* | | |
+| `validateActivityModal` error | "The activity volunteer cap needs to be number between 1 and 255" | "The activity volunteer cap needs to be a number between 1 and 255." |
+| Dashboard heading | "Your Upcoming RSVPS" | "Your Upcoming RSVPs" |
+| Terms/Privacy modal title | *(never populated — empty header bar)* | "Terms of Service" / "Privacy Policy" |
+| `validateVolEditModal` integer error | "This needs to be an integer." | "This needs to be a number." (the pattern permits up to 9 decimals) |
+| `registerUser` error | "Your password should be at least one character in length" | …"in length." |
 
 Pending, to apply when the owning component is written:
 
 | Where | Was | Will be |
 |---|---|---|
 | `#edit-activity-modal` label | "Acitvity Volunteer Cap" | "Activity Volunteer Cap" |
-| `validateActivityModal` error | "The activity volunteer cap needs to be number between 1 and 255" | "The activity volunteer cap needs to be a number between 1 and 255." |
-| `#list-event-rsvp-box` heading | "Your Upcoming RSVPS" | "Your Upcoming RSVPs" |
-| `#md-view-modal` title | *(never populated — empty header bar)* | "Terms of Service" / "Privacy Policy" |
-| `validateVolEditModal` integer error | "This needs to be an integer." | "This needs to be a number." (the pattern permits 9 decimals) |
 | Toasts generally | inconsistent trailing periods | consistent |
 
 ---
@@ -91,7 +91,10 @@ visible UX, with the decisions already taken:
 | `bulma-block-list.min.css` (compiled) | `bulma-block-list/src/block-list.scss` via `sass` | Ships SCSS only; using the source keeps it versioned |
 | Node 18.17.0 | Node 22.20.0 | Vitest 4 dropped Node 18 |
 | node-gradle plugin 7.0.0 | 7.1.0 | |
-| `showdown@2.1.0` | unchanged | Has an open ReDoS advisory with no fix available. Input is operator-authored markdown from `content/*.md`, not attacker-controlled, so the surface is nil. Kept for output fidelity. **Revisit if the texts ever become user-supplied.** |
+| `showdown@2.1.0` | `marked@18` | showdown carries an unfixed ReDoS advisory (no patched version exists). The input is operator-authored config, so the practical risk was nil — but an unfixable advisory is not worth carrying when a maintained drop-in exists. `npm audit` is now clean. Output for the simple prose in `content/*.md` is equivalent; marked enables GFM, so tables and strikethrough would now render where showdown ignored them. |
+| `bulma-pageloader@0.3.0` | vendored into `src/vendor/bulma-pageloader.css` | The package is deprecated at *every* published version, and its Sass targets Bulma 0.x variables that no longer exist in 1.x, so it cannot be recompiled. The vendored file is byte-identical to what shipped. No deprecated direct dependencies remain. |
+| `easymock@4.3`, `powermock@2.0.9` | `easymock@5.6.0`, PowerMock **dropped** | EasyMock 4.3 cannot proxy classes on JDK 17+ — which had gone unnoticed because the Java suite never ran. PowerMock was referenced by nothing and is unmaintained. |
+| `testng@7.4.0` | `testng@7.11.0` | |
 
 ---
 
