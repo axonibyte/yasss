@@ -1,0 +1,47 @@
+[
+  {
+    "name": "ascii",
+    "email": "bob@example.com",
+    "password": "hunter2",
+    "mfa": "",
+    "salt": "",
+    "pubkey": "acfSG4HKUyz7n3a3EIiQURyi4chuBH5o2KrQQYnktsE=",
+    "payload": "eyJjcmVkcyI6IntcImVtYWlsXCI6XCJib2JAZXhhbXBsZS5jb21cIixcIm1mYVwiOlwiXCJ9Iiwic2lnIjoiSVhuVktMMEJrU3JXSTFPNVRKd2lxSXNZV3luNnZHbW1SQUJ0clhUUGFKdUF5VkNlRHB1RWtoVEZpVE9ucWZqRFIrSFJzanZGemFSUTlldGtYQkR1QlE9PSJ9"
+  },
+  {
+    "name": "empty-password",
+    "email": "bob@example.com",
+    "password": "",
+    "mfa": "",
+    "salt": "",
+    "pubkey": "Hi6yyO7vYLngTtY4NRVshFkX0VIQjT0IciKTGDdrjy0=",
+    "payload": "eyJjcmVkcyI6IntcImVtYWlsXCI6XCJib2JAZXhhbXBsZS5jb21cIixcIm1mYVwiOlwiXCJ9Iiwic2lnIjoiMHB2UUZTaTZmVG5MaldFZzlrVVRzTXBOWE9OT3hPaXhaclZvRVZid2pUV3JDTkFJTEh5TmFhV0hhNGNyZTJnWkltWndJSnprcnFaeThlM1NWckVLQ3c9PSJ9"
+  },
+  {
+    "name": "unicode-nfkc",
+    "email": "josé@example.com",
+    "password": "ﬁancé́pw",
+    "mfa": "",
+    "salt": "",
+    "pubkey": "iDOdISsuPLpjrLBxMoX4lBUH0Cgw1tsjQqdGRxC9cKA=",
+    "payload": "eyJjcmVkcyI6IntcImVtYWlsXCI6XCJqb3PDqUBleGFtcGxlLmNvbVwiLFwibWZhXCI6XCJcIn0iLCJzaWciOiIzeFBhNUJHb2lLRWNjWW8wbmJCWDlBVmZkWHJISXRBSzU3QnFjRDE1TjFtZE1NVXNwWjJ2ZmpObyt3cWlPc1MrK0dqbHhqeXVkQ0lxNTBtaUN2a1RDdz09In0="
+  },
+  {
+    "name": "long-password",
+    "email": "a@b.co",
+    "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "mfa": "",
+    "salt": "",
+    "pubkey": "xDTMG3hU9OYMeEL/vFRESaz/enYKoNaefd8wrC4Eh5g=",
+    "payload": "eyJjcmVkcyI6IntcImVtYWlsXCI6XCJhQGIuY29cIixcIm1mYVwiOlwiXCJ9Iiwic2lnIjoiMnNteUNCeDBLVU11K1ZkbTR1b2FzcEJLZE5hKzMwSG5LcWJwTlFGL3BLTG1pWTU2SWk4QXhqNkwyVi9HaVJ3UkJ6Q2VDVnpheFJneGp5UldqRGdlQlE9PSJ9"
+  },
+  {
+    "name": "empty-email",
+    "email": "",
+    "password": "resetpw",
+    "mfa": "",
+    "salt": "",
+    "pubkey": "uXVNA5oLxtvDLkNUjmT7ZkT3TY7AoaFb/n3DP66Lnr8=",
+    "payload": "eyJjcmVkcyI6IntcImVtYWlsXCI6XCJcIixcIm1mYVwiOlwiXCJ9Iiwic2lnIjoieHcvdGN0Ly9nQUV5QU1QNy8xNXNybFdHZXYzTjdiY1RKNHkweGx4Q3lSQ21SbW5aSEUwNDhtYk01djgzVFJwcGVBMUF4ckUwcHBoTUk2SFVob2FTRGc9PSJ9"
+  }
+]

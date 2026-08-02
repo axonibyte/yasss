@@ -1,6 +1,6 @@
 plugins {
   id "com.github.johnrengelman.shadow" version "8.1.1"
-  id "com.github.node-gradle.node" version "7.0.0"
+  id "com.github.node-gradle.node" version "7.1.0"
 }
 
 apply plugin: 'java'
@@ -36,7 +36,9 @@ dependencies {
 }
 
 node {
-  version = '18.17.0'
+  // Vitest 4 dropped Node 18. Keep this in sync with frontend/.nvmrc and the
+  // "engines" field in frontend/package.json.
+  version = '22.20.0'
   download = true
   nodeProjectDir = file("${project.projectDir}/frontend")
 }
@@ -47,8 +49,27 @@ task buildFrontend(type: NpmTask) {
     it.workingDir = file("${project.projectDir}/frontend")
   }
 }
+
+task testFrontend(type: NpmTask) {
+  args = ['run', 'test']
+  execOverrides {
+    it.workingDir = file("${project.projectDir}/frontend")
+  }
+}
+testFrontend.dependsOn npmInstall
+
 buildFrontend.dependsOn npmInstall
 processResources.dependsOn buildFrontend
+
+// The Java suite never actually ran: TestNG is on the classpath but was never
+// activated, so `gradle test` silently executed zero tests.
+test {
+  useTestNG()
+}
+
+// `gradle check` runs both tiers. Playwright is deliberately excluded — it is
+// its own CI step so `gradle build` stays fast.
+check.dependsOn testFrontend
 
 eclipse {
   classpath {

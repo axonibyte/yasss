@@ -1,0 +1,834 @@
+<html class="theme-light">
+  <head>
+    <title>Yasss!</title>
+    <link rel="stylesheet" href="/assets/css/bulma.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-block-list.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-calendar.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-pageloader.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-slider.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-switch.min.css" />
+    <link rel="stylesheet" href="/assets/css/bulma-tooltip.min.css" />
+    <link rel="stylesheet" href="/assets/css/style.css" />
+    <script src="/assets/js/jquery-3.7.1.min.js" defer></script>
+    <script src="/assets/js/js.cookie.min.js" defer></script>
+    <script src="/assets/js/bulma-calendar.min.js" defer></script>
+    <script src="/assets/js/bulma-slider.min.js" defer></script>
+    <script src="/assets/js/bulma-toast.js" defer></script>
+    <script src="/assets/js/showdown-2.1.0.min.js" defer></script>
+    <script src="/assets/js/axb-sig-req.min.js" defer></script>
+    <script src="/assets/js/app.js" defer></script>
+    <script
+      src="https://www.google.com/recaptcha/enterprise.js?onload=loadCAPTCHA&render=explicit&hl=en"
+      async defer></script>
+  </head>
+  <body>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+      <div class="navbar-brand">
+        <a class="navbar-item" href="/">
+          <img src="assets/img/yasss_logo_small.png" alt="Yasss!" />
+          <strong class="has-text-primary">Yasss!</strong>
+        </a>
+      </div>
+      <div class="navbar-end">
+        <a id="create-event-nav" class="navbar-item">Create Event</a>
+        <a id="login-nav" class="navbar-item" style="display: none;">Log In</a>
+        <a id="account-nav" class="navbar-item" style="display: none;">Account</a>
+        <a id="logout-nav" class="navbar-item" style="display: none;">Log Out</a>
+      </div>
+    </nav>
+
+    <div class="pageloader is-bottom-to-top is-active">
+      <span class="title">Hang on tight!</span>
+    </div>
+    
+    <!-- introduction section -->
+    <section id="introduction-section" class="section">
+      <div class="container has-text-centered">
+        <h1 class="title is-2">
+          <strong class="has-text-primary">Yasss!</strong>
+        </h1>
+        <h2 class="subtitle is-4">Sign me up!</h2>
+      </div>
+    </section>
+
+    <!-- call to action -->
+    <section id="coa-section" class="section">
+      <div class="card">
+        <div class="card-content">
+          <div class="content has-text-centered">
+            <p class="subtitle">Welcome, friend!</p>
+            <p id="coa-content" class="mb-5"></p>
+            <div class="buttons is-centered">
+              <button
+                id="create-event-cta"
+                class="button is-primary is-medium">Create an Event!</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- event listing section -->
+    <section id="list-event-section" class="section">
+      <div class="grid">
+        <div class="cell">
+          <div id="list-event-admin-box" class="box">
+            <p class="subtitle has-text-centered">Your Upcoming Events</p>
+            <ul class="block-list is-centered">
+              <li>Loading...</li>
+            </ul>
+          </div>
+        </div>
+        <div class="cell">
+          <div id="list-event-rsvp-box" class="box">
+            <p class="subtitle has-text-centered">Your Upcoming RSVPS</p>
+            <ul class="block-list is-centered">
+              <li>Loading...</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- event view section -->
+    <section id="view-event-section" class="section" style="display: none;">
+      <div class="card">
+        <div class="card-content">
+          <div class="content">
+            <div class="grid">
+
+              <!-- left side (on large screens) -->
+              <div class="cell">
+                <h2 id="view-event-short-descr" class="is-size-2">Your Event</h2>
+                <p id="view-event-long-descr">
+                  Here's some information about your event! Blah blah blah blah and stuff.
+                </p>
+                <div class="buttons is-left">
+                  <button
+                    id="view-event-edit-summary"
+                    class="button is-light is-outlined is-primary is-small">Edit Summary</button>
+                  <button
+                    id="view-event-view-report"
+                    class="button is-light is-outlined is-primary is-small">View Report</button>
+                  <button
+                    id="view-event-share"
+                    class="button is-light is-outlined is-primary is-small">Share</button>
+                </div>
+              </div>
+
+              <!-- right side (on large screens) -->
+              <div class="cell">
+                <div id="view-event-volunteer" class="card">
+                  <header class="card-header">
+                    <p class="card-header-title">Volunteer!</p>
+                  </header>
+                  <div class="card-content">
+                    <div class="content">
+                      <div class="select is-fullwidth is-primary">
+                        <select>
+                          <option>Select a Volunteer</option>
+                        </select>
+                      </div>
+                      <div class="buttons is-centered mt-4">
+                        <button
+                          id="view-event-add-vol"
+                          class="button is-primary">Add Volunteer</button>
+                        <button
+                          id="view-event-chg-vol"
+                          class="button is-warning"
+                          style="display: none;">Update Volunteer</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="view-event-details" class="card">
+                  <header class="card-header">
+                    <p class="card-header-title">Custom Fields</p>
+                  </header>
+                  <div class="card-content">
+                    <div class="content">
+                      <table class="table is-bordered is-hoverable is-fullwidth">
+                        <tbody>
+                          <tr class="is-primary">
+                            <th>Detail</th>
+                            <th>Type</th>
+                          </tr>
+                          <tr>
+                            <td colspan=2>
+                              <em>No custom details specified.</em>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- event table stuff -->
+      <div class="card">
+        <div class="card-content">
+          <div id="view-event-table" class="content">
+            <div>
+              <div class="fixed-grid has-1-cols">
+                <div class="grid">
+                  <div class="cell">
+                    Hey there, friend!
+                    You're not supposed to see this yet :)
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <input
+            id="view-event-slider"
+            class="slider is-fullwidth is-small"
+            step="1"
+            min="0"
+            max="100"
+            value="50"
+            type="range" />
+        </div>
+      </div>
+
+      <!-- event-related buttons and stuff -->
+      <div id="view-event-buttons" class="card">
+        <div class="card-content">
+          <div class="content">
+            <div class="buttons is-centered">
+              <button
+                id="view-event-add-activity"
+                class="button is-light is-outlined is-primary">Add an Activity</button>
+              <button
+                id="view-event-add-window"
+                class="button is-light is-outlined is-primary">Add a Window</button>
+              <button
+                id="view-event-add-field"
+                class="button is-light is-outlined is-primary">Add a Field</button>
+              <button
+                id="view-event-publish-event"
+                class="button is-primary">Publish Event</button>
+              <button
+                id="view-event-modify-event"
+                class="button is-warning"
+                style="display: none;">Modify Event</button>
+              <button
+                id="view-event-save-rsvps"
+                class="button is-primary">Submit RSVPs</button>
+              <button
+                id="view-event-close-editor"
+                class="button is-primary"
+                style="display: none;">Close Event Editor</button>
+              <button
+                id="view-event-expired"
+                class="button"
+                style="display: none;"
+                disabled>This event has expired.</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- event sharing modal -->
+    <div id="share-event-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Share this event!</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4">
+            You can visit this event by visiting the URL below:
+          </p>
+          <div class="field">
+            <div class="control">
+              <input
+                id="share-event-url"
+                class="input is-primary"
+                type="text"
+                readonly="readonly"
+                placeholder="Event URL" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="share-event-copy"
+              class="button is-success">Copy to Clipboard</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- terms and/or privacy modal -->
+    <div id="md-view-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title"></p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="content"></div>
+        </section>
+        <footer class="modal-card-foot"></footer>
+      </div>
+    </div>
+
+    <!-- event modification form modal -->
+    <div id="edit-event-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Create an Event</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Event Title</div>
+            <div class="control">
+              <input
+                id="edit-event-short-descr"
+                class="input"
+                type="text"
+                placeholder="What's the name of your event?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Description</div>
+            <div class="control">
+              <textarea
+                id="edit-event-long-descr"
+                class="textarea"
+                placeholder="Describe your event!"
+                rows="4"></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="control set-output edit-event-notify-out">
+              <input
+                id="edit-event-notify-switch"
+                type="checkbox"
+                class="switch"
+                checked="checked" />
+              <label
+                for="edit-event-notify-switch"
+                class="set-output edit-event-notify-out">Do you want to be notified when someone signs up?</label>
+            </div>            
+          </div>
+          <div class="field">
+            <div class="control set-output edit-event-multiuser-out">
+              <input
+                id="edit-event-multiuser-switch"
+                type="checkbox"
+                class="switch" />
+              <label
+                for="edit-event-multiuser-switch"
+                class="set-output edit-event-multuser-out">Allow multiple volunteers per signup?</label>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button id="edit-event-submit" class="button is-success">Save</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- activity creation form modal -->
+    <div id="edit-activity-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Add an Activity</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Activity</div>
+            <div class="control">
+              <input
+                id="edit-activity-short-descr"
+                class="input"
+                type="text"
+                placeholder="What's the activity?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Description</div>
+            <div class="control">
+              <textarea
+                id="edit-activity-long-descr"
+                class="textarea"
+                placeholder="Describe the activity!"
+                rows="4"></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Acitvity Volunteer Cap</div>
+            <div class="control">
+              <input
+                id="edit-activity-vol-cap-switch"
+                type="checkbox"
+                class="switch toggle toggle-activity-vol-cap"
+                checked="checked" />
+              <label
+                for="edit-activity-vol-cap-switch"
+                class="switch">Unlimited volunteers for this activity?</label>
+            </div>
+          </div>
+          <div class="field toggle-activity-vol-cap" style="display: none;">
+            <div class="control">
+              <input
+                id="edit-activity-vol-cap-field"
+                class="input integer-validation"
+                type="number"
+                min="1"
+                max="255"
+                placeholder="How many volunteers do you need for this event?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Slot Volunteer Cap Default</div>
+            <div class="control">
+              <input
+                id="edit-activity-slot-vol-cap-def-switch"
+                type="checkbox"
+                class="switch toggle toggle-slot-vol-def-cap"
+                checked="checked" />
+              <label
+                for="edit-activity-slot-vol-cap-def-switch"
+                class="switch">Unlimited volunteers per slot by default?</label>
+            </div>
+          </div>
+          <div class="field toggle-slot-vol-def-cap" style="display: none;">
+            <div class="control">
+              <input
+                id="edit-activity-slot-vol-cap-def-field"
+                class="input integer-validation"
+                type="number"
+                min="1"
+                max="255"
+                placeholder="How many volunteers per slot by default?" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button id="edit-activity-sav" class="button is-success">Save Activity</button>
+            <button id="edit-activity-del" class="button is-warning">Remove Activity</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- window creation form modal -->
+    <div id="edit-window-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Add a Window</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Window</div>
+            <div id="edit-window-control" class="control">
+              <input id="edit-window-range" class="input" type="date" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button id="edit-window-sav" class="button is-success">Save Window</button>
+            <button id="edit-window-del" class="button is-warning">Remove Window</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- detail creation form modal -->
+    <div id="edit-detail-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Add a Detail</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Type</div>
+            <div class="control">
+              <div class="select">
+                <select id="edit-detail-type-dropdown">
+                  <option selected="true" disabled="disabled">What type of detail?</option>
+                  <option value="STRING">Text</option>
+                  <option value="BOOLEAN">True/False</option>
+                  <option value="INTEGER">Whole Number</option>
+                  <option value="EMAIL">Email Address</option>
+                  <option value="PHONE">Phone Number</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Field</div>
+            <div class="control">
+              <input
+                id="edit-detail-field"
+                class="input"
+                type="text"
+                placeholder="What do you need from your volunteers?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Description</div>
+            <div class="control">
+              <textarea
+                id="edit-detail-descr"
+                class="textarea"
+                placeholder="You can put additional instructions or requirements here if you want."
+                rows="4"></textarea>
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <input
+                id="edit-detail-required-switch"
+                type="checkbox"
+                class="switch" />
+              <label
+                for="edit-detail-required-switch">Should users be required to answer this?</label>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button id="edit-detail-sav" class="button is-success">Save Detail</button>
+            <button id="edit-detail-del" class="button is-warning">Remove Detail</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- event slot editing modal -->
+    <div id="edit-slot-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Edit a Slot</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">
+              Activity&ensp;
+              <button id="edit-slot-activity-btn" class="tag is-warning">Edit</span>
+            </div>
+            <div class="control">
+              <input
+                id="edit-slot-activity-field"
+                class="input"
+                type="text"
+                value="Activity goes here."
+                disabled="disabled" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">
+              Window&ensp;
+              <button id="edit-slot-window-btn" class="tag is-warning">Edit</span>
+            </div>
+            <div class="control">
+              <input
+                id="edit-slot-window-field"
+                class="input"
+                type="text"
+                value="Window goes here."
+                disabled="disabled" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Enable Slot</div>
+            <div class="control">
+              <input
+                id="edit-slot-enable-switch"
+                type="checkbox"
+                class="switch is-warning toggle toggle-slot-cap-fields"
+                checked="checked" />
+              <label
+                for="edit-slot-enable-switch"
+                class="switch">Enable this slot?</label>
+            </div>
+          </div>
+          <div id="edit-slot-cap-fields" class="toggle-slot-cap-fields">
+            <div class="field">
+              <div class="label">Slot Volunteer Cap</div>
+              <div class="control">
+                <input
+                  id="edit-slot-vol-cap-switch"
+                  type="checkbox"
+                  class="switch toggle toggle-slot-vol-cap"
+                  checked="checked" />
+                <label
+                  for="edit-slot-vol-cap-switch"
+                  class="switch">Unlimited volunteers for this slot?</label>
+              </div>
+            </div>
+            <div class="field toggle-slot-vol-cap" style="display: none;">
+              <div class="control">
+                <input
+                  id="edit-slot-vol-cap-field"
+                  class="input integer-validation"
+                  type="number"
+                  min="1"
+                  max="255"
+                  placeholder="How many volunteers for this slot?" />
+              </div>
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons is-right">
+            <button id="edit-slot-sav" class="button is-success">Update Slot</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- volunteer editing modal -->
+    <div id="edit-vol-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Edit a Volunteer</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="control">
+              <label class="label">Name&ensp;</label>
+              <input
+                id="vol-detail-name"
+                class="input"
+                type="text"
+                placeholder="What's the volunteer's name?" />
+            </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button id="edit-vol-sav" class="button is-success">Save Volunteer</button>
+            <button id="edit-vol-del" class="button is-warning">Remove Volunteer</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- log in / register modal -->
+    <div id="authentication-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title toggle-auth-confirm-pass">Log In</p>
+          <p class="modal-card-title toggle-auth-confirm-pass" style="display: none;">Register</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Email Address</div>
+            <div class="control">
+              <input
+                id="auth-modal-email"
+                class="input"
+                type="email"
+                placeholder="What's your email address?" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Password</div>
+            <div class="control">
+              <input
+                id="auth-modal-password"
+                class="input"
+                type="password" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Is this a new account?</div>
+            <div class="control">
+              <input
+                id="auth-modal-new-account-switch"
+                type="checkbox"
+                class="switch toggle toggle-auth-confirm-pass" />
+              <label
+                for="auth-modal-new-account-switch"
+                class="switch">Click here if you'd like to register!</label>
+            </div>
+          </div>
+          <div class="field toggle-auth-confirm-pass" style="display: none;">
+            <div class="control">
+              <input
+                id="auth-modal-confirm-pass"
+                class="input"
+                type="password"
+                placeholder="Please confirm your password." />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="auth-modal-login-btn"
+              class="button is-info toggle-auth-confirm-pass">Log In!</button>
+            <button
+              id="auth-modal-reset-btn"
+              class="button is-danger toggle-auth-confirm-pass">Reset Account</button>
+            <button
+              id="auth-modal-register-btn"
+              class="button is-info toggle-auth-confirm-pass"
+              style="display: none;">Register!</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- profile update modal -->
+    <div id="profile-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Update Your Profile</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="field">
+            <div class="label">Change your email address?</div>
+            <div class="control">
+              <input
+                id="profile-modal-email"
+                class="input"
+                type="email"
+                placeholder="me@email.tld" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">Change your password?</div>
+            <div class="control">
+              <input
+                id="profile-modal-password"
+                class="input"
+                type="password" />
+            </div>
+          </div>
+          <div class="field" style="display: none;">
+            <div class="label">Please confirm your password.</div>
+            <div class="control">
+              <input
+                id="profile-modal-confirm-pass"
+                class="input"
+                type="password" />
+            </div>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="profile-modal-update-btn"
+              class="button is-info">Update Profile</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- modal for asking guests if they want to log in or register -->
+    <div id="guest-auth-prompt-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Hey there friend!</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4 guest-on-publish guest-on-voladd">
+            Looks like you aren't logged in... but that's totally fine!
+          </p>
+          <p class="mb-4 guest-on-publish">
+            You can absolutely publish an event without creating an account. But, it
+            means you won't be able to go back and edit your event submission.
+          </p>
+          <p class="mb-4 guest-on-voladd">
+            You're more than welcome to add a volunteer without creating an account.
+            But, it means you won't be able to go back and edit details after you've
+            finished signing up.
+          </p>
+          <p class="guest-on-publish guest-on-voladd">
+            Would you like to sign in or create an account so you can go back and
+            edit your event later?
+          </p>
+        </section>
+        <footer class="modal-card-foot">
+          <div class="buttons">
+            <button
+              id="guest-auth-prompt-open-auth"
+              class="button is-success">Yes please!</button>
+            <button
+              id="guest-auth-prompt-proceed-nologin"
+              class="button is-danger">No thanks, I'm good!</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- CAPTCHA modal -->
+    <div id="captcha-modal" class="modal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Are you human?</p>
+          <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="mb-4">
+            Please forgive the intrusion, but we just want to make sure that
+            you're human and not a bot trying to cause us grief. We'd be very
+            grateful if you would please complete the CAPTCHA below before
+            proceeding. Thank you!
+          </p>
+          <div id="captcha"></div>
+        </section>
+        <footer class="modal-card-foot">
+          <p class="mb-4">
+            Thank you for helping us out!
+          </p>
+        </footer>
+      </div>
+    </div>
+      
+    <footer class="footer">
+      <div class="content has-text-centered">
+        <p>
+          <strong class="has-text-primary">Yasss!</strong> Made with love, from your
+          friends at <a href="https://crowdease.com" class="has-text-primary">CrowdEase</a>.
+        </p>
+        <p class="is-size-7 mt-5">
+          Copyright &copy; <script>document.write(/\d{4}/.exec(Date())[0])</script> CrowdEase, LLC. All rights reserved.
+        </p>
+        <p class="is-size-7 mt-2">
+          <a id="terms-link-footer" class="has-text-primary">Terms of Service</a>
+          &emsp;|&emsp;
+          <a id="privacy-link-footer" class="has-text-primary">Privacy Policy</a>
+          &emsp;|&emsp;
+          <a href="https://bitbucket.org/axonibyte/yasss" class="has-text-primary">Host it Yourself</a>
+        </p>
+      </div>
+    </footer>
+
+  </body>
+</html>

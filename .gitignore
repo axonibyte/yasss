@@ -356,4 +356,10 @@ gradle-app.setting
 
 # Frontend dependencies
 frontend/node_modules/
+
+# Vite build output — served from the shadow jar's classpath at runtime
 src/main/resources/public/
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/

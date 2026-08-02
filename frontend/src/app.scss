@@ -1,0 +1,38 @@
+// Global stylesheet.
+//
+// Load order matters and mirrors the legacy <head>: Bulma, then its plugins,
+// then our overrides last so they win at equal specificity.
+//
+// bulma-calendar is deliberately NOT here — it stays vendored in public/vendor/
+// and is pulled in by index.html, to preserve the datetime picker's exact look.
+// See docs/legacy/02-aesthetics.md §3.2.
+
+@use 'bulma/css/bulma.min.css';
+@use 'bulma-block-list/src/block-list.scss';
+@use 'bulma-pageloader/dist/css/bulma-pageloader.min.css';
+@use 'bulma-slider/dist/css/bulma-slider.min.css';
+@use 'bulma-switch/dist/css/bulma-switch.min.css';
+@use '@creativebulma/bulma-tooltip/dist/bulma-tooltip.min.css';
+
+// ---------------------------------------------------------------------------
+// The entirety of the legacy custom stylesheet (public/assets/css/style.css).
+// Both rules are load-bearing; see docs/legacy/02-aesthetics.md §4.
+// ---------------------------------------------------------------------------
+
+// bulma-calendar's stock padding leaves the hour/minute number inputs cramped
+// in the range dialog's time picker.
+.datetimepicker .timepicker .timepicker-end .timepicker-hours .timepicker-input input,
+.datetimepicker .timepicker .timepicker-end .timepicker-minutes .timepicker-input input,
+.datetimepicker .timepicker .timepicker-start .timepicker-hours .timepicker-input input,
+.datetimepicker .timepicker .timepicker-start .timepicker-minutes .timepicker-input input {
+  padding: 1.1em;
+}
+
+// Grid cells stretch to the tallest row member but the inner block-list <li>
+// does not, so outlined slot tiles ended shorter than the solid header tiles
+// and the grid looked ragged. 94% rather than 100% leaves room for the
+// block-list's own border and margin. Targets only .is-outlined lists — i.e.
+// slot tiles, not the solid activity/window headers.
+.event-cell ul.is-outlined li {
+  height: 94%;
+}

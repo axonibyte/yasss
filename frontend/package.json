@@ -3,17 +3,39 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^2.4.2",
-    "svelte": "^4.0.5",
-    "vite": "^4.4.5"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vectors": "node tools/gen-creds-vectors.mjs"
   },
   "dependencies": {
-    "js-cookie": "^3.0.5"
+    "@creativebulma/bulma-tooltip": "1.2.0",
+    "@noble/ed25519": "^3.1.0",
+    "@noble/hashes": "^2.0.1",
+    "bulma": "^1.0.4",
+    "bulma-block-list": "^1.1.0",
+    "bulma-pageloader": "^0.3.0",
+    "bulma-slider": "^2.0.5",
+    "bulma-switch": "^2.0.4",
+    "bulma-toast": "^2.4.4",
+    "js-cookie": "^3.0.8",
+    "scrypt-js": "^3.0.1",
+    "showdown": "^2.1.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/svelte": "^5.4.2",
+    "jsdom": "^30.0.1",
+    "sass": "^1.102.0",
+    "svelte": "^5.56.8",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
   }
 }
