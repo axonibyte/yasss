@@ -81,9 +81,9 @@ public final class AddDetailEndpoint extends APIEndpoint {
           null,
           event.getID(),
           type,
-          deserializer.getString("label").strip(),
+          bounded(req, deserializer.getString("label").strip(), "label"),
           deserializer.has("hint")
-              ? deserializer.getString("hint").strip()
+              ? bounded(req, deserializer.getString("hint").strip(), "hint")
               : "",
           deserializer.has("priority")
               ? deserializer.getInt("priority")
@@ -94,6 +94,12 @@ public final class AddDetailEndpoint extends APIEndpoint {
 
       if(detail.getLabel().isBlank())
         throw new EndpointException(req, "malformed argument (label)", 400);
+
+      // Mirrors the 0-255 bound the activity endpoints enforce. Without it an
+      // out-of-range value reaches a TINYINT UNSIGNED column and becomes a
+      // database error and a 500 -- a client mistake reported as a server fault.
+      if(0 > detail.getPriority() || 255 < detail.getPriority())
+        throw new EndpointException(req, "malformed argument (int: priority)", 400);
 
       detail.commit();
 

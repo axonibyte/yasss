@@ -71,7 +71,7 @@ public final class AddActivityEndpoint extends APIEndpoint {
       Activity activity = new Activity(
           null,
           event.getID(),
-          deserializer.getString("shortDescription").strip(),
+          bounded(req, deserializer.getString("shortDescription").strip(), "shortDescription"),
           deserializer.has("longDescription")
               ? deserializer.getString("longDescription")
               : "",

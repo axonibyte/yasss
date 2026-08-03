@@ -32,6 +32,14 @@ class Session {
   account = $state(null);
   token = $state(null);
   accessLevel = $state(null);
+  /**
+   * The address this session signed in with.
+   *
+   * Kept only so surfaces that offer to reuse it -- reminder opt-in, for one --
+   * can prefill without a round trip. The server never returns it; it is known
+   * only because the user typed it here.
+   */
+  email = $state(null);
   /** Event ids this user administers; null until loaded. */
   ownedEvents = $state(null);
 
@@ -43,6 +51,7 @@ class Session {
       this.account = stored.account ?? null;
       this.token = stored.session ?? null;
       this.accessLevel = stored.accessLevel ?? null;
+      this.email = stored.email ?? null;
     }
   }
 
@@ -71,6 +80,7 @@ class Session {
         account: this.account,
         session: this.token,
         accessLevel: this.accessLevel,
+        email: this.email,
       }),
       {
         // The legacy set none of these: a JS-readable host-only session cookie
@@ -93,6 +103,7 @@ class Session {
     this.account = null;
     this.token = null;
     this.accessLevel = null;
+    this.email = null;
     this.ownedEvents = null;
     this.#persist();
     this.#stopRefreshTimer();
@@ -115,6 +126,7 @@ class Session {
     this.account = account;
     this.token = session;
     this.accessLevel = accessLevel;
+    this.email = email.trim().toLowerCase();
     this.#persist();
     this.#startRefreshTimer();
 
@@ -134,11 +146,21 @@ class Session {
   async refresh() {
     if (!this.loggedIn) return false;
     try {
-      await api.getApiInfo();
+      // GET /v1 authenticates, so it answers the question directly: an account
+      // header means the server still recognises this token. Nothing else does
+      // -- a missing header on an arbitrary response only means that endpoint
+      // does not authenticate, or that the request failed before it could.
+      const res = await api.getApiInfo();
+      if (!res._auth?.account) {
+        this.clear();
+        onSessionLost?.();
+        return false;
+      }
       this.#startRefreshTimer();
       return true;
     } catch {
-      this.clear();
+      // A network failure is not proof the session is dead; leave it alone and
+      // let the next attempt decide.
       return false;
     }
   }
@@ -178,13 +200,18 @@ export const session = new Session();
 /**
  * Wire the API client to this session. Called once at boot, before any request.
  */
-export function connectSessionToApi({ onSessionLost } = {}) {
+let onSessionLost = null;
+
+/**
+ * Wire the API client to this session. Called once at boot, before any request.
+ *
+ * The client only reports rotations; whether a session is still good is decided
+ * by `refresh()`, which asks an endpoint that actually authenticates.
+ */
+export function connectSessionToApi(handlers = {}) {
+  onSessionLost = handlers.onSessionLost ?? null;
   installAuthBridge({
     getToken: () => session.token,
     onRotate: (token) => session.rotate(token),
-    onLost: () => {
-      session.clear();
-      onSessionLost?.();
-    },
   });
 }

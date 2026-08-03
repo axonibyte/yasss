@@ -135,7 +135,14 @@ public class AuthToken {
               .getBytes());
       
     } catch(DecoderException | IllegalArgumentException | JSONException e) {
-      e.printStackTrace();
+      // A malformed Authorization header is an ordinary client error -- the
+      // request simply proceeds anonymously -- so it does not warrant a stack
+      // trace. Printing one gave any caller a way to flood the log with a
+      // single bad header, and buried genuine faults among the noise.
+      logger.debug(
+          "could not decode {} payload: {}",
+          authHeader,
+          e.getMessage());
       throw new AuthException("failed to decode %1$s payload", authHeader);
     }
     

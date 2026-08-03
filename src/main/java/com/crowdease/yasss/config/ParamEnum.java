@@ -23,8 +23,18 @@ public enum ParamEnum {
 
   /**
    * The CORS origin setting for the API.
+   *
+   * <p>The default is the sentinel {@code same-origin}, which {@link
+   * com.crowdease.yasss.YasssCore} resolves to {@code api.host} -- the origin
+   * the application is actually served from, since the jar serves the frontend
+   * off its own classpath.
+   *
+   * <p>It used to default to {@code *}, which let any site on the internet read
+   * the responses to anonymous requests. A wildcard is still available to a
+   * deployment that genuinely serves its frontend from somewhere else; it just
+   * has to ask for one rather than inherit it.
    */
-  API_ALLOWED_ORIGINS(new Param("api.allowedOrigins", "*")),
+  API_ALLOWED_ORIGINS(new Param("api.allowedOrigins", "same-origin")),
 
   /**
    * The host used to access this endpoint--generally used for links in outgoing
@@ -72,6 +82,26 @@ public enum ParamEnum {
    * Path to the configuration file.
    */
   CONFIG_FILE(new Param("config.file", null)),
+
+  /**
+   * Whether volunteer reminders are sent at all.
+   */
+  REMINDER_ENABLED(new Param("reminders.enabled", true)),
+
+  /**
+   * Minutes between reminder sweeps.
+   */
+  REMINDER_POLL_INTERVAL(new Param("reminders.pollInterval", 5)),
+
+  /**
+   * How long before an event begins to send its reminder, in minutes.
+   */
+  REMINDER_LEAD_TIME(new Param("reminders.leadTime", 1440)),
+
+  /**
+   * The most reminders to send in a single sweep.
+   */
+  REMINDER_BATCH_SIZE(new Param("reminders.batchSize", 200)),
 
   /**
    * The location of the database (location:port/name).
@@ -137,6 +167,12 @@ public enum ParamEnum {
    * The password for email server authentication. Required only if outgoing emails are enabled.
    */
   EMAIL_SMTP_PASSWORD(new Param("email.smtp.password")),
+
+  /**
+   * The SMTP transport strategy: SMTP, SMTP_TLS or SMTPS. Defaults to
+   * SMTP_TLS; plain SMTP exists for local relays and test sinks.
+   */
+  EMAIL_SMTP_TRANSPORT(new Param("email.smtp.transport", "SMTP_TLS")),
 
   /**
    * The accent color used in outgoing emails.

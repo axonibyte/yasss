@@ -17,6 +17,14 @@
           "[[RSVP_LIST]]"
         ]
       ]
+    },
+    {
+      "type": "content-block",
+      "text": [
+        [
+          "You can <a href='[[UNSUBSCRIBE]]' style=\"color: [[ACCENT_COLOR]]; text-decoration: none;\">unsubscribe</a> from these reminders at any time."
+        ]
+      ]
     }
   ]
 }

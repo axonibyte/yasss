@@ -30,7 +30,9 @@ import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.RSVP;
 import com.crowdease.yasss.model.Slot;
 import com.crowdease.yasss.model.User;
+import com.crowdease.yasss.model.ReminderConsent;
 import com.crowdease.yasss.model.Volunteer;
+import com.crowdease.yasss.model.VolunteerSummary;
 import com.crowdease.yasss.model.Window;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 import com.crowdease.yasss.model.User.AccessLevel;
@@ -75,6 +77,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
       JSONDeserializer deserializer = new JSONDeserializer(req.body())
         .tokenize("name", true)
         .tokenize("remindersEnabled", false)
+        .tokenize("reminderEmail", false)
         .tokenize("details", true)
         .tokenize("user", false)
         .tokenize("rsvps", false)
@@ -117,7 +120,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           throw new EndpointException(req, "volunteer cap reached", 412);
       }
 
-      String name = deserializer.getString("name").strip();
+      String name = bounded(req, deserializer.getString("name").strip(), "name");
       if(name.isBlank())
         throw new EndpointException(req, "malformed argument (name)", 400);
 
@@ -165,7 +168,15 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
 
       Set<Slot> slots = new HashSet<>();
       
-      for(var rsvpDeserializer : deserializer.tokenizeJSONArray("rsvps", true)) {
+      // `rsvps` is tokenized optional above, but tokenizeJSONArray iterates the
+      // array unconditionally -- its `strict` flag only governs malformed
+      // elements, not an absent array -- so omitting the field threw rather
+      // than validating. A volunteer with no RSVPs is an ordinary request.
+      var rsvpDeserializers = deserializer.has("rsvps")
+          ? deserializer.tokenizeJSONArray("rsvps", true)
+          : java.util.List.<JSONDeserializer>of();
+
+      for(var rsvpDeserializer : rsvpDeserializers) {
         rsvpDeserializer
           .tokenize("activity", true)
           .tokenize("window", true)
@@ -181,6 +192,28 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
         slots.add(slot);
       }
 
+      // Reminder consent. remindersEnabled is intent; reminder_state is the
+      // consent fact, and the daemon requires both. The rules themselves live in
+      // ReminderConsent so that create and modify cannot drift apart.
+      if(volunteer.remindersEnabled()) {
+        var decision = ReminderConsent.resolve(
+            deserializer.has("reminderEmail")
+                ? deserializer.getString("reminderEmail")
+                : null,
+            null == user ? null : user.getEmail(),
+            null != user && auth.atLeast(AccessLevel.STANDARD),
+            null,
+            null);
+
+        if(null != decision.error())
+          throw new EndpointException(req, decision.error(), 400);
+
+        volunteer
+            .setReminderEmail(decision.email())
+            .setReminderState(decision.state())
+            .setReminderToken(UUID.randomUUID());
+      }
+
       volunteer.commit();
 
       for(var slot : slots) {
@@ -193,54 +226,6 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
 
       User admin = User.getUser(event.getAdmin());
       if(null != admin) {
-        HTMLElem detailList = new HTMLElem("ul");
-        for(var detail : volunteer.getDetails().entrySet()) {
-          detailList.push(
-              new HTMLElem("li")
-                  .push(
-                      String.format(
-                          "<strong>%1$s</strong>: %2$s",
-                          detail.getKey().getLabel(),
-                          detail.getValue())));
-        }
-
-        HTMLElem rsvpList = new HTMLElem("ul");
-        Set<Activity> activities = event.getActivities();
-        Set<Window> windows = event.getWindows();
-        Map<UUID, Set<UUID>> rsvps = new HashMap<>();
-        for(RSVP rsvp : volunteer.getRSVPS()) {
-          if(!rsvps.containsKey(rsvp.getActivity()))
-            rsvps.put(rsvp.getActivity(), new HashSet<>());
-          rsvps.get(rsvp.getActivity()).add(rsvp.getWindow());
-        }
-
-        final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm a");
-
-        if(!rsvps.isEmpty()) {
-          for(var activity : activities) {
-            if(!rsvps.containsKey(activity.getID()))
-              continue;
-
-            HTMLElem windowList = new HTMLElem("ul");
-
-            for(var window : windows) {
-              if(!rsvps.get(activity.getID()).contains(window.getID()))
-                continue;
-
-              windowList.push(
-                  new HTMLElem("li")
-                  .push(
-                      sdf.format(
-                          window.getBeginTime())));
-            }
-
-            rsvpList.push(
-                new HTMLElem("li")
-                .push(activity.getShortDescription())
-                .push(windowList));
-          }
-        }
-
         Map<String, String> args = new HashMap<>();
         args.put("EVENT_TITLE", event.getShortDescription());
         args.put(
@@ -250,8 +235,8 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
                 YasssCore.getAPIHost(),
                 event.getID().toString()));
         args.put("VOLUNTEER_NAME", volunteer.getName());
-        args.put("VOLUNTEER_DETAILS", detailList.toString());
-        args.put("RSVP_LIST", rsvpList.toString());
+        args.put("VOLUNTEER_DETAILS", VolunteerSummary.detailList(volunteer));
+        args.put("RSVP_LIST", VolunteerSummary.rsvpList(event, volunteer));
 
         Mail mail = new Mail(
             admin.getEmail(),
@@ -259,6 +244,11 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
             args);
         mail.send();
       }
+
+      // Double opt-in. Sent after commit so the token is durable, and only when
+      // the address has not already been proven by a verified account.
+      if(Volunteer.ReminderState.PENDING == volunteer.getReminderState())
+        sendReminderPrompt(event, volunteer);
 
       res.status(201);
       return new JSONObject()

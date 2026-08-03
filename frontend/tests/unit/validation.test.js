@@ -63,6 +63,7 @@ describe('validateSummary', () => {
     const v = validateSummary({ title: '  Party  ', description: '  fun  ', notifyOnSignup: 1 });
     expect(v.values).toEqual({
       title: 'Party', description: 'fun', notifyOnSignup: true, allowMultiuserSignups: false,
+      reminderLeadTime: null,
     });
   });
 });
@@ -253,5 +254,143 @@ describe('detail type registry', () => {
     // message says "number" rather than "integer".
     expect(DETAIL_TYPES.INTEGER.pattern.test('1.5')).toBe(true);
     expect(DETAIL_TYPES.INTEGER.pattern.test('-1')).toBe(false);
+  });
+});
+
+describe('cross-tier corpus', () => {
+  /**
+   * The mirror of `DetailTypeTest.corpus()` in the Java suite.
+   *
+   * These patterns exist twice — once in Java, once here — so the user gets an
+   * inline message instead of an opaque 400. Two copies of a rule drift, and
+   * the failure is nasty either way: the client refusing input the server would
+   * take, or accepting input the server then rejects with a message that names
+   * a field rather than a reason.
+   *
+   * Keep these rows in step with
+   * `src/test/java/com/crowdease/yasss/model/DetailTypeTest.java`.
+   */
+  it.each([
+    ['bob@example.com', 'EMAIL', true],
+    ['Bob@Example.com', 'EMAIL', false],
+    ['hello bob@example.com x', 'EMAIL', false],
+    ['not-an-email', 'EMAIL', false],
+    ['', 'EMAIL', false],
+
+    ['42', 'INTEGER', true],
+    ['1.5', 'INTEGER', true],
+    ['-1', 'INTEGER', false],
+    ['abc12', 'INTEGER', false],
+    ['', 'INTEGER', false],
+
+    ['555-555-5555', 'PHONE', true],
+    ['(555) 555-5555', 'PHONE', true],
+    ['call me at 5555555555', 'PHONE', false],
+    ['', 'PHONE', false],
+
+    ['true', 'BOOLEAN', true],
+    ['false', 'BOOLEAN', true],
+    ['TRUE', 'BOOLEAN', false],
+    ['yes', 'BOOLEAN', false],
+
+    ['anything', 'STRING', true],
+    ['', 'STRING', true],
+  ])('%s as %s -> %s', (value, type, valid) => {
+    const spec = DETAIL_TYPES[type];
+    // STRING has no pattern: anything is acceptable.
+    expect(spec.pattern ? spec.pattern.test(value) : true).toBe(valid);
+  });
+});
+
+describe('validateVolunteer — reminder opt-in', () => {
+  const base = { name: 'Ada', values: new Map() };
+
+  it('ignores the address entirely when reminders are off', () => {
+    const v = validateVolunteer({ ...base, remindersEnabled: false, reminderEmail: 'junk' }, []);
+    expect(v.ok).toBe(true);
+  });
+
+  it('requires an address from an anonymous volunteer', () => {
+    // The server would answer 400 with nothing naming the field, so the
+    // volunteer would see a failure they cannot act on.
+    const v = validateVolunteer({ ...base, remindersEnabled: true, reminderEmail: '' }, []);
+    expect(v.ok).toBe(false);
+    expect(v.errors.reminderEmail).toBeTruthy();
+  });
+
+  it('allows a blank address when the server has one to fall back to', () => {
+    const v = validateVolunteer(
+      { ...base, remindersEnabled: true, reminderEmail: '' },
+      [],
+      { accountEmail: 'ada@example.com' },
+    );
+    expect(v.ok).toBe(true);
+  });
+
+  it('rejects a malformed address', () => {
+    const v = validateVolunteer(
+      { ...base, remindersEnabled: true, reminderEmail: 'not-an-address' },
+      [],
+    );
+    expect(v.ok).toBe(false);
+    expect(v.errors.reminderEmail).toBeTruthy();
+  });
+
+  it('normalizes the address it returns', () => {
+    const v = validateVolunteer(
+      { ...base, remindersEnabled: true, reminderEmail: '  Ada@Example.COM  ' },
+      [],
+    );
+    expect(v.ok).toBe(true);
+    expect(v.values.reminderEmail).toBe('ada@example.com');
+  });
+
+  it('still reports a blank name alongside a bad address', () => {
+    const v = validateVolunteer(
+      { name: '', values: new Map(), remindersEnabled: true, reminderEmail: 'nope' },
+      [],
+    );
+    expect(Object.keys(v.errors).sort()).toEqual(['name', 'reminderEmail']);
+  });
+});
+
+describe('validateSummary — reminder lead time', () => {
+  const base = { title: 'Party', description: '', notifyOnSignup: true, allowMultiuserSignups: false };
+
+  it('treats blank as "use the platform default"', () => {
+    // A real choice rather than a missing value, so it is not an error.
+    for (const blank of ['', '   ', null, undefined]) {
+      const v = validateSummary({ ...base, reminderLeadTime: blank });
+      expect(v.ok).toBe(true);
+      expect(v.values.reminderLeadTime).toBeNull();
+    }
+  });
+
+  it('accepts a whole number of minutes', () => {
+    const v = validateSummary({ ...base, reminderLeadTime: '2880' });
+    expect(v.ok).toBe(true);
+    expect(v.values.reminderLeadTime).toBe(2880);
+  });
+
+  it('rejects zero, which is not a reminder', () => {
+    expect(validateSummary({ ...base, reminderLeadTime: '0' }).ok).toBe(false);
+  });
+
+  it('rejects more than a year', () => {
+    // An unbounded lead makes every future event permanently due, so the next
+    // sweep mails the whole backlog at once.
+    expect(validateSummary({ ...base, reminderLeadTime: '525601' }).ok).toBe(false);
+    expect(validateSummary({ ...base, reminderLeadTime: '525600' }).ok).toBe(true);
+  });
+
+  it('rejects fractions and non-numbers', () => {
+    for (const bad of ['1.5', 'soon', '-30']) {
+      expect(validateSummary({ ...base, reminderLeadTime: bad }).ok).toBe(false);
+    }
+  });
+
+  it('still reports a blank title alongside a bad lead time', () => {
+    const v = validateSummary({ ...base, title: '', reminderLeadTime: '0' });
+    expect(Object.keys(v.errors).sort()).toEqual(['reminderLeadTime', 'title']);
   });
 });

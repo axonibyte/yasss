@@ -11,16 +11,23 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
+import com.axonibyte.lib.db.Comparison;
 import com.axonibyte.lib.db.SQLBuilder;
 import com.axonibyte.lib.db.Wrapper;
+import com.axonibyte.lib.db.Comparison.ComparisonOp;
+import com.axonibyte.lib.db.SQLBuilder.Join;
+import com.axonibyte.lib.db.SQLBuilder.Order;
 import com.crowdease.yasss.YasssCore;
 
 /**
@@ -29,6 +36,43 @@ import com.crowdease.yasss.YasssCore;
  * @author Caleb L. Power <cpower@crowdease.com>
  */
 public class Volunteer {
+
+  /**
+   * Whether this volunteer has consented to being emailed.
+   *
+   * <p>Distinct from {@code remindersEnabled}, which is the volunteer's intent.
+   * This is the consent fact, and the daemon requires both -- an address that
+   * has not been confirmed is not one we may write to, however keen its owner
+   * was at signup.
+   *
+   * <p>The ordinal is persisted, so the order of these constants is part of the
+   * schema and must not be rearranged.
+   */
+  public static enum ReminderState {
+
+    /** No address supplied, or reminders never requested. */
+    NONE,
+
+    /** An address is on file and a confirmation has been sent. */
+    PENDING,
+
+    /** The address is confirmed and may be written to. */
+    CONFIRMED,
+
+    /** The recipient asked to stop. Never send again. */
+    UNSUBSCRIBED;
+
+    /**
+     * Resolves a persisted ordinal, defaulting to {@link #NONE}.
+     *
+     * @param ordinal the stored value
+     * @return the corresponding {@link ReminderState}
+     */
+    public static ReminderState fromOrdinal(int ordinal) {
+      ReminderState[] values = values();
+      return 0 <= ordinal && ordinal < values.length ? values[ordinal] : NONE;
+    }
+  }
   
   private final UUID event;
   
@@ -38,6 +82,9 @@ public class Volunteer {
   private String ipAddr;
   private Map<Detail, String> details = new HashMap<>();
   private boolean remindersEnabled;
+  private String reminderEmail = null;
+  private ReminderState reminderState = ReminderState.NONE;
+  private UUID reminderToken = null;
 
   /**
    * Instantiates a volunteer.
@@ -219,6 +266,71 @@ public class Volunteer {
    *
    * @return {@code true} iff reminders are enabled for this volunteer
    */
+  /**
+   * Retrieves the address reminders are sent to, if any.
+   *
+   * Deliberately separate from the linked account's address: `user` is null for
+   * an anonymous signup, which is a first-class path, and an address collected
+   * by an organiser as a custom field is not consent for the platform to write.
+   *
+   * @return the address, or {@code null}
+   */
+  public String getReminderEmail() {
+    return reminderEmail;
+  }
+
+  /**
+   * Sets the address reminders are sent to.
+   *
+   * @param reminderEmail the address, or {@code null} to clear it
+   * @return this {@link Volunteer}
+   */
+  public Volunteer setReminderEmail(String reminderEmail) {
+    this.reminderEmail = reminderEmail;
+    return this;
+  }
+
+  /**
+   * Retrieves this volunteer's consent state.
+   *
+   * @return the {@link ReminderState}
+   */
+  public ReminderState getReminderState() {
+    return reminderState;
+  }
+
+  /**
+   * Sets this volunteer's consent state.
+   *
+   * @param reminderState the {@link ReminderState}
+   * @return this {@link Volunteer}
+   */
+  public Volunteer setReminderState(ReminderState reminderState) {
+    this.reminderState = null == reminderState ? ReminderState.NONE : reminderState;
+    return this;
+  }
+
+  /**
+   * Retrieves the durable secret backing this volunteer's confirm and
+   * unsubscribe links.
+   *
+   * @return the token, or {@code null}
+   */
+  public UUID getReminderToken() {
+    return reminderToken;
+  }
+
+  /**
+   * Sets the durable secret backing the confirm and unsubscribe links.
+   *
+   * @param reminderToken the token, or {@code null} to clear it
+   * @return this {@link Volunteer}
+   */
+  public Volunteer setReminderToken(UUID reminderToken) {
+    this.reminderToken = reminderToken;
+    return this;
+  }
+
   public boolean remindersEnabled() {
     return remindersEnabled;
   }
@@ -277,7 +389,10 @@ public class Volunteer {
                   "event",
                   "name",
                   "reminders_enabled",
-                  "ip_addr_bin")
+                  "ip_addr_bin",
+                  "reminder_email",
+                  "reminder_state",
+                  "reminder_token")
               .where("id")
               .wrap(new Wrapper(5, "INET6_ATON"))
               .toString());
@@ -286,7 +401,10 @@ public class Volunteer {
       stmt.setString(3, name);
       stmt.setBoolean(4, remindersEnabled);
       stmt.setString(5, ipAddr);
-      stmt.setBytes(6, SQLBuilder.uuidToBytes(id));
+      stmt.setString(6, reminderEmail);
+      stmt.setInt(7, reminderState.ordinal());
+      stmt.setBytes(8, SQLBuilder.uuidToBytes(reminderToken));
+      stmt.setBytes(9, SQLBuilder.uuidToBytes(id));
       
       boolean noRecord = 0 == stmt.executeUpdate();
       YasssCore.getDB().close(null, stmt, null);
@@ -302,7 +420,10 @@ public class Volunteer {
                     "event",
                     "name",
                     "reminders_enabled",
-                    "ip_addr_bin")
+                    "ip_addr_bin",
+                    "reminder_email",
+                    "reminder_state",
+                    "reminder_token")
                 .wrap(new Wrapper(6, "INET6_ATON"))
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
@@ -311,20 +432,29 @@ public class Volunteer {
         stmt.setString(4, name);
         stmt.setBoolean(5, remindersEnabled);
         stmt.setString(6, ipAddr);
+        stmt.setString(7, reminderEmail);
+        stmt.setInt(8, reminderState.ordinal());
+        stmt.setBytes(9, SQLBuilder.uuidToBytes(reminderToken));
         stmt.executeUpdate();
         
       } else { // record existed, so wipe stale deets
         YasssCore.getDB().close(null, stmt, null);
-        stmt = con.prepareStatement(
-            new SQLBuilder()
-                .delete(
-                    YasssCore.getDB().getPrefix() + "volunteer_detail")
-                .where("volunteer")
-                .whereIn(
-                    "detail_field",
-                    true,
-                    details.size())
-                .toString());
+
+        // whereIn() with a count of zero emits a literal "NOT IN ()", which is a
+        // syntax error -- so re-committing a volunteer on an event that has no
+        // custom fields used to fail outright. Semantically an empty set means
+        // "none of these should survive", so the clause is simply dropped.
+        SQLBuilder wipe = new SQLBuilder()
+            .delete(
+                YasssCore.getDB().getPrefix() + "volunteer_detail")
+            .where("volunteer");
+        if(!details.isEmpty())
+          wipe.whereIn(
+              "detail_field",
+              true,
+              details.size());
+
+        stmt = con.prepareStatement(wipe.toString());
         int idx = 0;
         stmt.setBytes(++idx, SQLBuilder.uuidToBytes(id));
         for(var detail : details.keySet())
@@ -407,4 +537,143 @@ public class Volunteer {
     }
   }
   
+
+  /**
+   * A volunteer who is due a reminder, with everything needed to send it.
+   *
+   * @param volunteerID the volunteer
+   * @param eventID the event they signed up for
+   * @param volunteerName their name, for the greeting
+   * @param recipient the confirmed address to write to
+   * @param token the durable secret backing the unsubscribe link
+   * @param eventTitle the event's short description
+   * @param windowBegin when the event's earliest window starts
+   */
+  public static record PendingReminder(
+      UUID volunteerID,
+      UUID eventID,
+      String volunteerName,
+      String recipient,
+      UUID token,
+      String eventTitle,
+      Timestamp windowBegin) { }
+
+  /**
+   * Finds volunteers due a reminder.
+   *
+   * <p>Selects those who both asked for one and confirmed an address, on a
+   * published event whose earliest window begins inside the lead time, skipping
+   * anything already claimed in the send ledger and any address suppressed
+   * platform-wide.
+   *
+   * <p>The lower bound on {@code begin_time} is load-bearing rather than
+   * defensive: without it the first sweep after deploying would find every past
+   * event whose volunteers have no ledger row and send reminders for things
+   * that finished years ago.
+   *
+   * @param now the lower bound -- events already begun are not reminded about
+   * @param globalLeadMinutes the configured lead time, used for events that
+   *        do not override it
+   * @param limit the most rows to return in one sweep
+   * @return the volunteers due a reminder, earliest first
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static List<PendingReminder> getPendingReminders(
+      Timestamp now, int globalLeadMinutes, int limit) throws SQLException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+
+    SQLBuilder query = new SQLBuilder()
+        .select(
+            YasssCore.getDB().getPrefix() + "volunteer",
+            "v.id",
+            "v.event",
+            "v.name",
+            "v.reminder_email",
+            "v.reminder_token",
+            "e.short_description",
+            "w.begin_time")
+        .tableAlias("v")
+        .join(
+            Join.INNER,
+            YasssCore.getDB().getPrefix() + "event",
+            "e",
+            new Comparison("v.event", "e.id", ComparisonOp.EQUAL_TO))
+        .join(
+            Join.INNER,
+            new SQLBuilder()
+                .select(
+                    YasssCore.getDB().getPrefix() + "event_window",
+                    "event")
+                .min("begin_time", "begin_time")
+                .group("event"),
+            "w",
+            new Comparison("e.id", "w.event", ComparisonOp.EQUAL_TO))
+        .join( // anti-join: already claimed for this window
+            Join.LEFT,
+            YasssCore.getDB().getPrefix() + "reminder_log",
+            "l",
+            new Comparison("v.id", "l.volunteer", ComparisonOp.EQUAL_TO))
+        .join( // anti-join: address suppressed platform-wide
+            Join.LEFT,
+            YasssCore.getDB().getPrefix() + "reminder_suppression",
+            "s",
+            new Comparison("v.reminder_email", "s.email", ComparisonOp.EQUAL_TO))
+        .where("v.reminders_enabled", ComparisonOp.EQUAL_TO)              // bind 1
+        .where("v.reminder_state", ComparisonOp.EQUAL_TO)                 // bind 2
+        .where("e.published", ComparisonOp.EQUAL_TO)                      // bind 3
+        .where("w.begin_time", ComparisonOp.GREATER_THAN)                 // bind 4
+        // The horizon is per row, not per sweep: an event may override the
+        // global lead time, and COALESCE picks the global for those that do
+        // not. Computing it in SQL rather than filtering afterwards keeps
+        // `limit` meaningful -- a Java-side filter would let a batch fill with
+        // rows that are not due yet and starve ones that are.
+        .where(
+            "w.begin_time",
+            ComparisonOp.LESS_THAN_OR_EQUAL_TO,
+            "DATE_ADD(?, INTERVAL COALESCE(e.reminder_lead_time, ?) MINUTE)") // binds 5, 6
+        .where("l.volunteer", ComparisonOp.IS_NULL)                       // no bind
+        .where("s.email", ComparisonOp.IS_NULL)                           // no bind
+        .order("w.begin_time", Order.ASC)
+        .limit(limit);
+
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(query.toString());
+
+      // IS_NULL emits no placeholder and so consumes no index; the six binds
+      // are the value-bearing where clauses, in the order written above -- note
+      // the horizon expression contributes two of them.
+      // Getting this wrong is what silently broke Event.countVolunteers.
+      int idx = 0;
+      stmt.setBoolean(++idx, true);
+      stmt.setInt(++idx, ReminderState.CONFIRMED.ordinal());
+      stmt.setBoolean(++idx, true);
+      stmt.setTimestamp(++idx, now);
+      stmt.setTimestamp(++idx, now);
+      stmt.setInt(++idx, globalLeadMinutes);
+
+      res = stmt.executeQuery();
+
+      List<PendingReminder> pending = new ArrayList<>();
+      while(res.next())
+        pending.add(
+            new PendingReminder(
+                SQLBuilder.bytesToUUID(res.getBytes("v.id")),
+                SQLBuilder.bytesToUUID(res.getBytes("v.event")),
+                res.getString("v.name"),
+                res.getString("v.reminder_email"),
+                SQLBuilder.bytesToUUID(res.getBytes("v.reminder_token")),
+                res.getString("e.short_description"),
+                res.getTimestamp("w.begin_time")));
+
+      return pending;
+
+    } catch(SQLException e) {
+      throw e;
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+  }
 }

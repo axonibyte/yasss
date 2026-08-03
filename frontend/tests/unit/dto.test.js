@@ -55,6 +55,7 @@ describe('event summary', () => {
     expect(s).toEqual({
       id: 'e1', admin: 'u1', title: 'Title', description: 'Desc',
       notifyOnSignup: true, allowMultiuserSignups: false, isPublished: true,
+      timezone: null, reminderLeadTime: null,
       volunteersMaxed: false, expired: false,
     });
   });

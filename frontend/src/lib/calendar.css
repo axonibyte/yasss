@@ -1,0 +1,22 @@
+/*
+ * The picker's stylesheet plus our overrides, loaded as one lazy chunk.
+ *
+ * The overrides live here rather than in app.scss for an ordering reason: once
+ * the picker's CSS moves to an async chunk, Vite appends its <link> to <head>
+ * AFTER the main stylesheet, so anything in app.scss would lose at equal
+ * specificity. Keeping them in the same chunk keeps them downstream of what
+ * they override.
+ */
+@import 'bulma-calendar/dist/css/bulma-calendar.min.css';
+
+/*
+ * bulma-calendar's stock padding leaves the hour and minute inputs cramped in
+ * the range dialog's time picker. Carried over verbatim from the legacy
+ * stylesheet; see docs/legacy/02-aesthetics.md §4.
+ */
+.datetimepicker .timepicker .timepicker-end .timepicker-hours .timepicker-input input,
+.datetimepicker .timepicker .timepicker-end .timepicker-minutes .timepicker-input input,
+.datetimepicker .timepicker .timepicker-start .timepicker-hours .timepicker-input input,
+.datetimepicker .timepicker .timepicker-start .timepicker-minutes .timepicker-input input {
+  padding: 1.1em;
+}

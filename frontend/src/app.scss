@@ -3,11 +3,55 @@
 // Load order matters and mirrors the legacy <head>: Bulma, then its plugins,
 // then our overrides last so they win at equal specificity.
 //
-// bulma-calendar is deliberately NOT here — it stays vendored in public/vendor/
-// and is pulled in by index.html, to preserve the datetime picker's exact look.
-// See docs/legacy/02-aesthetics.md §3.2.
+// bulma-calendar is deliberately NOT here. It is a megabyte of JavaScript for
+// one modal only an organiser opens, so it and its overrides load on demand
+// from src/lib/calendar.js. See docs/legacy/02-aesthetics.md §3.2.
 
-@use 'bulma/css/bulma.min.css';
+// Bulma, assembled from the modules this app actually uses.
+//
+// The full stylesheet is 678 KB, and two of its parts dominate that. The
+// `helpers/color` matrix -- every colour crossed with 21 lightness steps -- is
+// 181 KB on its own, of which exactly one rule is used, hand-written below.
+// And `themes/_index` emits the entire variable set five times: `:root`, both
+// `prefers-color-scheme` blocks, `.theme-light` and `.theme-dark`. Two of those
+// are all that is needed -- light into `:root` and dark behind the media query
+// -- which is 185 KB down to about 120, and honours the reader's OS setting.
+// The `.theme-*` class variants stay dropped: nothing toggles a theme by class,
+// and the document no longer pins one.
+//
+// Two things this list must not lose, because neither is visible to a grep of
+// the markup: `elements/notification`, which bulma-toast injects at runtime,
+// and the classes `lib/grid.js` and `state/toast.js` build as strings.
+@use 'bulma/sass/utilities/initial-variables' as iv;
+@use 'bulma/sass/utilities';
+@use 'bulma/sass/themes/light';
+@use 'bulma/sass/themes/dark';
+@use 'bulma/sass/themes/setup';
+@use 'bulma/sass/utilities/css-variables' as cv;
+@use 'bulma/sass/base';
+@use 'bulma/sass/elements/block';
+@use 'bulma/sass/elements/box';
+@use 'bulma/sass/elements/button';
+@use 'bulma/sass/elements/content';
+@use 'bulma/sass/elements/delete';
+@use 'bulma/sass/elements/notification';
+@use 'bulma/sass/elements/progress';
+@use 'bulma/sass/elements/table';
+@use 'bulma/sass/elements/tag';
+@use 'bulma/sass/elements/title';
+@use 'bulma/sass/form';
+@use 'bulma/sass/components/card';
+@use 'bulma/sass/components/modal';
+@use 'bulma/sass/components/navbar';
+@use 'bulma/sass/grid/grid';
+@use 'bulma/sass/layout/container';
+@use 'bulma/sass/layout/footer';
+@use 'bulma/sass/layout/section';
+@use 'bulma/sass/helpers/spacing';
+@use 'bulma/sass/helpers/typography';
+@use 'bulma/sass/helpers/flexbox';
+@use 'bulma/sass/helpers/visibility';
+@use 'bulma/sass/helpers/other';
 @use 'bulma-block-list/src/block-list.scss';
 // vendored — the upstream package is deprecated at every version; see the file header
 @use './vendor/bulma-pageloader.css';
@@ -15,19 +59,31 @@
 @use 'bulma-switch/dist/css/bulma-switch.min.css';
 @use '@creativebulma/bulma-tooltip/dist/bulma-tooltip.min.css';
 
+// Light into :root as the default, dark behind prefers-color-scheme. Sass
+// requires every @use to precede other rules, which is why this sits below the
+// imports rather than beside them.
+//
+// The `prefers-color-scheme: light` block upstream emits is skipped: it repeats
+// what :root already says, so it is a whole variable set for nothing.
+#{iv.$variables-host} {
+  @include light.light-theme;
+  @include setup.setup-theme;
+}
+
+@include cv.system-theme($name: 'dark') {
+  @include dark.dark-theme;
+  @include setup.setup-theme;
+}
+
+// The one rule used from helpers/color, which costs 181 KB to import whole.
+.has-text-primary {
+  color: var(--bulma-primary) !important;
+}
+
 // ---------------------------------------------------------------------------
 // The entirety of the legacy custom stylesheet (public/assets/css/style.css).
 // Both rules are load-bearing; see docs/legacy/02-aesthetics.md §4.
 // ---------------------------------------------------------------------------
-
-// bulma-calendar's stock padding leaves the hour/minute number inputs cramped
-// in the range dialog's time picker.
-.datetimepicker .timepicker .timepicker-end .timepicker-hours .timepicker-input input,
-.datetimepicker .timepicker .timepicker-end .timepicker-minutes .timepicker-input input,
-.datetimepicker .timepicker .timepicker-start .timepicker-hours .timepicker-input input,
-.datetimepicker .timepicker .timepicker-start .timepicker-minutes .timepicker-input input {
-  padding: 1.1em;
-}
 
 // Grid cells stretch to the tallest row member but the inner block-list <li>
 // does not, so outlined slot tiles ended shorter than the solid header tiles
@@ -36,4 +92,28 @@
 // slot tiles, not the solid activity/window headers.
 .event-cell ul.is-outlined li {
   height: 94%;
+}
+
+// ---------------------------------------------------------------------------
+// Narrow viewports.
+// ---------------------------------------------------------------------------
+
+// The grid is a matrix: a cell means "this activity, at this window", so it
+// cannot reflow to fewer columns without losing what it says. `has-5-cols`
+// therefore holds at every width, which on a phone gave roughly 65px per tile
+// -- legible to nobody.
+//
+// Floor the column width and let the grid scroll sideways instead. A two-column
+// grid still fills the screen, because the floor is a minimum rather than a
+// fixed width; only a grid too wide to fit starts scrolling.
+@media screen and (max-width: 768px) {
+  #view-event-table .fixed-grid {
+    overflow-x: auto;
+    // Room for the scrollbar, so it never sits on top of the last row.
+    padding-bottom: 0.5rem;
+  }
+
+  #view-event-table .fixed-grid > .grid {
+    grid-template-columns: repeat(var(--bulma-grid-column-count), minmax(7.5rem, 1fr));
+  }
 }

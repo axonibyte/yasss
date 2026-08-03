@@ -27,6 +27,12 @@ export function eventCreatePayload(event, { account = null } = {}) {
     longDescription: event.description ?? '',
     emailOnSubmission: Boolean(event.notifyOnSignup),
     allowMultiUserSignups: Boolean(event.allowMultiuserSignups),
+    // Omitted rather than sent null when unknown: the server validates against
+    // its own tz database and would answer 400, and an absent zone is a
+    // meaningful state meaning "render in each viewer's own".
+    ...(event.timezone ? { timezone: event.timezone } : {}),
+    // Omitted when unset, which the server reads as "use the global".
+    ...(event.reminderLeadTime ? { reminderLeadTime: event.reminderLeadTime } : {}),
 
     activities: event.activities.map((activity, i) => {
       const out = {

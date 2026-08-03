@@ -1,45 +1,129 @@
 <!doctype html>
-<html>
-  
+<html lang="en">
+
   <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Yasss!</title>
     <style>
+      /*
+        The printable sign-in sheet. Standalone by design: it is opened as its
+        own document and shares nothing with the application's stylesheet.
+
+        There was a <link> to /assets/css/report.css here. That file never
+        existed, so this block has always been the whole design, and the
+        directory it pointed into is gone now that Bulma comes from npm.
+
+        Sized in points rather than pixels, because the target medium is paper.
+      */
+
+      :root {
+        --rule: #b9c2cc;
+        --header-bg: #e8edf1;
+        --accent: #00d1b2;
+        --ink: #1a1a1a;
+      }
+
+      @page {
+        margin: 1.5cm;
+      }
+
       body {
-        font-family: Arial, Helvetica, sans-serif;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        color: var(--ink);
+        font-size: 10pt;
+        line-height: 1.35;
+        margin: 1.5cm;
+        max-width: 60rem;
       }
-      
+
+      h1 {
+        font-size: 18pt;
+        margin: 0 0 0.15rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 2pt solid var(--accent);
+      }
+
+      /* Emitted only when the event records a timezone. */
+      .zone-note {
+        margin: 0 0 1.2rem;
+        font-size: 8.5pt;
+        color: #5a6672;
+      }
+
       table {
-        background-color: #f9fafb;
-        border: 1px solid #00d1b2;
         width: 100%;
-        margin-bottom: 15px;
+        margin: 0 0 1.1rem;
+        border: 1pt solid var(--rule);
+        border-collapse: collapse;
         table-layout: fixed;
+        /*
+          Keep each window's table whole where it fits. A sign-in sheet split
+          across a page break mid-slot is the one failure that matters on paper.
+        */
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
-      
+
+      th,
+      td {
+        border: 1pt solid var(--rule);
+        padding: 0.3rem 0.5rem;
+        vertical-align: top;
+        overflow-wrap: break-word;
+      }
+
+      /* The window heading that opens each table. */
       tr:first-of-type > th {
-        border: 1px solid #dbe1e7;
-        background-color: #dbe1e7;
+        background-color: var(--header-bg);
         text-align: center;
+        font-size: 11pt;
+        letter-spacing: 0.02em;
       }
-      
-      tr, td {
-        padding-left: 10px;
-      }
-      
+
+      /* The activity name, spanning its slot's rows. */
       .category {
-        border: 1px solid #dbe1e7;
-        background-color: #dbe1e7;
+        background-color: var(--header-bg);
         text-align: center;
         vertical-align: top;
+        font-weight: 600;
       }
-      
+
+      /* The tick box a volunteer signs against. */
       .checkbox {
         text-align: center;
+        width: 3rem;
+        font-size: 13pt;
+        line-height: 1;
+      }
+
+      /*
+        Blank rows carry an <hr> for somebody to write on. Give them room, and a
+        line that reads as a writing rule rather than a section divider.
+      */
+      td hr {
+        border: none;
+        border-top: 0.5pt solid var(--rule);
+        margin: 0.55rem 0 0;
+      }
+
+      @media print {
+        body {
+          margin: 0;
+          max-width: none;
+        }
+
+        /* Browsers drop backgrounds when printing unless told otherwise, and
+           the fills are what separate headings from writing space. */
+        th,
+        .category {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
       }
     </style>
-    <link rel="stylesheet" href="/assets/css/report.css" />
   </head>
-  
+
   {{ REPORT_BODY }}
-  
+
 </html>

@@ -1,22 +1,17 @@
 <!DOCTYPE html>
 <!--
-  The `theme-light` class is pinned, exactly as the legacy shell pinned it.
-  Bulma 1.x ships a prefers-color-scheme dark block; without this class a
-  dark-mode OS would render the app in an unintended dark palette.
-  See docs/legacy/02-aesthetics.md §5.
+  No theme class is pinned. app.scss emits Bulma's light variables into :root
+  and its dark ones behind prefers-color-scheme, so the page follows the
+  reader's OS setting. The legacy pinned `theme-light` because it shipped all
+  of Bulma and had no say in what that emitted.
+  See docs/legacy/02-aesthetics.md §5 and docs/rewrite-deltas.md.
 -->
-<html class="theme-light" lang="en">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Yasss!</title>
     <link rel="icon" href="/favicon.ico" />
-    <!--
-      bulma-calendar is the one dependency that stays vendored rather than
-      coming through Vite, so the datetime range picker keeps its exact look.
-    -->
-    <link rel="stylesheet" href="/vendor/bulma-calendar.min.css" />
-    <script src="/vendor/bulma-calendar.min.js" defer></script>
     <!--
       reCAPTCHA is NOT loaded here. The legacy shell loaded it unconditionally
       even when the server reported CAPTCHA disabled, which left anonymous

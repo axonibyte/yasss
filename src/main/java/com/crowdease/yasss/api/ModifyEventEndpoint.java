@@ -65,6 +65,8 @@ public final class ModifyEventEndpoint extends APIEndpoint {
           .tokenize("longDescription", false)
           .tokenize("emailOnSubmission", false)
           .tokenize("allowMultiUserSignups", false)
+          .tokenize("timezone", false)
+          .tokenize("reminderLeadTime", false)
           .check();
 
       if(deserializer.has("admin"))
@@ -80,11 +82,19 @@ public final class ModifyEventEndpoint extends APIEndpoint {
 
       if(deserializer.has("longDescription"))
         event.setLongDescription(
-            deserializer.getString("longDescription").strip());
+            bounded(req, deserializer.getString("longDescription").strip(), "longDescription"));
 
       if(deserializer.has("emailOnSubmission"))
         event.enableEmailOnSubmission(
             deserializer.getBool("emailOnSubmission"));
+
+      if(deserializer.has("timezone"))
+        event.setTimezone(
+            validTimezone(req, deserializer.getString("timezone").strip()));
+
+      if(deserializer.has("reminderLeadTime"))
+        event.setReminderLeadTime(
+            validLeadTime(req, deserializer.getInt("reminderLeadTime")));
 
       if(deserializer.has("allowMultiUserSignups"))
         event.allowMultiUserSignups(
@@ -102,7 +112,9 @@ public final class ModifyEventEndpoint extends APIEndpoint {
               .put("shortDescription", event.getShortDescription())
               .put("longDescription", event.getLongDescription())
               .put("emailOnSubmission", event.emailOnSubmissionEnabled())
-              .put("allowMultiUserSignups", event.allowMultiUserSignups()));
+              .put("allowMultiUserSignups", event.allowMultiUserSignups())
+              .put("timezone", event.getTimezone())
+              .put("reminderLeadTime", event.getReminderLeadTime()));
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);

@@ -84,7 +84,7 @@ public final class ModifyUserEndpoint extends APIEndpoint {
       
       boolean emailChanged = false;
       if(deserializer.has("email")) {
-        final String email = deserializer.getString("email").strip();
+        final String email = bounded(req, deserializer.getString("email").strip(), "email");
         if(email.isBlank() || !Detail.Type.EMAIL.isValid(email))
           throw new EndpointException(req, "malformed argument (email)", 400);
         if((emailChanged = !user.getEmail().equalsIgnoreCase(email))
@@ -99,7 +99,7 @@ public final class ModifyUserEndpoint extends APIEndpoint {
       if(deserializer.has("pubkey")) {
         try {
           user.setPubkey(
-              deserializer.getString("pubkey").strip());
+              validPubkey(req, deserializer.getString("pubkey").strip()));
         } catch(CryptoException e) {
           throw new EndpointException(req, "malformed argument (pubkey)", 400, e);
         }

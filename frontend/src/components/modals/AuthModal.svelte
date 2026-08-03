@@ -128,7 +128,11 @@
   </div>
 
   {#if registering}
-    <Field error={errors.confirmPassword} id="auth-confirm">
+    <!--
+      The legacy relied on the placeholder alone here, which is not a label:
+      it is unannounced to assistive tech and vanishes as soon as you type.
+    -->
+    <Field label="Confirm Password" error={errors.confirmPassword} id="auth-confirm">
       <input
         id="auth-confirm"
         class="input"

@@ -14,13 +14,89 @@
 import { Hono } from 'hono';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { serve } from '@hono/node-server';
+import { randomUUID } from 'node:crypto';
 import {
-  createStore, findActivity, findSlot, findWindow, nextId, seedEvent, seedUser,
-  serializeEventRead,
+  createStore, findActivity, findSlot, findVolunteer, findWindow, nextId,
+  seedEvent, seedUser, serializeEventRead,
 } from './store.js';
+import { identityOf, sessionToken } from './auth.js';
 
 const ok = (info, payload = {}) => ({ status: 'ok', info, ...payload });
 const err = (info) => ({ status: 'error', info });
+
+/**
+ * Mirrors `APIEndpoint.validTimezone`, which checks against the JVM's tz
+ * database via ZoneId.
+ *
+ * The two sets are close but not identical, so this is deliberately built to
+ * agree on the cases that can actually reach it. `Intl.supportedValuesOf` is
+ * the obvious choice and is wrong: it lists only canonical names and omits
+ * `UTC`, `GMT` and `Etc/UTC`, all of which ZoneId accepts and all of which a
+ * containerised browser really does report as its local zone.
+ *
+ * Construct-and-catch covers the rest, with two tightenings so this never
+ * accepts something the server would refuse: bare offsets (wrong for half the
+ * year anywhere observing DST), and non-canonical spellings, which Intl folds
+ * but ZoneId rejects outright.
+ *
+ * It errs strict in one direction -- `GMT` canonicalizes to `UTC` and so fails
+ * the round-trip here while the server would take it. No browser reports `GMT`
+ * as its zone, so nothing reaches this path in practice.
+ */
+/** Mirrors `APIEndpoint.validLeadTime`: whole minutes, 1 to a year. */
+function validLead(v) {
+  return Number.isInteger(v) && v >= 1 && v <= 525_600;
+}
+
+function knownTimezone(tz) {
+  if (typeof tz !== 'string' || tz === '' || /^[+-]/.test(tz)) return false;
+  try {
+    const canonical = new Intl.DateTimeFormat('en-us', { timeZone: tz })
+      .resolvedOptions().timeZone;
+    return canonical === tz;
+  } catch {
+    return false;
+  }
+}
+
+
+/** Mirrors the server's `EMAIL` detail pattern, which is case-sensitive. */
+const EMAIL_RE = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*$/;
+
+/**
+ * Applies the server's reminder consent rules to a volunteer, in place.
+ *
+ * Shared by create and modify for the same reason `ReminderConsent` is shared
+ * server-side: rules that differ between the two are how a platform ends up
+ * mailing addresses nobody agreed to.
+ *
+ * @returns {{error?: string}}
+ */
+function resolveConsent(volunteer, body, actor) {
+  if (!volunteer.remindersEnabled) return {};
+
+  const requested = typeof body.reminderEmail === 'string' ? body.reminderEmail.trim() : '';
+  const accountEmail = actor?.email ?? null;
+  const email = requested
+    ? requested.toLowerCase()
+    : (volunteer.reminderEmail ?? accountEmail);
+
+  if (!email) return { error: 'missing argument (reminderEmail)' };
+  if (email.length > 255 || !EMAIL_RE.test(email)) {
+    return { error: 'malformed argument (reminderEmail)' };
+  }
+
+  const isAccountAddress = Boolean(accountEmail) && email === accountEmail.toLowerCase();
+  const alreadyConfirmed = volunteer.reminderState === 'CONFIRMED'
+    && volunteer.reminderEmail === email;
+
+  volunteer.reminderEmail = email;
+  volunteer.reminderState = isAccountAddress || alreadyConfirmed ? 'CONFIRMED' : 'PENDING';
+
+  if (volunteer.reminderState === 'PENDING') volunteer.reminderToken = randomUUID();
+  return {};
+}
+
 
 /**
  * @param {object} opts
@@ -31,31 +107,24 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   const store = createStore();
   const app = new Hono();
 
-  /** Mint a rotated session token. The real server does this on every response. */
-  function issueSession(userId) {
-    const token = `session-${userId}-${++store.seq}`;
-    store.sessions.set(token, userId);
-    return token;
-  }
-
+  /**
+   * Resolve the caller from the request alone — no server-side state.
+   *
+   * Both a session token and a freshly signed credential payload decode through
+   * the same path, exactly as `AuthToken.process` does. Because nothing is
+   * remembered between requests, parallel workers cannot interfere with one
+   * another.
+   */
   function actorOf(c) {
     const header = c.req.header('authorization');
     if (!header) return null;
     const [scheme, token] = header.split(/\s+/);
     if (scheme?.toUpperCase() !== 'AXB-SIG-REQ' || !token) return null;
 
-    // A stored session token identifies its user directly.
-    const sessionUser = store.sessions.get(token);
-    if (sessionUser) return store.users.get(sessionUser) ?? null;
-
-    // Otherwise treat it as a freshly signed credential payload: the tests do
-    // not reproduce Ed25519, so any user marked as "expecting a login" matches.
-    const pending = store.pendingLogin;
-    if (pending) {
-      store.pendingLogin = null;
-      return store.users.get(pending) ?? null;
-    }
-    return null;
+    const identity = identityOf(token);
+    if (!identity) return null;
+    if (identity.account) return store.users.get(identity.account) ?? null;
+    return [...store.users.values()].find((u) => u.email === identity.email) ?? null;
   }
 
   /** Attach the three auth headers the client absorbs from every response. */
@@ -63,7 +132,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     if (!actor) return;
     c.header('AXB-ACCOUNT', actor.id);
     c.header('AXB-ACCESS-LEVEL', actor.accessLevel);
-    c.header('AXB-SESSION', issueSession(actor.id));
+    c.header('AXB-SESSION', sessionToken(store, actor.id));
   }
 
   app.use('*', async (c, next) => {
@@ -96,7 +165,14 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     if ([...store.users.values()].some((u) => u.email === body.email)) {
       return c.json(err('conflicting email address found'), 409);
     }
-    const user = seedUser(store, { email: body.email, pubkey: body.pubkey, accessLevel: 'UNVERIFIED' });
+    // Registration lands UNVERIFIED, so the address is pending rather than
+    // verified -- which is why a brand-new account cannot yet authenticate.
+    const user = seedUser(store, {
+      email: body.email,
+      pubkey: body.pubkey,
+      accessLevel: 'UNVERIFIED',
+      verifyToken: randomUUID(),
+    });
     return c.json(ok('successfully created user', { user }), 201);
   });
 
@@ -126,9 +202,30 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
 
   app.put('/v1/users/:id', async (c) => {
     const body = await c.req.json().catch(() => ({}));
-    if (!body.token) return c.json(ok('resent verification request'), 202);
-    if (body.token === 'bad-token') return c.json(err('access denied'), 403);
-    return c.json(ok('user successfully verified'));
+    const user = store.users.get(c.req.param('id'));
+    if (!user) return c.json(err('user not found'), 404);
+
+    // No token: this is a resend. A fresh one each time, so an older email
+    // cannot verify an address the user has since corrected.
+    if (!body.token) {
+      if (!user.pendingEmail) return c.json(err('user has no pending email'), 409);
+      user.verifyToken = randomUUID();
+      return c.json(ok('resent verification request'), 202);
+    }
+
+    // A cleared token matches nothing, which is what makes the link single-use.
+    if (!user.verifyToken || user.verifyToken !== body.token) {
+      return c.json(err('access denied'), 403);
+    }
+
+    if (user.accessLevel === 'UNVERIFIED') {
+      user.email = user.pendingEmail;
+      user.pendingEmail = null;
+      user.accessLevel = 'STANDARD';
+      user.verifyToken = null;
+      return c.json(ok('user successfully verified'));
+    }
+    return c.json(ok('user already verified'));
   });
 
   // --- events -------------------------------------------------------------
@@ -211,9 +308,19 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     });
 
     const id = nextId(store, 'event');
+    if (body.timezone !== undefined && !knownTimezone(body.timezone)) {
+      return c.json(err('malformed argument (timezone)'), 400);
+    }
+
+    if (body.reminderLeadTime !== undefined && !validLead(body.reminderLeadTime)) {
+      return c.json(err('malformed argument (reminderLeadTime)'), 400);
+    }
+
     const event = {
       id,
       admin: body.admin ?? null,
+      timezone: body.timezone ?? null,
+      reminderLeadTime: body.reminderLeadTime ?? null,
       shortDescription: body.shortDescription,
       longDescription: body.longDescription ?? '',
       emailOnSubmission: Boolean(body.emailOnSubmission),
@@ -247,6 +354,16 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     if ('longDescription' in body) event.longDescription = body.longDescription;
     if ('emailOnSubmission' in body) event.emailOnSubmission = body.emailOnSubmission;
     if ('allowMultiUserSignups' in body) event.allowMultiUserSignups = body.allowMultiUserSignups;
+    if ('reminderLeadTime' in body) {
+      if (!validLead(body.reminderLeadTime)) {
+        return c.json(err('malformed argument (reminderLeadTime)'), 400);
+      }
+      event.reminderLeadTime = body.reminderLeadTime;
+    }
+    if ('timezone' in body) {
+      if (!knownTimezone(body.timezone)) return c.json(err('malformed argument (timezone)'), 400);
+      event.timezone = body.timezone;
+    }
     return c.json(ok('successfully modified event', { event }));
   });
 
@@ -420,8 +537,14 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
       name: body.name,
       user: body.user ?? null,
       remindersEnabled: Boolean(body.remindersEnabled),
+      reminderEmail: null,
+      reminderState: 'NONE',
+      reminderToken: null,
       details: body.details ?? [],
     };
+
+    const consent = resolveConsent(volunteer, body, c.get('actor'));
+    if (consent.error) return c.json(err(consent.error), 400);
     event.volunteers.push(volunteer);
 
     for (const rsvp of body.rsvps) {
@@ -435,6 +558,37 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     return c.json(ok('successfully added volunteer', { volunteer }), 201);
   });
 
+  // Both halves answer 200 whatever the token is, exactly as the server does:
+  // telling an anonymous caller whether a token is live would let anyone with a
+  // volunteer id probe for active subscriptions.
+  app.put('/v1/events/:id/volunteers/:volunteer/reminders', async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const volunteer = findVolunteer(store, c.req.param('id'), c.req.param('volunteer'));
+
+    if (volunteer
+        && volunteer.reminderToken
+        && volunteer.reminderToken === body.token
+        && volunteer.reminderState !== 'UNSUBSCRIBED') {
+      volunteer.reminderState = 'CONFIRMED';
+      store.suppressed.delete(volunteer.reminderEmail);
+    }
+    return c.json(ok('reminder subscription confirmed'));
+  });
+
+  app.delete('/v1/events/:id/volunteers/:volunteer/reminders', (c) => {
+    const token = c.req.query('token');
+    const volunteer = findVolunteer(store, c.req.param('id'), c.req.param('volunteer'));
+
+    if (volunteer && volunteer.reminderToken && volunteer.reminderToken === token) {
+      volunteer.reminderState = 'UNSUBSCRIBED';
+      volunteer.remindersEnabled = false;
+      // Platform-wide, not per row -- per-row-only unsubscribe is how sending
+      // domains get blocklisted.
+      if (volunteer.reminderEmail) store.suppressed.add(volunteer.reminderEmail);
+    }
+    return c.json(ok('reminder subscription cancelled'));
+  });
+
   app.patch('/v1/events/:id/volunteers/:volunteer', async (c) => {
     const event = store.events.get(c.req.param('id'));
     const volunteer = event?.volunteers.find((v) => v.id === c.req.param('volunteer'));
@@ -442,6 +596,11 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     const body = await c.req.json();
     if ('name' in body) volunteer.name = body.name;
     if ('details' in body) volunteer.details = body.details;
+    if ('remindersEnabled' in body) volunteer.remindersEnabled = Boolean(body.remindersEnabled);
+
+    const consent = resolveConsent(volunteer, body, c.get('actor'));
+    if (consent.error) return c.json(err(consent.error), 400);
+
     return c.json(ok('successfully modified volunteer', { volunteer }));
   });
 
@@ -496,29 +655,68 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
    * Seeding and login hooks. Not part of the real API — prefixed so it is
    * obvious in a trace that these are the harness talking, not the app.
    */
-  app.post('/__test__/reset', (c) => {
-    store.users.clear();
-    store.events.clear();
-    store.sessions.clear();
-    store.seq = 0;
-    return c.json({ ok: true });
-  });
-
   app.post('/__test__/seed', async (c) => {
     const spec = await c.req.json();
     const user = spec.user ? seedUser(store, spec.user) : null;
     const event = spec.event
       ? seedEvent(store, { ...spec.event, admin: spec.event.admin === 'self' ? user?.id : null })
       : null;
-    return c.json({ user, eventId: event?.id ?? null });
+    return c.json({
+      user,
+      eventId: event?.id ?? null,
+      // Everything a spec needs to install a signed-in cookie without paying
+      // for scrypt. Not a credential: the fake verifies nothing.
+      session: user ? sessionToken(store, user.id) : null,
+    });
   });
 
-  /** Arms the next AXB-SIG-REQ payload to authenticate as this user. */
-  app.post('/__test__/expect-login', async (c) => {
-    const { email } = await c.req.json();
-    const user = [...store.users.values()].find((u) => u.email === email);
-    if (!user) return c.json({ ok: false }, 404);
-    store.pendingLogin = user.id;
+  /**
+   * Roll the signing key so the next response carries a different session
+   * token. Global, but harmless in parallel — decoding ignores the signature.
+   */
+  /**
+   * Reads back the state the server never sends to a client.
+   *
+   * A reminder link is only reachable from an email, and the fake sends no
+   * mail, so without this a spec could not follow one. Kept read-only, and
+   * under `/__test__` so it is unmistakably not part of the API surface.
+   */
+  /**
+   * Lists an event's volunteer ids regardless of who is asking.
+   *
+   * The API itself filters volunteers by who may see them -- an anonymous
+   * reader gets an empty list, which is correct and is asserted elsewhere. That
+   * leaves a spec no way to name the volunteer it just created, so this exists
+   * purely to close that gap.
+   */
+  /** The verification token, which the API deliberately never returns. */
+  app.get('/__test__/user/:user/verify-token', (c) => {
+    const user = store.users.get(c.req.param('user'));
+    if (!user) return c.json(err('user not found'), 404);
+    return c.json(ok('ok', { token: user.verifyToken ?? null }));
+  });
+
+  app.get('/__test__/volunteers/:event', (c) => {
+    const event = store.events.get(c.req.param('event'));
+    if (!event) return c.json(err('event not found'), 404);
+    return c.json(ok('ok', { volunteers: event.volunteers.map((v) => v.id) }));
+  });
+
+  app.get('/__test__/volunteer/:event/:volunteer/reminders', (c) => {
+    const volunteer = findVolunteer(store, c.req.param('event'), c.req.param('volunteer'));
+    if (!volunteer) return c.json(err('volunteer not found'), 404);
+    return c.json(ok('ok', {
+      reminder: {
+        email: volunteer.reminderEmail,
+        state: volunteer.reminderState,
+        token: volunteer.reminderToken,
+        suppressed: store.suppressed.has(volunteer.reminderEmail),
+      },
+    }));
+  });
+
+  app.post('/__test__/rotate-signer', (c) => {
+    store.signerEpoch += 1;
     return c.json({ ok: true });
   });
 

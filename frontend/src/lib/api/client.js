@@ -6,16 +6,25 @@
  *
  *   - JSON Content-Type. The legacy never set it, so jQuery sent
  *     `application/x-www-form-urlencoded` with a JSON string body.
- *   - Session rotation on EVERY response, persisted immediately. The legacy
- *     advanced the in-memory token but only wrote it back to the cookie in
- *     refreshUserSession, so ordinary traffic left the cookie stale.
+ *   - Session rotation on EVERY response that carries a new token, persisted
+ *     immediately. The legacy advanced the in-memory token but only wrote it
+ *     back to the cookie in refreshUserSession, so ordinary traffic left the
+ *     cookie stale.
+ *
+ * Rotation here is deliberately *opportunistic*: a response with no session
+ * header is not evidence of anything. Only endpoints extending APIEndpoint
+ * authenticate at all -- PublicTextEndpoint, for one, does not -- and an error
+ * response never gets far enough to issue a token either. Treating a missing
+ * header as a lost session logged users out whenever the app fetched a public
+ * text or hit a transient 500. Deciding whether a session is still valid is an
+ * explicit job, and it belongs to Session.refresh().
  *   - Envelope `status` decides success, not the HTTP code — that is the
  *     contract the app actually relies on.
  *   - Non-JSON bodies (502 HTML, gateway errors, 204) do not throw. The legacy
  *     dereferenced `res.responseJSON` unguarded in ~10 places.
  */
-import { ApiError, SessionLostError } from './errors.js';
-import { getToken, notifyRotate, notifyLost } from './authBridge.js';
+import { ApiError } from './errors.js';
+import { getToken, notifyRotate } from './authBridge.js';
 
 const BASE = '/v1';
 
@@ -49,19 +58,9 @@ function buildUrl(path, query) {
  * Absorb the auth headers the server attaches to every authenticated response.
  * Returns the account/access-level pair for callers that need it (login).
  */
-function absorbAuthHeaders(response, { authenticated }) {
+function absorbAuthHeaders(response) {
   const session = response.headers.get(SESSION_HEADER);
-
-  if (session) {
-    notifyRotate(session);
-  } else if (authenticated) {
-    // We sent credentials and got no rotated token back: the session is gone.
-    // Only meaningful for authenticated requests — an anonymous call naturally
-    // has no session header, and treating that as a loss would log out any
-    // user who happens to view a public event.
-    notifyLost();
-    throw new SessionLostError();
-  }
+  if (session) notifyRotate(session);
 
   return {
     account: response.headers.get(ACCOUNT_HEADER),
@@ -91,7 +90,7 @@ export async function request(method, path, opts = {}) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
-  const auth = absorbAuthHeaders(response, { authenticated: Boolean(token) });
+  const auth = absorbAuthHeaders(response);
 
   // Never assume a JSON body — see the legacy's ~10 unguarded dereferences.
   const payload = await response.json().catch(() => null);
@@ -126,7 +125,7 @@ export async function requestRaw(path, opts = {}) {
   if (accept) headers.Accept = accept;
 
   const response = await fetch(`${BASE}${path}`, { headers });
-  absorbAuthHeaders(response, { authenticated: Boolean(token) });
+  absorbAuthHeaders(response);
 
   if (!response.ok) {
     throw new ApiError(`Request failed (${response.status}).`, response.status);

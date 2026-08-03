@@ -76,7 +76,8 @@
       </div>
     </div>
     {#if !unlimited}
-      <Field error={errors.cap} id="slot-cap">
+      <!-- the heading above labels the switch, not this input -->
+      <Field label="Volunteers for this slot" error={errors.cap} id="slot-cap">
         <input
           id="slot-cap"
           class="input"

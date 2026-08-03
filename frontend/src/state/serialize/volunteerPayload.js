@@ -24,7 +24,10 @@ function serializeDetails(values, details) {
     if (!spec) continue;
 
     const raw = values.get(detail.key);
-    if (spec.isBlank(raw)) continue;
+    // isOmittable, not isBlank: the two coincide for text-like types but differ
+    // for booleans, where "unticked" is an answer rather than a non-answer.
+    const omittable = spec.isOmittable ?? spec.isBlank;
+    if (omittable(raw)) continue;
 
     out.push({ detail: detail.id, value: spec.serialize(raw) });
   }
@@ -46,6 +49,23 @@ function serializeRsvps(volunteer, activities) {
     }
   }
   return out;
+}
+
+/**
+ * Attaches the reminder address, when there is one to attach.
+ *
+ * Omitted rather than sent blank on two counts. The server validates it against
+ * an anchored pattern, so `""` is a 400 rather than "no address given"; and when
+ * a signed-in volunteer leaves it empty the server is meant to fall back to
+ * their account address, which it can only do if the key is absent.
+ *
+ * Also lowercased, because the server's email pattern is case-sensitive.
+ */
+function applyReminderEmail(payload, volunteer) {
+  if (!payload.remindersEnabled) return payload;
+  const email = (volunteer.reminderEmail ?? '').trim().toLowerCase();
+  if (email) payload.reminderEmail = email;
+  return payload;
 }
 
 /**
@@ -76,6 +96,7 @@ export function volunteerCreatePayload(volunteer, { details, activities, windows
     rsvps,
   };
   if (account) payload.user = account;
+  applyReminderEmail(payload, volunteer);
   return payload;
 }
 
@@ -96,5 +117,6 @@ export function volunteerUpdatePayload(volunteer, { details, includeDetails = tr
   if (includeDetails && details) {
     payload.details = serializeDetails(volunteer.values, details);
   }
+  applyReminderEmail(payload, volunteer);
   return payload;
 }

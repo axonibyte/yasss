@@ -15,6 +15,8 @@
     id,
     label,
     switchLabel,
+    /** Labels the number input; the heading above labels the switch. */
+    numberLabel = 'How many?',
     placeholder = '',
     /** 0 means unlimited. */
     value = $bindable(0),
@@ -58,7 +60,8 @@
 </div>
 
 {#if !unlimited}
-  <Field {error} {id}>
+  <!-- the group heading above labels the switch, not this input -->
+  <Field label={numberLabel} {error} {id}>
     <input
       {id}
       class="input"

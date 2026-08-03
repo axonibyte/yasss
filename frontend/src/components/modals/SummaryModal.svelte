@@ -15,12 +15,18 @@
   let notifyOnSignup = $state(summary?.notifyOnSignup ?? true);
   // svelte-ignore state_referenced_locally
   let allowMultiuserSignups = $state(summary?.allowMultiuserSignups ?? false);
+  // Held as a string so an empty box stays empty rather than showing a 0 the
+  // organiser did not type; blank means "use the platform default".
+  // svelte-ignore state_referenced_locally
+  let reminderLeadTime = $state(
+    summary?.reminderLeadTime == null ? '' : String(summary.reminderLeadTime),
+  );
   let errors = $state({});
   let busy = $state(false);
 
   async function save() {
     const verdict = validateSummary({
-      title, description, notifyOnSignup, allowMultiuserSignups,
+      title, description, notifyOnSignup, allowMultiuserSignups, reminderLeadTime,
     });
     errors = verdict.errors;
     if (!verdict.ok) return;
@@ -72,6 +78,24 @@
       <label class="switch" for="event-multiuser">Allow multiple volunteers per signup?</label>
     </div>
   </div>
+
+  <Field
+    label="Reminder lead time (minutes)"
+    error={errors.reminderLeadTime}
+    id="event-lead-time"
+  >
+    <input
+      id="event-lead-time"
+      class="input"
+      class:is-danger={errors.reminderLeadTime}
+      type="number"
+      min="1"
+      placeholder="Leave blank to use the default"
+      bind:value={reminderLeadTime}
+      oninput={() => { errors = { ...errors, reminderLeadTime: undefined }; }}
+    />
+    <p class="help">How far ahead volunteers who opted in are reminded. 1440 is a day.</p>
+  </Field>
 
   {#snippet footer()}
     <LoadingButton variant="is-success" loading={busy} onclick={save}>Save</LoadingButton>

@@ -17,6 +17,8 @@ import * as patterns from './patterns.js';
  * @property {string}  message   shown when `pattern` fails
  * @property {(raw: unknown) => string} serialize  value as the API expects it
  * @property {(raw: unknown) => boolean} isBlank   drives the required check
+ * @property {(raw: unknown) => boolean} [isOmittable]  whether to leave the
+ *   answer out of the payload entirely; defaults to `isBlank`
  */
 
 /** @type {Record<string, DetailType>} */
@@ -40,6 +42,11 @@ export const DETAIL_TYPES = {
     // now means "must be ticked", which is what the server enforces when the
     // detail is absent from the payload (behavior §6.19).
     isBlank: (v) => v !== true,
+    // ...but "not ticked" is a real answer, not an absent one. Serialization
+    // used isBlank too, so an OPTIONAL checkbox answered `false` was dropped
+    // and an explicit "no" became indistinguishable from "never answered" in
+    // the organiser's data. A boolean is never omittable.
+    isOmittable: () => false,
   },
   INTEGER: {
     label: 'Whole Number',

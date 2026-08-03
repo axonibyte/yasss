@@ -57,6 +57,8 @@ Auth legend: **none**; **HUMAN** = `Authorization.IS_HUMAN` (CAPTCHA); **owner(x
 | `RemoveVolunteerEndpoint` | DELETE | `…/volunteers/:volunteer` | owner(vol's user) OR owner(event) | |
 | `SetRSVPEndpoint` | PUT | `…/activities/:a/windows/:w/volunteers/:v` | owner(vol's user) OR owner(event) | Add one RSVP |
 | `UnsetRSVPEndpoint` | DELETE | same | owner(vol's user) OR owner(event) | Remove one RSVP |
+| `ReminderSubscriptionEndpoint` | PUT | `…/volunteers/:volunteer/reminders` | **none** — the token is the credential | *Added by the rewrite.* Confirm a reminder subscription |
+| `ReminderSubscriptionEndpoint` | DELETE | same | **none** | *Added by the rewrite.* Unsubscribe |
 | `CreateUserEndpoint` | POST | `/v1/users` | HUMAN or ADMIN | Register |
 | `ListUsersEndpoint` | GET | `/v1/users` | **ADMIN** | |
 | `RetrieveUserEndpoint` | GET | `/v1/users/:user` | owner(user) | |
@@ -141,7 +143,9 @@ when payments are enabled and the actor is not ADMIN.
                                    "rsvps": ["<volunteer uuid>"], "rsvpCount": 2 } ] } ],
     "windows":    [ { "id", "begin": <epochMs>, "end": <epochMs|null> } ],
     "details":    [ { "id","type","label","hint","priority","required" } ],
-    "volunteers": [ { "id","name","remindersEnabled",
+    "timezone": "America/Chicago",  // added by the rewrite; may be null
+    "reminderLeadTime": 1440,       // added by the rewrite; may be null
+    "volunteers": [ { "id","name","remindersEnabled","reminderConfirmed",
                       "details":[{"detail":"<uuid>","value":"…"}] } ],
     "volunteersMaxed": false, "expired": false } }
 ```
@@ -159,6 +163,18 @@ when payments are enabled and the actor is not ADMIN.
 - `volunteersMaxed` is `false` if `allowMultiUserSignups` or the caller owns the event; else
   `1 >= countVolunteers(...)` — true only when the count is 0 or 1 (see bug B-2).
 - `expired` = the earliest window's `begin_time` is in the past.
+- `reminderConfirmed` (*added by the rewrite*) says whether a confirmed reminder address
+  exists. **The address itself is never emitted**, on any endpoint, to any caller — an
+  organiser reading their own event learns that a volunteer will be reminded, not where.
+- `timezone` (*added by the rewrite*) is the IANA zone the event takes place in, or `null`
+  for events created before the column existed. Window times travel as epoch milliseconds and
+  are therefore unambiguous; this says which zone to *render* them in. A client should render
+  in the event's zone when set and its own when not — a physical event starts at the same wall
+  clock wherever the reader is. Validated server-side against `ZoneId.getAvailableZoneIds()`,
+  so bare offsets and non-canonical spellings are 400s.
+- `reminderLeadTime` (*added by the rewrite*) is how many minutes before the event its
+  reminders go out, or `null` to use the platform default. Accepted on create and modify,
+  bounded 1..525600.
 
 Non-200s: `404 "event not found"`; `402 "event not published"` when unpublished, Stripe
 checkout unfulfilled, and caller isn't ADMIN.
@@ -186,6 +202,7 @@ arrive as `String` while `getInt` casts to `Integer`, so **`?limit=` is broken t
 {
   "name": "string",              // REQUIRED, non-blank
   "remindersEnabled": false,
+  "reminderEmail": "a@b.co",     // added by the rewrite; see below
   "user": "<uuid>",              // optional — links to an account
   "details": [ { "detail":"<detail uuid>", "value":"string" } ],   // REQUIRED array
   "rsvps":   [ { "activity":"<uuid>", "window":"<uuid>" } ]
@@ -198,8 +215,66 @@ arrive as `String` while `getInt` casts to `Integer`, so **`?limit=` is broken t
 Response `volunteer: {id, user, event, name, details[]}` — no `remindersEnabled`. Side effect:
 if the event has an admin, a `signup-alert` email is sent linking `<api.host>/?event=<uuid>`.
 
-`PATCH` accepts a subset of `name, remindersEnabled, details, user`; supplying `details`
-**replaces the whole set** and re-runs the required-field check.
+`PATCH` accepts a subset of `name, remindersEnabled, reminderEmail, details, user`; supplying
+`details` **replaces the whole set** and re-runs the required-field check.
+
+#### `reminderEmail` — added by the rewrite
+
+Read only when `remindersEnabled` is true; ignored otherwise. Matched against the same
+case-sensitive `EMAIL` pattern as a detail value and bounded to 255 characters, so **send it
+lowercased or omit it** — `""` is a 400 rather than "no address given".
+
+Omitting it is meaningful: a caller authenticated as at least `STANDARD` falls back to their
+account address. An anonymous caller who omits it gets a 400, because there is nothing to
+fall back to.
+
+The resulting consent state is not a request parameter. It is derived (`ReminderConsent`):
+
+| Situation | State |
+|---|---|
+| The address is the caller's own verified account address | `CONFIRMED` |
+| The address is already `CONFIRMED` on this volunteer and unchanged | `CONFIRMED` |
+| Anything else, including a change of address | `PENDING` |
+
+`PENDING` sends a `signup-prompt` email carrying a stored `reminder_token`. Nothing is ever
+delivered to a `PENDING` address. Naming somebody else's address always pends, so being
+signed in is not a way to subscribe a stranger.
+
+### `PUT /v1/events/:event/volunteers/:volunteer/reminders` — added by the rewrite
+
+Body `{"token": "<uuid>"}`. Confirms the subscription and lifts any platform-wide suppression
+on that address.
+
+### `DELETE /v1/events/:event/volunteers/:volunteer/reminders` — added by the rewrite
+
+Token in the **query string**, not a body, because this is a one-click link from a mail
+client. Sets the volunteer to `UNSUBSCRIBED` and suppresses the address platform-wide, not
+just on that row.
+
+Both are unauthenticated and **deliberately not CAPTCHA-gated** — bulk-sender rules expect an
+unsubscribe to be one click, and a challenge in front of one is a deliverability liability.
+Both **always answer 200**, with the same body whatever the token turns out to be: confirming
+or denying a token to an anonymous caller would let anyone holding a volunteer id probe for
+live subscriptions. A confirmation link cannot resurrect an `UNSUBSCRIBED` volunteer.
+
+### `PUT /v1/users/:user` — verification
+
+Body `{"token": "<uuid>"}`, or an empty body to resend.
+
+*Changed by the rewrite in two ways.* The token was a `TicketEngine` signature and is now a
+stored, single-use `verify_token` — the ticket signers rotate on a roughly fifteen-minute
+horizon and are lost on restart, so a welcome email was dead long before most recipients
+opened it. And a successful verification now **promotes the account from `UNVERIFIED` to
+`STANDARD`**; previously it moved the pending address onto `email` — enough to let the user
+authenticate — while leaving the access level alone, so every endpoint gated on
+`atLeast(STANDARD)` kept refusing them.
+
+Note the ordering this implies: an account cannot authenticate at all until it is verified,
+because credentials resolve against the `email` column, which is null while an address is
+merely pending.
+
+Resending after verification is a **409**: the pending address is gone, so there is nothing
+left to confirm.
 
 ### Users
 

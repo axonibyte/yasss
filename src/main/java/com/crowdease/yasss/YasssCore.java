@@ -43,6 +43,7 @@ import com.crowdease.yasss.api.RemoveDetailEndpoint;
 import com.crowdease.yasss.api.RemoveEventEndpoint;
 import com.crowdease.yasss.api.RemoveUserEndpoint;
 import com.crowdease.yasss.api.RemoveVolunteerEndpoint;
+import com.crowdease.yasss.api.ReminderSubscriptionEndpoint;
 import com.crowdease.yasss.api.RemoveWindowEndpoint;
 import com.crowdease.yasss.api.ResetUserEndpoint;
 import com.crowdease.yasss.api.RetrieveEventEndpoint;
@@ -54,6 +55,7 @@ import com.crowdease.yasss.api.UnsetSlotEndpoint;
 import com.crowdease.yasss.api.VerifyUserEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.StripeDriver;
+import com.crowdease.yasss.daemon.ReminderEngine;
 import com.crowdease.yasss.daemon.TicketEngine;
 import com.crowdease.yasss.model.CAPTCHAValidator;
 import com.crowdease.yasss.model.Mail;
@@ -76,6 +78,7 @@ public class YasssCore {
   private static Config config = null;
   private static Database database = null;
   private static TicketEngine ticketEngine = null;
+  private static ReminderEngine reminderEngine = null;
   private static String apiHost = "";
   private static StripeDriver stripe = null;
   private static boolean authRequired = true;
@@ -134,6 +137,7 @@ public class YasssCore {
             config.getInteger(ParamEnum.EMAIL_SMTP_PORT),
             config.getString(ParamEnum.EMAIL_SMTP_USERNAME),
             config.getString(ParamEnum.EMAIL_SMTP_PASSWORD),
+            config.getString(ParamEnum.EMAIL_SMTP_TRANSPORT),
             config.getString(ParamEnum.EMAIL_SENDER_ADDRESS),
             config.getString(ParamEnum.EMAIL_SENDER_NAME));
       Mail.setTemplate(
@@ -155,16 +159,41 @@ public class YasssCore {
           config.getInteger(ParamEnum.TICKET_MAX_HISTORY));
       ticketEngine.start();
 
+      // Only started when there is somewhere for the mail to go. Running it
+      // without a mailer would claim every pending reminder and deliver none,
+      // permanently marking the backlog as sent.
+      boolean remindersEnabled = config.getBoolean(ParamEnum.REMINDER_ENABLED);
+      boolean emailEnabled = config.getBoolean(ParamEnum.EMAIL_ENABLED);
+      if(remindersEnabled && emailEnabled) {
+        reminderEngine = new ReminderEngine(
+            config.getInteger(ParamEnum.REMINDER_POLL_INTERVAL),
+            config.getInteger(ParamEnum.REMINDER_LEAD_TIME),
+            config.getInteger(ParamEnum.REMINDER_BATCH_SIZE),
+            true);
+        reminderEngine.start();
+      } else {
+        logger.info(
+            "reminders are off ({} is disabled)",
+            remindersEnabled ? "email.enabled" : "reminders.enabled");
+      }
+
       apiHost = config.getString(ParamEnum.API_HOST);
+
+      // Same-origin by default, rather than "anybody". A wildcard is still
+      // available to a deployment that serves its frontend from a different
+      // host; it just has to ask for one rather than inherit it.
+      String allowedOrigins = config.getString(ParamEnum.API_ALLOWED_ORIGINS);
+      if(null == allowedOrigins || allowedOrigins.isBlank()
+          || "same-origin".equalsIgnoreCase(allowedOrigins.strip()))
+        allowedOrigins = apiHost;
+      logger.info("CORS origins: {}", allowedOrigins);
 
       apiDriver = new APIDriver.Builder()
           .setPort(
               config.getInteger(
                   ParamEnum.API_PORT))
           .setPublicFolder("/public")
-          .addAllowedOrigins(
-              config.getString(
-                  ParamEnum.API_ALLOWED_ORIGINS))
+          .addAllowedOrigins(allowedOrigins)
           .addExposedHeaders(
               APIEndpoint.ACCOUNT_HEADER,
               APIEndpoint.SESSION_HEADER,
@@ -195,6 +224,8 @@ public class YasssCore {
               new RemoveEventEndpoint(),
               new RemoveUserEndpoint(),
               new RemoveVolunteerEndpoint(),
+              new ReminderSubscriptionEndpoint(ReminderSubscriptionEndpoint.Mode.CONFIRM),
+              new ReminderSubscriptionEndpoint(ReminderSubscriptionEndpoint.Mode.UNSUBSCRIBE),
               new RemoveWindowEndpoint(),
               new ResetUserEndpoint(),
               new RetrieveEventEndpoint(),
@@ -225,6 +256,10 @@ public class YasssCore {
           logger.info("Shutting down...");
           apiDriver.halt();
           ticketEngine.stop();
+          // Null guard required, not decorative: unlike the ticket engine this
+          // one is only conditionally constructed. Same class of bug as the
+          // CAPTCHA validator's unconditional close.
+          if(null != reminderEngine) reminderEngine.stop();
           if(null != captchaValidator) captchaValidator.close(); // null when CAPTCHAs are disabled
           logger.info("Goodbye! ^_^");
         }

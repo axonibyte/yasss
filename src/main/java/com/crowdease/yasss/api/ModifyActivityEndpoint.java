@@ -78,7 +78,7 @@ public final class ModifyActivityEndpoint extends APIEndpoint {
 
       if(deserializer.has("shortDescription")) {
         activity.setShortDescription(
-            deserializer.getString("shortDescription").strip());
+            bounded(req, deserializer.getString("shortDescription").strip(), "shortDescription"));
         if(activity.getShortDescription().isBlank())
           throw new EndpointException(
               req,
@@ -88,7 +88,7 @@ public final class ModifyActivityEndpoint extends APIEndpoint {
       
       if(deserializer.has("longDescription"))
         activity.setLongDescription(
-            deserializer.getString("longDescription").strip());
+            bounded(req, deserializer.getString("longDescription").strip(), "longDescription"));
       
       if(deserializer.has("maxActivityVolunteers")) {
         activity.setMaxActivityVolunteers(

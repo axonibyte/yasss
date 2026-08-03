@@ -61,6 +61,10 @@ export function eventSummaryFromApi(e) {
     notifyOnSignup: Boolean(e.emailOnSubmission),
     allowMultiuserSignups: Boolean(e.allowMultiUserSignups),
     isPublished: Boolean(e.isPublished),
+    // Null is meaningful: an event with no recorded zone renders in the
+    // viewer's own, which is what every event predating the column does.
+    timezone: e.timezone ?? null,
+    reminderLeadTime: e.reminderLeadTime ?? null,
     volunteersMaxed: Boolean(e.volunteersMaxed),
     expired: Boolean(e.expired),
   };
@@ -82,6 +86,16 @@ export function eventSummaryToApi(next, previous = {}) {
   }
   if (next.allowMultiuserSignups !== previous.allowMultiuserSignups) {
     changes.allowMultiUserSignups = next.allowMultiuserSignups;
+  }
+  // Never sent as null: the server has no way to express "forget the zone", and
+  // an anchored validation would reject it.
+  if (next.timezone && next.timezone !== previous.timezone) {
+    changes.timezone = next.timezone;
+  }
+  // Only sent when set: the server has no way to express "back to the global",
+  // and a null would fail its range check.
+  if (next.reminderLeadTime && next.reminderLeadTime !== previous.reminderLeadTime) {
+    changes.reminderLeadTime = next.reminderLeadTime;
   }
   return changes;
 }

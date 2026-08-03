@@ -80,7 +80,8 @@ public final class AddWindowEndpoint extends APIEndpoint {
         else if(window.getBeginTime().after(window.getEndTime()))
           throw new EndpointException(
               req,
-              "malformed arguments (timestamp: beginTime, endTime)");
+              "malformed arguments (timestamp: beginTime, endTime)",
+                400);
       }
 
       window.commit();

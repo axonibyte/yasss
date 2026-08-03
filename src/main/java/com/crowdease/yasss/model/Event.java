@@ -67,6 +67,7 @@ public class Event {
             "e.email_on_submission",
             "e.allow_multiuser_signups",
             "e.published",
+            "e.timezone",
             "w.begin_time")
         .tableAlias("e")
         .join(
@@ -129,7 +130,8 @@ public class Event {
                 res.getTimestamp("e.first_draft"),
                 res.getBoolean("e.email_on_submission"),
                 res.getBoolean("e.allow_multiuser_signups"),
-                res.getBoolean("e.published")));
+                res.getBoolean("e.published"))
+                .setTimezone(res.getString("e.timezone")));
       
       return events;
       
@@ -171,6 +173,7 @@ public class Event {
             "e.email_on_submission",
             "e.allow_multiuser_signups",
             "e.published",
+            "e.timezone",
             "w.begin_time")
         .tableAlias("e")
         .join(
@@ -233,7 +236,8 @@ public class Event {
                 res.getTimestamp("e.first_draft"),
                 res.getBoolean("e.email_on_submission"),
                 res.getBoolean("e.allow_multiuser_signups"),
-                res.getBoolean("e.published")));
+                res.getBoolean("e.published"))
+                .setTimezone(res.getString("e.timezone")));
       
       return events;
       
@@ -345,7 +349,9 @@ public class Event {
                   "first_draft",
                   "email_on_submission",
                   "allow_multiuser_signups",
-                  "published")
+                  "published",
+                  "timezone",
+                  "reminder_lead_time")
               .where("id")
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(eventID));
@@ -361,7 +367,12 @@ public class Event {
             res.getTimestamp("first_draft"),
             res.getBoolean("email_on_submission"),
             res.getBoolean("allow_multiuser_signups"),
-            res.getBoolean("published"));
+            res.getBoolean("published"))
+            .setTimezone(res.getString("timezone"))
+            .setReminderLeadTime(
+                null == res.getObject("reminder_lead_time")
+                    ? null
+                    : res.getInt("reminder_lead_time"));
       
     } catch(SQLException e) {
       throw e;
@@ -372,6 +383,13 @@ public class Event {
     return null;
   }
   
+  /** {@code setInt} cannot express NULL, and NULL is meaningful here. */
+  private static void setNullableInt(PreparedStatement stmt, int idx, Integer value)
+      throws SQLException {
+    if(null == value) stmt.setNull(idx, java.sql.Types.INTEGER);
+    else stmt.setInt(idx, value);
+  }
+
   private UUID id = null;
   private UUID admin = null;
   private String shortDescription = null;
@@ -380,6 +398,8 @@ public class Event {
   private boolean emailOnSubmission = false;
   private boolean allowMultiUserSignups = false;
   private boolean isPublished = false;
+  private String timezone = null;
+  private Integer reminderLeadTime = null;
 
   /**
    * Instantiates an {@link Event}.
@@ -408,6 +428,50 @@ public class Event {
     this.emailOnSubmission = emailOnSubmission;
     this.allowMultiUserSignups = allowMultiUserSignups;
     this.isPublished = isPublished;
+  }
+
+  /**
+   * Retrieves the IANA timezone the event takes place in.
+   *
+   * <p>{@code null} means it was never recorded, which is true of every event
+   * created before the column existed. Those render in the viewer's own zone,
+   * as they always have; only events carrying a zone render in it.
+   *
+   * @return an IANA zone id such as {@code America/Chicago}, or {@code null}
+   */
+  public String getTimezone() {
+    return timezone;
+  }
+
+  /**
+   * Sets the IANA timezone the event takes place in.
+   *
+   * @param timezone an IANA zone id, or {@code null} to leave it unrecorded
+   * @return this {@link Event}, for chaining
+   */
+  public Event setTimezone(String timezone) {
+    this.timezone = timezone;
+    return this;
+  }
+
+  /**
+   * Retrieves how many minutes before the event its reminders go out.
+   *
+   * @return the override in minutes, or {@code null} to use the global setting
+   */
+  public Integer getReminderLeadTime() {
+    return reminderLeadTime;
+  }
+
+  /**
+   * Sets how many minutes before the event its reminders go out.
+   *
+   * @param reminderLeadTime minutes, or {@code null} to use the global setting
+   * @return this {@link Event}, for chaining
+   */
+  public Event setReminderLeadTime(Integer reminderLeadTime) {
+    this.reminderLeadTime = reminderLeadTime;
+    return this;
   }
 
   /**
@@ -883,7 +947,10 @@ public class Event {
               "user",
               "name",
               "reminders_enabled",
-              "ip_addr_bin")
+              "ip_addr_bin",
+              "reminder_email",
+              "reminder_state",
+              "reminder_token")
           .where("event")
           .order("name", Order.ASC)
           .wrap(new Wrapper(5, "INET6_NTOA"))
@@ -902,7 +969,14 @@ public class Event {
                 id,
                 res.getString("name"),
                 res.getBoolean("reminders_enabled"),
-                res.getString("ip_addr_bin")));
+                res.getString("ip_addr_bin"))
+                .setReminderEmail(res.getString("reminder_email"))
+                .setReminderState(
+                    Volunteer.ReminderState.fromOrdinal(
+                        res.getInt("reminder_state")))
+                .setReminderToken(
+                    SQLBuilder.bytesToUUID(
+                        res.getBytes("reminder_token"))));
 
       if(!volunteers.isEmpty()) {
         Map<UUID, Map<Detail, String>> details = new LinkedHashMap<>();
@@ -1035,7 +1109,10 @@ public class Event {
               "user",
               "name",
               "reminders_enabled",
-              "ip_addr_bin")
+              "ip_addr_bin",
+              "reminder_email",
+              "reminder_state",
+              "reminder_token")
           .where("id", "event")
           .limit(1)
           .wrap(new Wrapper(4, "INET6_NTOA"))
@@ -1052,7 +1129,14 @@ public class Event {
             id,
             res.getString("name"),
             res.getBoolean("reminders_enabled"),
-            res.getString("ip_addr_bin"));
+            res.getString("ip_addr_bin"))
+            .setReminderEmail(res.getString("reminder_email"))
+            .setReminderState(
+                Volunteer.ReminderState.fromOrdinal(
+                    res.getInt("reminder_state")))
+            .setReminderToken(
+                SQLBuilder.bytesToUUID(
+                    res.getBytes("reminder_token")));
 
     } catch(SQLException e) {
       throw e;
@@ -1130,7 +1214,9 @@ public class Event {
                   "first_draft",
                   "email_on_submission",
                   "allow_multiuser_signups",
-                  "published")
+                  "published",
+                  "timezone",
+                  "reminder_lead_time")
               .where("id")
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(admin));
@@ -1140,7 +1226,9 @@ public class Event {
       stmt.setBoolean(5, emailOnSubmission);
       stmt.setBoolean(6, allowMultiUserSignups);
       stmt.setBoolean(7, isPublished);
-      stmt.setBytes(8, SQLBuilder.uuidToBytes(id));
+      stmt.setString(8, timezone);
+      setNullableInt(stmt, 9, reminderLeadTime);
+      stmt.setBytes(10, SQLBuilder.uuidToBytes(id));
       
       if(0 == stmt.executeUpdate()) {
         YasssCore.getDB().close(null, stmt, null);
@@ -1155,7 +1243,9 @@ public class Event {
                     "first_draft",
                     "email_on_submission",
                     "allow_multiuser_signups",
-                    "published")
+                    "published",
+                    "timezone",
+                    "reminder_lead_time")
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
         stmt.setBytes(2, SQLBuilder.uuidToBytes(admin));
@@ -1165,6 +1255,8 @@ public class Event {
         stmt.setBoolean(6, emailOnSubmission);
         stmt.setBoolean(7, allowMultiUserSignups);
         stmt.setBoolean(8, isPublished);
+        stmt.setString(9, timezone);
+        setNullableInt(stmt, 10, reminderLeadTime);
         stmt.executeUpdate();
       }
       

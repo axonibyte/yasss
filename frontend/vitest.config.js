@@ -10,6 +10,10 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // scrypt at N=16384 is deliberately expensive, and v8 coverage
+    // instrumentation makes it slower still -- the default 5s is not enough to
+    // run the credential vectors under --coverage.
+    testTimeout: 60_000,
     globals: true,
     setupFiles: ['./tests/setup.js'],
     include: ['tests/unit/**/*.{test,spec}.js', 'tests/component/**/*.{test,spec}.js'],

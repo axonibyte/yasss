@@ -9,6 +9,11 @@ package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
 
+import java.util.HashMap;
+import java.util.Map;
+import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.Mail;
+import com.crowdease.yasss.model.Volunteer;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.axonibyte.lib.http.rest.EndpointException;
@@ -158,6 +163,64 @@ public abstract class APIEndpoint extends JSONEndpoint {
   }
 
   /**
+   * The width of every user-facing text column in the schema.
+   *
+   * Every one of them is {@code VARCHAR(255)} -- names, descriptions, labels,
+   * hints, detail answers, email addresses.
+   */
+  public static final int MAX_TEXT_LENGTH = 255;
+
+  /**
+   * Bounds a user-supplied string to what its column can hold.
+   *
+   * <p>Nothing checked this, so any text longer than the column simply reached
+   * the database and came back as {@code database malfunction} with a 500 and a
+   * stack trace -- a plain client mistake reported as a server fault. Found by
+   * the fuzzer with a 256-character volunteer name.
+   *
+   * @param req the HTTP {@link Request}
+   * @param value the value to check, which may be {@code null}
+   * @param token the argument name, for the error message
+   * @return {@code value}, unchanged
+   * @throws EndpointException with a 400 if the value is too long
+   */
+  protected static String bounded(Request req, String value, String token)
+      throws EndpointException {
+    if(null != value && MAX_TEXT_LENGTH < value.length())
+      throw new EndpointException(
+          req,
+          String.format("malformed argument (string too long: %1$s)", token),
+          400);
+    return value;
+  }
+
+  /** The width of the {@code pubkey} column: a raw Ed25519 public key. */
+  private static final int PUBKEY_BYTES = 32;
+
+  /**
+   * Verifies that a base64 public key decodes to the right number of bytes.
+   *
+   * <p>{@code Credentialed.setPubkey} rejects malformed base64 but not
+   * well-formed base64 of the wrong length, so a longer key decoded cleanly and
+   * then overflowed {@code BINARY(32)} -- surfacing as {@code database
+   * malfunction} with a 500. Found by the fuzzer.
+   *
+   * @param req the HTTP {@link Request}
+   * @param pubkey the base64-encoded key
+   * @return {@code pubkey}, unchanged
+   * @throws EndpointException with a 400 if it is not a 32-byte key
+   */
+  protected static String validPubkey(Request req, String pubkey) throws EndpointException {
+    try {
+      if(PUBKEY_BYTES != java.util.Base64.getDecoder().decode(pubkey).length)
+        throw new IllegalArgumentException();
+    } catch(IllegalArgumentException | NullPointerException e) {
+      throw new EndpointException(req, "malformed argument (pubkey)", 400);
+    }
+    return pubkey;
+  }
+
+  /**
    * Reads a positive integer from deserialized query parameters.
    *
    * <p>{@link #deserializeQueryParams(Request)} necessarily stores every value
@@ -187,4 +250,79 @@ public abstract class APIEndpoint extends JSONEndpoint {
     return value;
   }
 
+
+  /**
+   * Sends a volunteer the double opt-in confirmation for their reminders.
+   *
+   * <p>Shared by the create and modify endpoints. Call this only <em>after</em>
+   * the volunteer has been committed: the link carries the stored reminder
+   * token, and mailing a token that a later failure rolls back gives the
+   * recipient a link that can never work.
+   *
+   * @param event the {@link Event} they signed up for
+   * @param volunteer the {@link Volunteer}, already committed
+   */
+  protected static void sendReminderPrompt(Event event, Volunteer volunteer) {
+    Map<String, String> args = new HashMap<>();
+    args.put("EVENT_TITLE", event.getShortDescription());
+    args.put(
+        "EVENT_URL",
+        String.format("%1$s/?event=%2$s", YasssCore.getAPIHost(), event.getID()));
+    args.put(
+        "SUBSCRIBE",
+        String.format(
+            "%1$s/?action=confirm-reminders&event=%2$s&volunteer=%3$s&token=%4$s",
+            YasssCore.getAPIHost(),
+            event.getID(),
+            volunteer.getID(),
+            volunteer.getReminderToken()));
+
+    new Mail(volunteer.getReminderEmail(), "signup-prompt", args).send();
+  }
+
+  /**
+   * Validates an IANA timezone identifier.
+   *
+   * <p>Checked against the JVM's own tz database rather than a pattern: the
+   * value has to be one {@link java.time.ZoneId} can actually resolve, because
+   * every renderer downstream -- the mail templates especially -- will hand it
+   * straight to one. A plausible-looking name that is not in the database would
+   * fail much later, inside an email nobody is watching.
+   *
+   * <p>Offsets like {@code +05:00} are deliberately rejected. An offset is
+   * wrong for half the year anywhere that observes daylight saving, and events
+   * are routinely scheduled across a transition.
+   *
+   * @param req the {@link Request}
+   * @param timezone the candidate identifier
+   * @return the identifier, unchanged
+   * @throws EndpointException with a 400 if it names no known zone
+   */
+  protected static String validTimezone(Request req, String timezone) throws EndpointException {
+    if(null == timezone || !java.time.ZoneId.getAvailableZoneIds().contains(timezone))
+      throw new EndpointException(req, "malformed argument (timezone)", 400);
+    return timezone;
+  }
+
+  /** The longest reminder lead time worth allowing: one year, in minutes. */
+  public static final int MAX_LEAD_MINUTES = 525_600;
+
+  /**
+   * Validates a per-event reminder lead time.
+   *
+   * <p>Bounded rather than merely non-negative. Zero would mean "remind them as
+   * the event begins", which is not a reminder; and an unbounded value makes
+   * every future event permanently due, so the first sweep after it is set
+   * mails the entire backlog at once.
+   *
+   * @param req the {@link Request}
+   * @param minutes the candidate lead time
+   * @return the lead time, unchanged
+   * @throws EndpointException with a 400 if it is out of range
+   */
+  protected static int validLeadTime(Request req, int minutes) throws EndpointException {
+    if(1 > minutes || MAX_LEAD_MINUTES < minutes)
+      throw new EndpointException(req, "malformed argument (reminderLeadTime)", 400);
+    return minutes;
+  }
 }

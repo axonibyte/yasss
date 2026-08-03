@@ -68,6 +68,12 @@ public final class EventReportEndpoint extends Endpoint {
       htmlBody.push(
           new HTMLElem("h1")
               .push(event.getShortDescription()));
+
+      if(null != event.getTimezone())
+        htmlBody.push(
+            new HTMLElem("p")
+                .attr("class", "zone-note")
+                .push("All times shown in " + event.getTimezone() + "."));
       
       HTMLElem volTable = new HTMLElem("table")
           .push(
@@ -116,7 +122,12 @@ public final class EventReportEndpoint extends Endpoint {
       
       htmlBody.push(volTable);
 
+      // Rendered in the event's own zone, like every other surface. This sheet
+      // is printed and carried to the event, so the server's zone was never the
+      // right one; an event with no recorded zone falls back to it as before.
       final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy hh:mm a");
+      if(null != event.getTimezone())
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone(event.getTimezone()));
 
       for(var window : event.getWindows()) {
         StringBuilder tsSB = new StringBuilder(

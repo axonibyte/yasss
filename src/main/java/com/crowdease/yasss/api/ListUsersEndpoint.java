@@ -61,13 +61,12 @@ public final class ListUsersEndpoint extends APIEndpoint {
         }
       }
 
-      Integer page = deserializer.has("page") ? deserializer.getInt("page") : 1;
-      if(1 > page)
-        throw new EndpointException(req, "malformed argument (page)", 400);
-
-      Integer limit = deserializer.has("limit") ? deserializer.getInt("limit") : 10;
-      if(1 > limit)
-        throw new EndpointException(req, "malformed argument (limit)", 400);
+      // Query parameters necessarily arrive as Strings while getInt casts to
+      // Integer, so reading them the ordinary way throws a ClassCastException
+      // and surfaces as a confusing 400. queryInt exists for exactly this; it
+      // was written for ListEventsEndpoint and never applied to its twin here.
+      Integer page = deserializer.has("page") ? queryInt(req, deserializer, "page") : 1;
+      Integer limit = deserializer.has("limit") ? queryInt(req, deserializer, "limit") : 10;
 
       int userCount = User.countUsers(accessLevel);
       var users = User.getUsers(accessLevel, page, limit);

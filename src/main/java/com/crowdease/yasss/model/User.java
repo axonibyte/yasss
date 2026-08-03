@@ -84,7 +84,8 @@ public class User extends Credentialed implements Comparable<User> {
             "mfakey",
             "email",
             "pending_email",
-            "access_level");
+            "access_level",
+            "verify_token");
     
     if(null != level)
       query.where("access_level");
@@ -109,7 +110,9 @@ public class User extends Credentialed implements Comparable<User> {
                 res.getBytes("mfakey"),
                 res.getString("email"),
                 res.getString("pending_email"),
-                AccessLevel.values()[res.getInt("access_level")]));
+                AccessLevel.values()[res.getInt("access_level")])
+                .setVerifyToken(
+                    SQLBuilder.bytesToUUID(res.getBytes("verify_token"))));
       
       return users;
       
@@ -182,7 +185,8 @@ public class User extends Credentialed implements Comparable<User> {
                   "mfakey",
                   "email",
                   "pending_email",
-                  "access_level")
+                  "access_level",
+                  "verify_token")
               .where("id")
               .limit(1)
               .toString());
@@ -196,7 +200,9 @@ public class User extends Credentialed implements Comparable<User> {
             res.getBytes("mfakey"),
             res.getString("email"),
             res.getString("pending_email"),
-            AccessLevel.values()[res.getInt("access_level")]);
+            AccessLevel.values()[res.getInt("access_level")])
+            .setVerifyToken(
+                SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
       
     } catch(SQLException e) {
       throw e;
@@ -232,7 +238,8 @@ public class User extends Credentialed implements Comparable<User> {
                   "mfakey",
                   "email",
                   "pending_email",
-                  "access_level")
+                  "access_level",
+                  "verify_token")
               .where("email", ComparisonOp.LIKE)
               .order("last_update", Order.DESC)
               .limit(1)
@@ -247,7 +254,9 @@ public class User extends Credentialed implements Comparable<User> {
             res.getBytes("mfakey"),
             res.getString("email"),
             res.getString("pending_email"),
-            AccessLevel.values()[res.getInt("access_level")]);
+            AccessLevel.values()[res.getInt("access_level")])
+            .setVerifyToken(
+                SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
       
     } catch(SQLException e) {
       throw e;
@@ -261,6 +270,7 @@ public class User extends Credentialed implements Comparable<User> {
   private String email = null;
   private String pendingEmail = null;
   private AccessLevel accessLevel = AccessLevel.UNVERIFIED;
+  private UUID verifyToken = null;
 
   /**
    * Instantiates a user. This method is designed to be invoked when retrieving
@@ -331,6 +341,31 @@ public class User extends Credentialed implements Comparable<User> {
    * @param pendingEmail the user's pending email address
    * @return the {@link User} instance
    */
+  /**
+   * Retrieves the token carried by this user's verification link.
+   *
+   * <p>Stored rather than signed by the {@code TicketEngine}: its signers live
+   * in an in-memory deque, roll on a roughly fifteen-minute horizon and are
+   * lost entirely on restart, so a signed link was dead long before most
+   * recipients got round to opening the email.
+   *
+   * @return the token, or {@code null} if no verification is outstanding
+   */
+  public UUID getVerifyToken() {
+    return verifyToken;
+  }
+
+  /**
+   * Sets the token carried by this user's verification link.
+   *
+   * @param verifyToken the token, or {@code null} to clear it
+   * @return this {@link User}, for chaining
+   */
+  public User setVerifyToken(UUID verifyToken) {
+    this.verifyToken = verifyToken;
+    return this;
+  }
+
   public User setPendingEmail(String pendingEmail) {
     this.pendingEmail = pendingEmail;
     return this;
@@ -382,7 +417,8 @@ public class User extends Credentialed implements Comparable<User> {
                   "mfakey",
                   "email",
                   "pending_email",
-                  "access_level")
+                  "access_level",
+                  "verify_token")
               .where("id")
               .toString());
       stmt.setBytes(1, getPubkey());
@@ -390,7 +426,8 @@ public class User extends Credentialed implements Comparable<User> {
       stmt.setString(3, email);
       stmt.setString(4, pendingEmail);
       stmt.setInt(5, accessLevel.ordinal());
-      stmt.setBytes(6, SQLBuilder.uuidToBytes(getID()));
+      stmt.setBytes(6, SQLBuilder.uuidToBytes(verifyToken));
+      stmt.setBytes(7, SQLBuilder.uuidToBytes(getID()));
       
       if(0 == stmt.executeUpdate()) {
         YasssCore.getDB().close(null, stmt, null);
@@ -403,7 +440,8 @@ public class User extends Credentialed implements Comparable<User> {
                     "mfakey",
                     "email",
                     "pending_email",
-                    "access_level")
+                    "access_level",
+                    "verify_token")
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(getID()));
         stmt.setBytes(2, getPubkey());
@@ -411,6 +449,7 @@ public class User extends Credentialed implements Comparable<User> {
         stmt.setString(4, email);
         stmt.setString(5, pendingEmail);
         stmt.setInt(6, accessLevel.ordinal());
+        stmt.setBytes(7, SQLBuilder.uuidToBytes(verifyToken));
         stmt.executeUpdate();
       }
 

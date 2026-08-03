@@ -20,7 +20,8 @@ export const getApiInfo = (opts) => get('', opts);
 
 /** @param {'coa'|'terms'|'privacy'} id */
 export async function getText(id) {
-  const res = await requestRaw(`/texts/${id}`, { accept: 'text/markdown' });
+  // Public content: send no credentials to an endpoint that does not read them.
+  const res = await requestRaw(`/texts/${id}`, { accept: 'text/markdown', anonymous: true });
   return res.text();
 }
 
@@ -122,6 +123,22 @@ export const updateVolunteer = (eventId, volunteerId, changes) =>
 
 export const removeVolunteer = (eventId, volunteerId) =>
   del(`/events/${eventId}/volunteers/${volunteerId}`);
+
+/**
+ * Confirm a reminder subscription from an emailed link.
+ *
+ * Not CAPTCHA-gated, and neither is the unsubscribe: both are one-click links
+ * from a mail client, and a CAPTCHA in front of an unsubscribe is a
+ * deliverability liability. The token is the only credential either one has.
+ */
+export const confirmReminders = (eventId, volunteerId, token) =>
+  put(`/events/${eventId}/volunteers/${volunteerId}/reminders`, { token }, { anonymous: true });
+
+export const unsubscribeReminders = (eventId, volunteerId, token) =>
+  del(`/events/${eventId}/volunteers/${volunteerId}/reminders`, {
+    query: { token },
+    anonymous: true,
+  });
 
 // --- rsvps -----------------------------------------------------------------
 

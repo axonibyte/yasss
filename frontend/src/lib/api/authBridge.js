@@ -7,11 +7,10 @@
  * (session -> api -> session). State registers itself here at boot instead.
  */
 
-/** @type {{ getToken(): string|null, onRotate(token: string): void, onLost(): void }} */
+/** @type {{ getToken(): string|null, onRotate(token: string): void }} */
 let bridge = {
   getToken: () => null,
   onRotate: () => {},
-  onLost: () => {},
 };
 
 export function installAuthBridge(impl) {
@@ -20,9 +19,8 @@ export function installAuthBridge(impl) {
 
 /** Test helper — restores the inert default. */
 export function resetAuthBridge() {
-  bridge = { getToken: () => null, onRotate: () => {}, onLost: () => {} };
+  bridge = { getToken: () => null, onRotate: () => {} };
 }
 
 export const getToken = () => bridge.getToken();
 export const notifyRotate = (token) => bridge.onRotate(token);
-export const notifyLost = () => bridge.onLost();

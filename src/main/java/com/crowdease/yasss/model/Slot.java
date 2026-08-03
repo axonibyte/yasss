@@ -116,7 +116,7 @@ public class Slot {
                   "v.event",
                   "v.name",
                   "v.reminders_enabled",
-                  "v.ip_addr")
+                  "v.ip_addr_bin")
               .tableAlias("r")
               .join(
                   Join.INNER,
@@ -148,7 +148,7 @@ public class Slot {
                     res.getBytes("v.event")),
                 res.getString("v.name"),
                 res.getBoolean("v.reminders_enabled"),
-                res.getString("v.ip_addr")));
+                res.getString("v.ip_addr_bin")));
       }
 
       if(!rsvps.isEmpty()) {
@@ -265,7 +265,7 @@ public class Slot {
                   "v.event",
                   "v.name",
                   "v.reminders_enabled",
-                  "v.ip_addr")
+                  "v.ip_addr_bin")
               .tableAlias("r")
               .join(
                   Join.INNER,
@@ -298,7 +298,7 @@ public class Slot {
                     res.getBytes("v.event")),
                 res.getString("v.name"),
                 res.getBoolean("v.reminders_enabled"),
-                res.getString("v.ip_addr")));
+                res.getString("v.ip_addr_bin")));
       
     } catch(SQLException e) {
       throw e;

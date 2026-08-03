@@ -35,7 +35,7 @@ describe('parseRoute', () => {
 
   it('yields nulls for a bare URL', () => {
     expect(parseRoute('')).toEqual({
-      eventId: null, action: null, user: null, token: null, share: false,
+      eventId: null, action: null, user: null, volunteer: null, token: null, share: false,
     });
   });
 });

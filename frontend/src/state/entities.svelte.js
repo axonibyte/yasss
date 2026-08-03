@@ -92,6 +92,12 @@ export class EventWindow {
   id = $state(null);
   begin = $state(null);
   end = $state(null);
+  /**
+   * The event's IANA zone, copied down so the label can be a plain derived.
+   * Null renders in the viewer's own zone, which is what every event created
+   * before zones existed does.
+   */
+  timezone = $state(null);
 
   constructor(init = {}) {
     Object.assign(this, init);
@@ -102,7 +108,7 @@ export class EventWindow {
    * injected it with `.html()`; components render the parts separately so
    * nothing reaches the DOM as markup.
    */
-  labelParts = $derived(fmtDateRangeParts(this.begin, this.end));
+  labelParts = $derived(fmtDateRangeParts(this.begin, this.end, this.timezone));
 }
 
 export class Detail {
@@ -124,6 +130,10 @@ export class Volunteer {
   id = $state(null);
   name = $state('');
   remindersEnabled = $state(false);
+  /** Where reminders go. Never returned by the server -- only ever sent. */
+  reminderEmail = $state('');
+  /** Read-only: whether the server holds a confirmed address for them. */
+  reminderConfirmed = $state(false);
   user = $state(null);
   /** detailKey -> string | boolean */
   values = new SvelteMap();

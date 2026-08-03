@@ -65,17 +65,9 @@ public final class ListEventsEndpoint extends APIEndpoint {
       Timestamp earliest = deserializer.getTimestamp("earliest");
       Timestamp latest = deserializer.getTimestamp("latest");
 
-      // An ADMIN may list anything. Anyone else may list only their own events
-      // -- which is what the logged-in dashboard does, and what an unconditional
-      // ADMIN check made impossible. This has to run after deserialization so
-      // the scoping arguments are available.
-      if(!auth.atLeast(AccessLevel.ADMIN)) {
-        UUID self = null == auth.getActor() ? null : auth.getActor().getID();
-        boolean scopedToSelf = null != self
-            && (self.equals(adminID) || self.equals(volunteerID));
-        if(!scopedToSelf)
-          throw new EndpointException(req, "access denied", 403);
-      }
+      // Has to run after deserialization, so the scoping arguments are available.
+      if(!mayList(auth, adminID, volunteerID))
+        throw new EndpointException(req, "access denied", 403);
 
       Integer limit = 10; // skipped if `latest` is specified
       if(deserializer.has("limit")) {
@@ -120,5 +112,36 @@ public final class ListEventsEndpoint extends APIEndpoint {
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
+  }
+
+  /**
+   * Determines whether a caller may list the events these arguments scope to.
+   *
+   * <p>An {@link AccessLevel#ADMIN} may list anything. Anyone else may list only
+   * events scoped to their own account, which is what the logged-in dashboard
+   * does and what an unconditional ADMIN check made impossible -- a normal user
+   * listing their own events got a 403, and the client then read {@code events}
+   * off {@code undefined}.
+   *
+   * <p>Note that an <em>unscoped</em> listing stays ADMIN-only. Widening this to
+   * "anyone signed in" would turn the dashboard fix into a way to enumerate
+   * every event on the platform.
+   *
+   * <p>Extracted so it is testable at all: the endpoint's own path needs a Spark
+   * {@link Request} and a live database, and this is the part with teeth.
+   *
+   * @param auth the caller's {@link Authorization}
+   * @param adminID the {@code admin} scope argument, or {@code null}
+   * @param volunteerID the {@code volunteer} scope argument, or {@code null}
+   * @return {@code true} if the listing is permitted
+   */
+  static boolean mayList(Authorization auth, UUID adminID, UUID volunteerID) {
+    if(auth.atLeast(AccessLevel.ADMIN)) return true;
+
+    // Guarded on the actor rather than on IS_AUTHENTICATED because atLeast
+    // short-circuits to true when the signin requirement is disabled, which
+    // would leave getActor() null.
+    UUID self = null == auth.getActor() ? null : auth.getActor().getID();
+    return null != self && (self.equals(adminID) || self.equals(volunteerID));
   }
 }

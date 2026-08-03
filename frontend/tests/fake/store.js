@@ -10,19 +10,58 @@ import { randomUUID } from 'node:crypto';
 
 export function createStore() {
   return {
-    users: new Map(), // id -> {id, email, pubkey, accessLevel}
+    users: new Map(), // id -> {id, email, pendingEmail, pubkey, accessLevel, verifyToken}
     events: new Map(), // id -> event
-    sessions: new Map(), // token -> userId
     /** Deterministic ids make failures readable. */
     seq: 0,
+    /**
+     * Bumped by /__test__/rotate-signer so the next minted session token
+     * differs. Models the real ticket engine rolling its signing key.
+     */
+    signerEpoch: 0,
+    /** Addresses that unsubscribed, platform-wide. */
+    suppressed: new Set(),
+    /** Everything the fake would have mailed, newest last. */
+    mail: [],
   };
+}
+
+/** Finds a volunteer across the store, or null. */
+export function findVolunteer(store, eventId, volunteerId) {
+  const event = store.events.get(eventId);
+  return event?.volunteers.find((v) => v.id === volunteerId) ?? null;
 }
 
 export const nextId = (store, prefix) => `${prefix}-${String(++store.seq).padStart(4, '0')}`;
 
-export function seedUser(store, { email = 'ada@example.com', accessLevel = 'STANDARD', pubkey = 'PUBKEY' } = {}) {
+/**
+ * Seed a user.
+ *
+ * The default email is derived from the allocated id rather than being a fixed
+ * literal, and that is load-bearing rather than tidy: identity is now resolved
+ * by email, so two specs seeding a default user under parallel workers would
+ * otherwise create two accounts sharing an address and `find` would return
+ * whichever came first — reintroducing exactly the cross-worker ambiguity the
+ * per-request decoding removes.
+ */
+export function seedUser(store, {
+  email, accessLevel = 'STANDARD', pubkey = 'PUBKEY', pendingEmail = null, verifyToken = null,
+} = {}) {
   const id = nextId(store, 'user');
-  store.users.set(id, { id, email, pubkey, accessLevel });
+  store.users.set(id, {
+    id,
+    // An UNVERIFIED account has no verified address yet -- the one it
+    // registered with is pending until the emailed link is clicked.
+    email: accessLevel === 'UNVERIFIED' ? null : (email ?? `${id}@example.com`),
+    pendingEmail: accessLevel === 'UNVERIFIED'
+      ? (pendingEmail ?? email ?? `${id}@example.com`)
+      : pendingEmail,
+    pubkey,
+    accessLevel,
+    // An account that registered is always waiting on a link, so seeding one
+    // UNVERIFIED without a token would model a state the server never produces.
+    verifyToken: verifyToken ?? (accessLevel === 'UNVERIFIED' ? randomUUID() : null),
+  });
   return store.users.get(id);
 }
 
@@ -41,6 +80,12 @@ export function seedEvent(store, {
   /** Serializable alternative to `enabled`, for seeding over HTTP. */
   disabledSlots = null,
   admin = null,
+  /** IANA zone; null means each viewer renders in their own. */
+  timezone = null,
+  /** Explicit window instants, for specs that assert on rendered times. */
+  windowTimes = null,
+  /** Minutes of notice for reminders; null uses the platform default. */
+  reminderLeadTime = null,
   title = 'Bake Sale',
   description = 'Cakes and things',
   allowMultiUserSignups = false,
@@ -53,8 +98,8 @@ export function seedEvent(store, {
 
   const windowList = Array.from({ length: windows }, (_, i) => ({
     id: nextId(store, 'window'),
-    begin: Date.UTC(2030, 0, 1 + i, 14),
-    end: Date.UTC(2030, 0, 1 + i, 22),
+    begin: windowTimes?.[i]?.begin ?? Date.UTC(2030, 0, 1 + i, 14),
+    end: windowTimes?.[i]?.end ?? Date.UTC(2030, 0, 1 + i, 22),
   }));
 
   // `disabledSlots` arrives as [[activity, window], ...] from the test harness,
@@ -90,6 +135,8 @@ export function seedEvent(store, {
   const event = {
     id,
     admin,
+    timezone,
+    reminderLeadTime,
     shortDescription: title,
     longDescription: description,
     emailOnSubmission: false,
@@ -104,6 +151,9 @@ export function seedEvent(store, {
       name: v.name,
       user: v.user ?? null,
       remindersEnabled: false,
+      reminderEmail: null,
+      reminderState: 'NONE',
+      reminderToken: null,
       details: v.details ?? [],
     })),
   };
@@ -120,26 +170,57 @@ export function seedEvent(store, {
  * reason the frontend has a DTO layer, so the fake must reproduce it rather
  * than quietly normalize it.
  */
+/** Ascending `priority`, ties broken by insertion order to stay deterministic. */
+const byPriority = (list) => list
+  .map((item, i) => ({ item, i }))
+  .sort((a, b) => (a.item.priority ?? 0) - (b.item.priority ?? 0) || a.i - b.i)
+  .map(({ item }) => item);
+
+/**
+ * The volunteer shape the server actually emits.
+ *
+ * `reminderEmail` and `reminderToken` are deliberately withheld: the real server
+ * emits only whether a confirmed address exists, so an organiser reading their
+ * own event cannot harvest volunteers' contact details. Spreading the stored
+ * record here would hand the frontend a field it must never learn to rely on.
+ */
+function serializeVolunteer(v) {
+  const { reminderEmail, reminderState, reminderToken, ...rest } = v;
+  return { ...rest, reminderConfirmed: reminderState === 'CONFIRMED' };
+}
+
 export function serializeEventRead(event, { actor = null } = {}) {
   const owns = actor !== null && actor === event.admin;
 
   return {
     id: event.id,
     admin: event.admin,
+    timezone: event.timezone ?? null,
+    reminderLeadTime: event.reminderLeadTime ?? null,
     shortDescription: event.shortDescription,
     longDescription: event.longDescription,
     emailOnSubmission: event.emailOnSubmission,
     allowMultiUserSignups: event.allowMultiUserSignups,
     isPublished: event.isPublished,
-    activities: event.activities.map((a) => ({ ...a, slots: a.slots.map((s) => ({ ...s })) })),
-    windows: event.windows.map((w) => ({ id: w.id, begin: w.begin, end: w.end })),
-    details: event.details.map((d) => ({ ...d })),
+    // Sorted by priority, as the real server does (Event.java:656, 759). The
+    // fake used to return insertion order, which hid the fact that reordering
+    // has to push `priority` to survive a reload -- a purely local reorder
+    // looked correct here and reverted against the real server.
+    activities: byPriority(event.activities)
+      .map((a) => ({ ...a, slots: a.slots.map((s) => ({ ...s })) })),
+    // Windows have no priority column and are ordered by begin_time.
+    windows: [...event.windows]
+      .sort((a, b) => a.begin - b.begin)
+      .map((w) => ({ id: w.id, begin: w.begin, end: w.end })),
+    details: byPriority(event.details).map((d) => ({ ...d })),
     // The server filters volunteers the caller may not see. A guest gets an
     // empty list but still sees the per-slot rsvp id lists, so the grid has to
     // render counts rather than names.
     volunteers: owns
-      ? event.volunteers.map((v) => ({ ...v }))
-      : event.volunteers.filter((v) => v.user !== null && v.user === actor).map((v) => ({ ...v })),
+      ? event.volunteers.map(serializeVolunteer)
+      : event.volunteers
+          .filter((v) => v.user !== null && v.user === actor)
+          .map(serializeVolunteer),
     volunteersMaxed: event.allowMultiUserSignups || owns
       ? false
       : event.volunteers.length >= 1,

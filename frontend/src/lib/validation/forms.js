@@ -38,16 +38,36 @@ function capError(value, label) {
 
 // --- event summary ---------------------------------------------------------
 
-export function validateSummary({ title, description, notifyOnSignup, allowMultiuserSignups }) {
+/** One year in minutes — the server refuses anything longer. */
+export const LEAD_MIN = 1;
+export const LEAD_MAX = 525_600;
+
+export function validateSummary({
+  title, description, notifyOnSignup, allowMultiuserSignups, reminderLeadTime,
+}) {
+  const errors = {};
   const trimmed = String(title ?? '').trim();
-  if (trimmed === '') {
-    return fail({ title: 'The title of your event cannot be blank.' });
+  if (trimmed === '') errors.title = 'The title of your event cannot be blank.';
+
+  // Blank means "use the platform default", which is a real choice rather than
+  // a missing value — so it is only validated when something was typed.
+  let lead = null;
+  const rawLead = String(reminderLeadTime ?? '').trim();
+  if (rawLead !== '') {
+    lead = Number(rawLead);
+    if (!Number.isInteger(lead) || lead < LEAD_MIN || lead > LEAD_MAX) {
+      errors.reminderLeadTime =
+        `Reminder lead time needs to be a whole number of minutes between ${LEAD_MIN} and ${LEAD_MAX}.`;
+    }
   }
+
+  if (Object.keys(errors).length) return fail(errors);
   return ok({
     title: trimmed,
     description: String(description ?? '').trim(),
     notifyOnSignup: Boolean(notifyOnSignup),
     allowMultiuserSignups: Boolean(allowMultiuserSignups),
+    reminderLeadTime: lead,
   });
 }
 
@@ -126,9 +146,17 @@ export function validateDetail({ type, label, hint, required }) {
  * @param {object}   input
  * @param {string}   input.name
  * @param {Map|object} input.values  detail key -> raw value
+ * @param {boolean}  [input.remindersEnabled]
+ * @param {string}   [input.reminderEmail]
  * @param {Array}    details         the event's details, each {key, type, required}
+ * @param {object}   [ctx]
+ * @param {string|null} [ctx.accountEmail] address the server would fall back to
  */
-export function validateVolunteer({ name, values }, details = []) {
+export function validateVolunteer(
+  { name, values, remindersEnabled = false, reminderEmail = '' },
+  details = [],
+  { accountEmail = null } = {},
+) {
   const errors = {};
   const read = (key) => (values instanceof Map ? values.get(key) : values?.[key]);
 
@@ -162,8 +190,20 @@ export function validateVolunteer({ name, values }, details = []) {
     serialized.push({ detailKey: detail.key, value });
   }
 
+  // Opting in needs an address the server will accept. Leaving it blank is only
+  // valid when the server has one to fall back to -- otherwise it answers 400
+  // and the volunteer sees a failure with no field to blame.
+  const trimmedEmail = String(reminderEmail ?? '').trim().toLowerCase();
+  if (remindersEnabled) {
+    if (trimmedEmail === '') {
+      if (!accountEmail) errors.reminderEmail = 'Please provide an email address.';
+    } else if (!DETAIL_TYPES.EMAIL.pattern.test(trimmedEmail)) {
+      errors.reminderEmail = DETAIL_TYPES.EMAIL.message;
+    }
+  }
+
   if (Object.keys(errors).length) return fail(errors);
-  return ok({ name: trimmedName, details: serialized });
+  return ok({ name: trimmedName, details: serialized, reminderEmail: trimmedEmail });
 }
 
 // --- account credentials ---------------------------------------------------

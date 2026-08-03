@@ -13,7 +13,9 @@
    * `minDate` was pinned to tomorrow even when editing an existing window whose
    * start was already in the past, making it uneditable.
    */
+  import { untrack } from 'svelte';
   import { tomorrowAt } from '../../lib/format/dates.js';
+  import { loadCalendar } from '../../lib/calendar.js';
 
   let {
     begin = $bindable(null),
@@ -25,12 +27,15 @@
   let element = $state(null);
 
   $effect(() => {
-    if (!element || !window.bulmaCalendar) return;
+    if (!element) return;
+
+    // Read untracked. This effect *owns* begin and end once mounted — it
+    // publishes into them — so tracking them here would make it retrigger
+    // itself and re-attach the picker in a loop.
+    const defaultBegin = untrack(() => begin) ?? tomorrowAt(8);
+    const defaultEnd = untrack(() => end) ?? tomorrowAt(17);
 
     // Distinct Date instances — never share a reference between these.
-    const defaultBegin = begin ?? tomorrowAt(8);
-    const defaultEnd = end ?? tomorrowAt(17);
-
     const options = {
       displayMode: 'dialog',
       isRange: true,
@@ -44,18 +49,41 @@
     };
     if (restrictToFuture) options.minDate = tomorrowAt(0);
 
-    const [instance] = window.bulmaCalendar.attach(element, options);
+    // Publish the defaults synchronously, before the picker has loaded.
+    //
+    // Two problems this solves at once. The picker renders its default range as
+    // soon as it attaches, so without an eager publish the field would show a
+    // perfectly good range while the bound values were still null, and saving
+    // would ask the user to specify a range they can already see. And now that
+    // the picker arrives asynchronously, a user quick enough to press Save
+    // before a megabyte of JavaScript downloads would hit exactly that. The
+    // defaults are known here and now, so there is no reason to wait for them.
+    begin = options.startDate;
+    end = options.endDate;
 
-    const onSelect = () => {
-      begin = instance.startDate ?? null;
-      end = instance.endDate ?? null;
-    };
-    instance.on('select', onSelect);
-    instance.on('save', onSelect);
+    let cancelled = false;
+    let instance = null;
 
+    loadCalendar().then((bulmaCalendar) => {
+      if (cancelled) return;
+      [instance] = bulmaCalendar.attach(element, options);
+
+      const publish = () => {
+        begin = instance.startDate ?? null;
+        end = instance.endDate ?? null;
+      };
+      publish();
+
+      instance.on('select', publish);
+      instance.on('save', publish);
+    });
+
+    // Returned synchronously, so Svelte always has a teardown even if the
+    // effect re-runs before the loader resolves.
     return () => {
-      instance.removeListeners?.();
-      instance.destroy?.();
+      cancelled = true;
+      instance?.removeListeners?.();
+      instance?.destroy?.();
     };
   });
 </script>

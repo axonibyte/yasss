@@ -1,0 +1,19 @@
+# The application under test.
+#
+# Deliberately just the shadow jar on a stock JRE: the point of this suite is to
+# exercise the real server against a real database, so the image should add as
+# little of its own as possible.
+FROM docker.io/library/eclipse-temurin:17-jre
+
+WORKDIR /app
+
+# Built on the host by Gradle, which also runs the Vite build -- the frontend is
+# served from the jar's classpath, so the bundle inside this jar is the same one
+# a production deployment serves.
+COPY yasss.jar /app/yasss.jar
+COPY config/ /app/config/
+
+EXPOSE 7455
+
+# Reads db.location, ticket secrets and so on from the mounted config.
+ENTRYPOINT ["java", "-jar", "/app/yasss.jar", "--config.file", "/app/config/yasss.cfg"]

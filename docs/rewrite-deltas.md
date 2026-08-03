@@ -82,6 +82,37 @@ Further behavior changes from the later phases:
 | Window picker | one `Date` aliased between `startDate` and `startTime`; `minDate` pinned to tomorrow even when editing | distinct instances; floor applies only to new windows | An existing window starting in the past was uneditable |
 | Slot modal jump links | synthesized a click on a cell found by a stored index | plain callbacks with the entity in hand | The index was stale or undefined once the grid had scrolled |
 
+### Backend fixes, final phase
+
+| Where | Was | Now | Why |
+|---|---|---|---|
+| `CreateUserEndpoint` | `accessLevel` read from the request body with no authority check | requesting a level requires ADMIN; the first account on an empty install is still ADMIN regardless | **Privilege escalation.** Any anonymous caller could self-provision a platform ADMIN by asking for one. `ModifyUserEndpoint` gates the same field, which is what establishes this as an oversight. Denied explicitly rather than silently downgraded, so a tool that has lost its credentials fails loudly instead of quietly creating an UNVERIFIED account. |
+| `ListUsersEndpoint` | `getInt` on query params, which are always `String` | `queryInt` | The same defect already fixed in `ListEventsEndpoint`, applied to one of a matched pair |
+| `Add`/`ModifyDetailEndpoint`, `CreateEventEndpoint` | `priority` unbounded into a `TINYINT UNSIGNED` | 0–255, matching the activity endpoints | Out-of-range values became a database error and a 500 |
+| Every text field | no length validation anywhere | `bounded()` at 16 sites; `validPubkey()` on the key | Found by the fuzzer. A 300-character value became a truncation warning or a 500, never a 400 |
+| `Volunteer.commit` | `whereIn("detail_field", true, 0)` emitted `NOT IN ()` | the clause is dropped when the set is empty | **Pre-existing on `main`.** Re-committing a volunteer on an event with no custom fields was a syntax error, so `ModifyVolunteerEndpoint` was simply broken for those events |
+| `Mail.send` | threw on any mailer failure | logs and returns `false` | A `MailerException` propagated out of `AddVolunteerEndpoint` and turned the whole signup into a 500 — the volunteer was lost. With SMTP down, nobody could sign up at all |
+| `defaults/yasss.cfg` | `email.smtp.username` | `email.smtp.user` | `ParamEnum` reads `user`; the shipped default meant the app failed to boot with email enabled |
+
+### Volunteer reminders — new feature
+
+Reminders were described in the schema and the mail templates but implemented nowhere; see
+`docs/remaining-work.md` §5. What was built:
+
+| Piece | Note |
+|---|---|
+| Schema | `volunteer.reminder_email`, `.reminder_state`, `.reminder_token`; a `reminder_log` dedup ledger; a platform-wide `reminder_suppression` table; an index on `(event, begin_time)` without which the finder full-scans every poll |
+| Consent | `remindersEnabled` keeps its meaning as the volunteer's *intent*; `reminder_state` carries the consent fact, and the daemon requires both. Rules live in `ReminderConsent` so create and modify cannot drift |
+| Double opt-in | A `PENDING` address gets a `signup-prompt` email and is never delivered to. An address already proven by the caller's own verified account skips it |
+| Token | A stored `reminder_token`, **not** `TicketEngine` — its signers live in memory, rotate on a ~15-minute horizon and are lost on restart. An unsubscribe link must work months later |
+| Daemon | `ReminderEngine`, modelled on `TicketEngine` but catching `SQLException` *inside* the loop, naming its thread, and wrapping each send. Claims are taken **before** sending: at-most-once is the right bias for email, and a duplicate reminder is worse than a missed one |
+| Unsubscribe | One click, no CAPTCHA, platform-wide suppression. Confirming an address later lifts that suppression, since clicking a link in mail sent there is proof of control |
+| Disclosure | The address is never returned by any endpoint. `reminderConfirmed` says only that one exists |
+
+Two supporting changes: `upcoming-event.json` was a zero-byte file that threw an unchecked
+exception on any use and is deleted; `signup-prompt.json`'s subject was byte-identical to
+`signup-alert.json`'s.
+
 ---
 
 ## Dependency changes
@@ -91,7 +122,7 @@ Further behavior changes from the later phases:
 | Svelte 4.0.5 / Vite 4.4.5 | Svelte 5.56.8 / **Vite 8.2.0** | The plan said Vite 6, on the belief that `@sveltejs/vite-plugin-svelte@5` was the current pairing. It is not — plugin 7 requires Vite 8, and Vite 6 would have meant adopting a two-major-versions-old build tool. Vitest 4 supports 6/7/8, so nothing else was constrained. **Flagged as a deviation from the approved plan.** |
 | vendored `axb-sig-req.min.js` (74 KB browserify bundle, `window.genCreds`) | `@noble/ed25519` + `scrypt-js`, ~60 lines in `src/lib/crypto/creds.js` | Byte-for-byte verified against the legacy bundle and `node:crypto` — see `docs/legacy/creds-golden-vectors.json` |
 | vendored jQuery, js-cookie, bulma-slider, bulma-toast, showdown, Bulma + CSS plugins | npm, bundled through Vite | Versioned and deduplicated |
-| vendored `bulma-calendar.min.{js,css}` | **still vendored**, in `public/vendor/` | Deliberate — replacing it would change the datetime picker's look |
+| vendored `bulma-calendar.min.{js,css}` | `bulma-calendar@7.1.1` from npm, **lazily imported** | The vendored files are byte-identical to the published package (verified by SHA-256), so installing it is provably behaviour-neutral. 1,014 KB of JS and 75 KB of CSS were shipped to every visitor for a modal only an organiser opens. Vite splits the async chunk and emits its CSS `<link>` separately — which is why `app.scss`'s two `.datetimepicker .timepicker` overrides had to move into the lazily-imported stylesheet, or the async `<link>` would load after them and win |
 | `bulma-block-list.min.css` (compiled) | `bulma-block-list/src/block-list.scss` via `sass` | Ships SCSS only; using the source keeps it versioned |
 | Node 18.17.0 | Node 22.20.0 | Vitest 4 dropped Node 18 |
 | node-gradle plugin 7.0.0 | 7.1.0 | |
@@ -113,3 +144,54 @@ Further behavior changes from the later phases:
 | `bitbucket-pipelines.yml` | only `main` built or tested anything | every branch runs the frontend and build steps in parallel | This is how a frontend that had never been executed reached a release branch. |
 | `bitbucket-pipelines.yml` | `gradlew clean test shadowJar` | `gradlew clean check shadowJar`, plus a Playwright step on `mcr.microsoft.com/playwright` | `check` covers the Java and frontend unit suites; the browser suite is separate so the build step stays quick |
 | `frontend/.reference/` | legacy `app.js` and `index.html` kept during the port | **deleted**; `axb-sig-req.min.js` **retained** | The first two are fully described by `docs/legacy/` and recoverable from git. The signing bundle stays as an executable oracle for regenerating the credential vectors — a deliberate departure from the plan, which called for deleting all of it. |
+
+### Backlog phase — bugs found while implementing it
+
+| Where | Was | Now | Why |
+|---|---|---|---|
+| `VerifyUserEndpoint` | moved the pending address onto the account but never promoted `access_level` | promotes `UNVERIFIED` to `STANDARD` | Verifying granted no access. The user could suddenly log in — authentication resolves against `email`, which verification populates — but every endpoint gated on `atLeast(STANDARD)` still refused them, so a self-registered account could never create an event without an ADMIN promoting it by hand |
+| `VerifyUserEndpoint`, `CreateUserEndpoint` | verification link signed by `TicketEngine` | a stored, single-use `verify_token` | Ticket signers rotate on a ~15-minute horizon and are lost on restart, so a welcome email was dead on arrival. Same reasoning as the reminder token |
+| `Slot.java` | selected `v.ip_addr` and wrapped it in `INET6_NTOA` | selects `v.ip_addr_bin` | `INET6_NTOA` expects `VARBINARY`, so every volunteer's IP came back NULL from the two slot queries. Missed when 006 introduced the binary column |
+| `Volunteer.commit` | `whereIn("detail_field", true, 0)` emitted `NOT IN ()` | the clause is dropped when the set is empty | **Pre-existing on `main`.** Re-committing a volunteer on an event with no custom fields was a syntax error, so `ModifyVolunteerEndpoint` was broken outright for those events |
+| `api.allowedOrigins` | defaulted to `*` | defaults to the sentinel `same-origin`, resolved to `api.host` | A wildcard let any site read the responses to anonymous requests. An explicit value, `*` included, is still honoured |
+| `volunteer.user` | no foreign key | `ON UPDATE CASCADE ON DELETE SET NULL`, matching `event.admin_user` | Deleting a user left dangling references. `SET NULL` rather than `CASCADE` because losing an account must not destroy the signup — anonymous is a state the schema already models |
+| `volunteer.ip_addr` | retained after the IPv6 widening | dropped, along with its ADD and backfill scripts | Keeping them meant re-adding and re-dropping the column on every boot, and the ADD carried an `AFTER` clause — a full InnoDB table rebuild twice per start |
+| Fake API | returned activities and details in insertion order | sorts both by `priority`, as the server does | The double was unfaithful in exactly the way that would have hidden the reordering work: a purely local reorder looked correct in every spec and reverted against the real server |
+
+### Backlog phase — features
+
+| Feature | Note |
+|---|---|
+| **Per-event timezone** | Events carry an IANA zone, captured from the organiser's browser at creation and validated server-side against `ZoneId`. Every surface renders in it — grid, modals, email, the printable report — so a volunteer elsewhere sees the event's local time rather than their own. Instants were never ambiguous on the wire (epoch ms); the bug was that each surface picked its own zone, so the grid and the reminder email described the same shift differently. A NULL zone keeps the old viewer-local behaviour, so nothing changes retroactively. The zone is named once on the event rather than on every window header — the grid holds five fixed columns at any width and an abbreviation on each costs more than it explains |
+| **Per-event reminder lead time** | An optional override on the global `reminders.leadTime`. The horizon is computed per row in SQL (`DATE_ADD(?, INTERVAL COALESCE(e.reminder_lead_time, ?) MINUTE)`) rather than filtered afterwards in Java, which keeps `batchSize` meaningful — a Java-side filter would let a batch fill with rows that are not due and starve ones that are. Bounded to a year: an unbounded lead makes every future event permanently due, so the next sweep mails the entire backlog at once |
+| **Reordering activities and details** | The server was always ready — `priority` is tokenized on both endpoints and is the sort key — but nothing ever set it. Moving renumbers the whole list and pushes only what changed, because nothing guarantees existing priorities are contiguous and swapping two values within a degenerate set does nothing. Windows stay unorderable by design: no priority column, sorted by `begin_time`. Activity controls live in the activity modal rather than the grid header, because `GridCell`'s class string is normative and asserted by the conformance suite |
+| **Dark mode** | `app.scss` emits Bulma's light variables into `:root` and its dark ones behind `prefers-color-scheme`, and `index.html` no longer pins `theme-light`. The `prefers-color-scheme: light` block upstream emits is skipped as a duplicate of `:root`, and the `.theme-*` class variants stay dropped since nothing toggles by class. Costs about 120 KB raw / 9 KB gzipped |
+| **Narrow viewports** | The grid is a matrix — a cell means "this activity, at this window" — so it cannot reflow to fewer columns without losing its meaning. Instead the column width has a 7.5rem floor and the grid scrolls within its own container; the document never scrolls sideways. Previously five fixed columns gave roughly 65px per tile on a phone |
+| **Printable report** | A real design pass: point-sized for paper, `@page` margins, `break-inside: avoid` so a window's sheet is not split mid-slot, print colour-adjust so the header fills survive, and writing rules on the blank rows. Also now renders in the event's zone and names it — the sheet is printed and carried to the event, so the server's zone was never the right one |
+
+---
+
+## Bundle size
+
+Measured on the production build, not estimated. "Initial load" is what a visitor opening an
+event actually downloads; before the change there was no such distinction, because everything
+was loaded eagerly from `index.html`.
+
+| | Before | After |
+|---|---|---|
+| Initial load, raw | 2,106,141 B | 601,960 B |
+| Initial load, gzipped | — | 108,615 B |
+
+The initial load grew by about 10 KB raw / 2 KB gzipped over the mid-rewrite measurement,
+which is the dark-theme variable set and the new UI. Still under a third of what shipped
+before.
+
+Two changes account for nearly all of it. The calendar (1,089 KB) is no longer in the initial
+payload at all. The stylesheet went from all of Bulma (678 KB) to a modular build: dropping
+`helpers/color` — 181 KB, 27% of Bulma, for the single `.has-text-primary` rule actually used,
+now hand-written — and emitting the light theme only, since `themes/_index.scss` emits the
+full variable set five times and `index.html` pins `theme-light`.
+
+Two traps worth recording for whoever prunes further: `elements/notification` powers every
+`bulma-toast` and is invisible to a markup grep because the classes are injected at runtime,
+and `lib/grid.js` builds class strings in JS.

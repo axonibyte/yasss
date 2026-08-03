@@ -1,0 +1,74 @@
+/**
+ * Identity decoding for the fake API.
+ *
+ * The fake verifies no signatures. `creds.test.js` already owns that, against
+ * committed golden vectors, and reproducing Ed25519 here would only test the
+ * reproduction — scrypt at N=16384 costs seconds per derivation, so the fake
+ * would have to run the KDF just to seed a user.
+ *
+ * What it must get right is *whose* credentials these are, and that is
+ * recoverable from the payload itself. `genCreds` emits
+ * `base64(JSON({creds, sig}))` where `creds` is the literal
+ * `JSON.stringify({email, mfa})`; the session tokens minted here wrap
+ * `base64(JSON({account}))`. The real server decodes exactly this way — try
+ * base64 on `creds`, fall back to raw JSON (`AuthToken.java:71-77`).
+ *
+ * The point is that this is **per request**. What it replaces was a single
+ * global `pendingLogin`, armed by a test-control endpoint and consumed
+ * destructively, so under `fullyParallel: true` one worker's login could be
+ * claimed by another worker's request. That is why no spec ever authenticated.
+ */
+
+const decodeJson = (b64) => JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+
+/**
+ * Recover the identity a credential payload or session token asserts.
+ *
+ * @param {string} token the value after `AXB-SIG-REQ `
+ * @returns {{account: string} | {email: string} | null}
+ */
+export function identityOf(token) {
+  let outer;
+  try {
+    outer = decodeJson(token);
+  } catch {
+    return null;
+  }
+  if (typeof outer?.creds !== 'string') return null;
+
+  let creds;
+  try {
+    creds = decodeJson(outer.creds);
+  } catch {
+    // Our credential payloads carry raw JSON here, not base64 — the server
+    // tries both in this order, so mirroring it keeps the fake honest.
+    try {
+      creds = JSON.parse(outer.creds);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof creds?.account === 'string') return { account: creds.account };
+  if (typeof creds?.email === 'string') return { email: creds.email };
+  return null;
+}
+
+/**
+ * Mint a session token in the shape the real server uses.
+ *
+ * Deliberately stable for a given user and signer epoch. Ed25519 signatures are
+ * deterministic and the real signer only rolls on the ticket engine's refresh
+ * interval, so a repeating token is what the server actually does — the
+ * incrementing counter this replaces was less faithful, not more. `signerEpoch`
+ * models that roll for the one spec that needs to observe a rotation.
+ *
+ * The shape matters beyond cosmetics: the client round-trips this token through
+ * a cookie, so an opaque `session-user-7` string would not catch a client that
+ * mangled a base64 token on the way through.
+ */
+export function sessionToken(store, userId) {
+  const creds = Buffer.from(JSON.stringify({ account: userId })).toString('base64');
+  const sig = `fake-signature-${store.signerEpoch}`;
+  return Buffer.from(JSON.stringify({ creds, sig })).toString('base64');
+}

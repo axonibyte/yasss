@@ -16,7 +16,10 @@
  * See docs/legacy/03-api-contract.md §5.
  */
 
-/** @typedef {'verify-user'|'reset-user'|'terms'|'privacy'|'payment-success'|'payment-canceled'} Action */
+/**
+ * @typedef {'verify-user'|'reset-user'|'confirm-reminders'|'unsubscribe-reminders'
+ *   |'terms'|'privacy'|'payment-success'|'payment-canceled'} Action
+ */
 
 function parse(search = window.location.search) {
   const params = new URLSearchParams(search);
@@ -24,6 +27,9 @@ function parse(search = window.location.search) {
     eventId: params.get('event'),
     action: /** @type {Action|null} */ (params.get('action')),
     user: params.get('user'),
+    // Reminder links identify a volunteer rather than an account -- an
+    // anonymous signup has no account to identify.
+    volunteer: params.get('volunteer'),
     // The legacy re-encoded spaces to '+' because the signed token travels
     // through email clients that mangle it (app.js:2752).
     token: params.get('token')?.replace(/ /g, '+') ?? null,
@@ -35,6 +41,7 @@ class Route {
   eventId = $state(null);
   action = $state(null);
   user = $state(null);
+  volunteer = $state(null);
   token = $state(null);
   share = $state(false);
 
@@ -46,6 +53,7 @@ class Route {
   clearAction() {
     this.action = null;
     this.user = null;
+    this.volunteer = null;
     this.token = null;
   }
 

@@ -85,18 +85,24 @@ public final class ModifyDetailEndpoint extends APIEndpoint {
 
       if(deserializer.has("label")) {
         detail.setLabel(
-            deserializer.getString("label").strip());
+            bounded(req, deserializer.getString("label").strip(), "label"));
         if(detail.getLabel().isBlank())
           throw new EndpointException(req, "malformed argument (label)", 400);
       }
 
       if(deserializer.has("hint"))
         detail.setHint(
-            deserializer.getString("hint").strip());
+            bounded(req, deserializer.getString("hint").strip(), "hint"));
 
       if(deserializer.has("priority"))
         detail.setPriority(
             deserializer.getInt("priority"));
+
+      // Mirrors the 0-255 bound the activity endpoints enforce. Without it an
+      // out-of-range value reaches a TINYINT UNSIGNED column and becomes a
+      // database error and a 500 -- a client mistake reported as a server fault.
+      if(0 > detail.getPriority() || 255 < detail.getPriority())
+        throw new EndpointException(req, "malformed argument (int: priority)", 400);
 
       if(deserializer.has("required"))
         detail.setRequired(

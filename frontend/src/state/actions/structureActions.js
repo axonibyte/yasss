@@ -66,6 +66,87 @@ export async function updateActivity(event, activity, values) {
   return true;
 }
 
+/**
+ * Renumbers a list so `priority` matches display order, and pushes only what
+ * actually changed.
+ *
+ * Priority is the server's sort key while array position is the client's, so
+ * the two have to be reconciled after any move. Renumbering everything rather
+ * than swapping two values is deliberate: nothing guarantees existing
+ * priorities are contiguous — an event built before reordering existed may have
+ * every activity at 0 — and swapping within a degenerate set does nothing at
+ * all.
+ *
+ * @returns {Promise<boolean>} false if any push failed, leaving the model alone
+ */
+async function republishOrder(event, ordered, { push, label }) {
+  if (!isRemote(event)) return true;
+
+  const changed = ordered
+    .map((item, index) => ({ item, index }))
+    .filter(({ item, index }) => item.id && item.priority !== index);
+
+  try {
+    for (const { item, index } of changed) {
+      await push(event.id, item.id, { priority: index });
+    }
+  } catch (e) {
+    toastError(e, `Couldn't reorder that ${label}, sorry.`);
+    return false;
+  }
+  return true;
+}
+
+/** Moves an item one place within a list, returning the new array or null. */
+function reordered(list, item, delta) {
+  const from = list.indexOf(item);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= list.length) return null;
+
+  const next = [...list];
+  [next[from], next[to]] = [next[to], next[from]];
+  return next;
+}
+
+/**
+ * Moves an activity one column left or right.
+ *
+ * @param {number} delta -1 or 1
+ * @returns {Promise<boolean>} true if the move landed
+ */
+export async function moveActivity(event, activity, delta) {
+  const next = reordered(event.activities, activity, delta);
+  if (!next) return false;
+
+  if (!await republishOrder(event, next, { push: api.updateActivity, label: 'activity' })) {
+    return false;
+  }
+
+  next.forEach((a, i) => { a.priority = i; });
+  event.activities = next;
+  event.clampStep();
+  return true;
+}
+
+/**
+ * Moves a custom field one place up or down.
+ *
+ * @param {number} delta -1 or 1
+ * @returns {Promise<boolean>} true if the move landed
+ */
+export async function moveDetail(event, detail, delta) {
+  const next = reordered(event.details, detail, delta);
+  if (!next) return false;
+
+  if (!await republishOrder(event, next, { push: api.updateDetail, label: 'field' })) {
+    return false;
+  }
+
+  next.forEach((d, i) => { d.priority = i; });
+  event.details = next;
+  return true;
+}
+
 export async function removeActivity(event, activity) {
   if (isRemote(event) && activity.id) {
     try {
@@ -82,7 +163,7 @@ export async function removeActivity(event, activity) {
 // --- windows ---------------------------------------------------------------
 
 export async function addWindow(event, values) {
-  const win = new EventWindow(values);
+  const win = new EventWindow({ ...values, timezone: event.timezone });
 
   if (isRemote(event)) {
     try {

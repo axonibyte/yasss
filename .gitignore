@@ -363,3 +363,8 @@ src/main/resources/public/
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+# vitest --coverage output
+frontend/coverage/
+
+# E2E: jar copied in for the container build
+e2e/yasss.jar

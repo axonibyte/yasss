@@ -81,7 +81,7 @@
 
   /** Inbound links from server-sent email. */
   async function handleRouteAction() {
-    const { action, user, token } = route;
+    const { action, user, volunteer, token } = route;
     if (!action) return;
 
     switch (action) {
@@ -98,6 +98,31 @@
       case 'reset-user':
         modal = { kind: 'reset', userId: user, token };
         route.clearAction();
+        break;
+
+      // Both reminder links are one-click and unauthenticated, so they resolve
+      // to a toast rather than a modal. The server answers 200 whatever the
+      // token turns out to be -- it will not confirm or deny that a token is
+      // live to an anonymous caller -- so the message is worded as an outcome
+      // rather than a promise.
+      case 'confirm-reminders':
+        route.clearAction();
+        try {
+          await api.confirmReminders(route.eventId, volunteer, token);
+          toastSuccess("You're all set — we'll remind you before the event.");
+        } catch (e) {
+          toastError(e, "Couldn't confirm your reminders... sorry.");
+        }
+        break;
+
+      case 'unsubscribe-reminders':
+        route.clearAction();
+        try {
+          await api.unsubscribeReminders(route.eventId, volunteer, token);
+          toastSuccess("You've been unsubscribed. We won't email you reminders again.");
+        } catch (e) {
+          toastError(e, "Couldn't unsubscribe you... sorry.");
+        }
         break;
 
       case 'terms':
@@ -167,14 +192,19 @@
     modal = { kind: 'volunteer', volunteer: null };
   }
 
-  function saveNewVolunteer({ name, values }) {
-    const volunteer = new Volunteer({ name, values });
+  function saveNewVolunteer({ name, values, remindersEnabled, reminderEmail }) {
+    const volunteer = new Volunteer({ name, values, remindersEnabled, reminderEmail });
     event.addVolunteer(volunteer);
     modal = null;
   }
 
-  async function saveExistingVolunteer(volunteer, { name, values }) {
+  async function saveExistingVolunteer(
+    volunteer,
+    { name, values, remindersEnabled, reminderEmail },
+  ) {
     volunteer.name = name;
+    volunteer.remindersEnabled = remindersEnabled;
+    volunteer.reminderEmail = reminderEmail;
     volunteer.values.clear();
     for (const [k, v] of values) volunteer.values.set(k, v);
     // Only persisted volunteers hit the network; the rest go with the submit.
@@ -214,6 +244,7 @@
         description: event.description,
         notifyOnSignup: event.notifyOnSignup,
         allowMultiuserSignups: event.allowMultiuserSignups,
+        reminderLeadTime: event.reminderLeadTime,
       };
       const ok = await saveSummary(event, values, previous);
       if (!ok) return;
@@ -299,6 +330,7 @@
     }}
     onWindowClick={(win) => { modal = { kind: 'window', win, isNew: false }; }}
     onDetailClick={(detail) => { modal = { kind: 'detail', detail, isNew: false }; }}
+    onDetailMove={(detail, delta) => structure.moveDetail(event, detail, delta)}
     {onSlotClick}
     onAddActivity={() => { modal = { kind: 'activity', activity: null, isNew: true }; }}
     onAddWindow={() => { modal = { kind: 'window', win: null, isNew: true }; }}
@@ -363,6 +395,7 @@
     volunteer={modal.volunteer}
     details={event.details}
     isNew={modal.volunteer === null}
+    accountEmail={session.email}
     onSave={(data) => (modal.volunteer
       ? saveExistingVolunteer(modal.volunteer, data)
       : saveNewVolunteer(data))}
@@ -383,6 +416,14 @@
   <ActivityModal
     activity={modal.activity}
     isNew={modal.isNew}
+    canMoveLeft={event.activities.indexOf(modal.activity) > 0}
+    canMoveRight={
+      modal.activity !== null
+        && event.activities.indexOf(modal.activity) < event.activities.length - 1
+    }
+    onMove={async (delta) => {
+      if (await structure.moveActivity(event, modal.activity, delta)) modal = null;
+    }}
     onSave={async (values) => {
       const ok = modal.activity
         ? await structure.updateActivity(event, modal.activity, values)

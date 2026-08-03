@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { request, get, post } from '../../src/lib/api/client.js';
 import { installAuthBridge, resetAuthBridge } from '../../src/lib/api/authBridge.js';
-import { ApiError, SessionLostError, isNotFound, isUnpublished } from '../../src/lib/api/errors.js';
+import { ApiError, isNotFound, isUnpublished } from '../../src/lib/api/errors.js';
 
 /**
  * Build a Response-like stub. `noBody: true` simulates a non-JSON response
@@ -101,23 +101,22 @@ describe('session rotation', () => {
     expect(onRotate).toHaveBeenCalledWith('ROTATED');
   });
 
-  it('treats a missing session header on an authenticated call as a lost session', async () => {
-    const onLost = vi.fn();
-    installAuthBridge({ getToken: () => 'OLD', onLost });
-    fetchMock.mockResolvedValue(reply());
+  it('never infers a lost session from a missing header', async () => {
+    // Only endpoints extending APIEndpoint authenticate at all, and an error
+    // response never gets far enough to issue a token — so a missing header is
+    // not evidence of anything. Inferring loss from it logged users out
+    // whenever the app fetched a public text or hit a transient 500.
+    // Session.refresh() decides validity by asking an endpoint that authenticates.
+    const onRotate = vi.fn();
+    installAuthBridge({ getToken: () => 'TOKEN', onRotate });
 
-    await expect(get('/events')).rejects.toBeInstanceOf(SessionLostError);
-    expect(onLost).toHaveBeenCalled();
-  });
+    fetchMock.mockResolvedValue(reply()); // 200, no session header
+    await expect(get('/texts/coa')).resolves.toBeTruthy();
 
-  it('does NOT treat a missing session header on an anonymous call as a loss', async () => {
-    // Otherwise merely viewing a public event would log the user out.
-    const onLost = vi.fn();
-    installAuthBridge({ getToken: () => null, onLost });
-    fetchMock.mockResolvedValue(reply());
+    fetchMock.mockResolvedValue(reply({ status: 500, body: { status: 'error', info: 'boom' } }));
+    await expect(get('/events')).rejects.toBeInstanceOf(ApiError);
 
-    await expect(get('/events/abc')).resolves.toBeTruthy();
-    expect(onLost).not.toHaveBeenCalled();
+    expect(onRotate).not.toHaveBeenCalled();
   });
 
   it('surfaces the account and access level for login', async () => {

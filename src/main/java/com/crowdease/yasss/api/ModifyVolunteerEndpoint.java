@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.crowdease.yasss.model.ReminderConsent;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
@@ -77,6 +78,7 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
       JSONDeserializer deserializer = new JSONDeserializer(req.body())
         .tokenize("name", false)
         .tokenize("remindersEnabled", false)
+        .tokenize("reminderEmail", false)
         .tokenize("details", false)
         .tokenize("user", false)
         .check();
@@ -95,7 +97,7 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
       }
 
       if(deserializer.has("name")) {
-        String name = deserializer.getString("name").strip();
+        String name = bounded(req, deserializer.getString("name").strip(), "name");
         if(name.isBlank())
           throw new EndpointException(req, "malformed argument (name)", 400);
         volunteer.setName(name);
@@ -140,7 +142,38 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
         volunteer.enableReminders(
             deserializer.getBool("remindersEnabled"));
 
+      // Consent is re-resolved on every update that leaves reminders on, so a
+      // changed address is re-proven rather than inheriting the old address's
+      // confirmation. Turning reminders off leaves the stored state alone --
+      // the daemon requires both, and preserving it means switching back on with
+      // the same address does not demand a pointless second confirmation.
+      boolean promptNeeded = false;
+      if(volunteer.remindersEnabled()) {
+        var decision = ReminderConsent.resolve(
+            deserializer.has("reminderEmail")
+                ? deserializer.getString("reminderEmail")
+                : volunteer.getReminderEmail(),
+            null == auth.getActor() ? null : auth.getActor().getEmail(),
+            auth.atLeast(AccessLevel.STANDARD),
+            volunteer.getReminderEmail(),
+            volunteer.getReminderState());
+
+        if(null != decision.error())
+          throw new EndpointException(req, decision.error(), 400);
+
+        promptNeeded = Volunteer.ReminderState.PENDING == decision.state();
+        volunteer
+            .setReminderEmail(decision.email())
+            .setReminderState(decision.state());
+
+        // A fresh token on every re-prompt, so a link mailed to an address the
+        // volunteer has since corrected cannot confirm the new one.
+        if(promptNeeded) volunteer.setReminderToken(UUID.randomUUID());
+      }
+
       volunteer.commit();
+
+      if(promptNeeded) sendReminderPrompt(event, volunteer);
 
       res.status(200);
       return new JSONObject()

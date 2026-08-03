@@ -1,6 +1,6 @@
 # Yet Another Service Scheduling System (YASSS)
 
-Copyright (c) 2024 CrowdEase, LLC.
+Copyright (c) 2024-2026 CrowdEase, LLC.
 
 This system is designed as an open source alternative to other proprietary
 volunteer scheduling systems that are available on the web. This platform allows

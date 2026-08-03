@@ -12,6 +12,8 @@
   import DetailTable from './DetailTable.svelte';
   import { Mode } from '../../state/event.svelte.js';
   import { session } from '../../state/session.svelte.js';
+  import { loadCalendar } from '../../lib/calendar.js';
+  import { fmtZoneLabel, localZone } from '../../lib/format/dates.js';
 
   let {
     event,
@@ -21,30 +23,64 @@
     onAddActivity, onAddWindow, onAddField,
     onPublish, onEnterEdit, onExitEdit, onSubmitRsvps,
     onDetailClick,
+    onDetailMove = null,
   } = $props();
 
   const editingLayout = $derived(event.mode === Mode.CREATE || event.mode === Mode.EDIT);
 
+  // Warm the date picker's chunk as soon as an editing surface appears. It is a
+  // megabyte, and the only people who reach this are the ones about to need it,
+  // so fetching it now costs a volunteer nothing and spares an organiser the
+  // wait when they open the window editor.
+  $effect(() => {
+    if (editingLayout) loadCalendar().catch(() => {});
+  });
+
+  /**
+   * Whether this viewer is the event's organiser.
+   *
+   * The null check is load-bearing rather than defensive. An event published
+   * anonymously has a null `admin`, and an anonymous viewer has a null
+   * `account`, so a bare equality makes every passer-by look like the owner of
+   * every unowned event.
+   */
+  const isOwner = $derived(session.account !== null && session.account === event.admin);
+
   /** Only the event's owner may see the sign-in sheet. */
-  const canViewReport = $derived(
-    event.persisted && session.account !== null && session.account === event.admin,
+  const canViewReport = $derived(event.persisted && isOwner);
+
+  /**
+   * Named once here rather than appended to every window header: the grid holds
+   * five fixed columns at any width, and an abbreviation on each costs more
+   * than it explains.
+   *
+   * Shown only when it would tell the viewer something they do not already
+   * assume — an event with no recorded zone renders in their own, and so does
+   * an event whose zone *is* theirs. Resolved against the first window so the
+   * daylight-saving abbreviation matches the event rather than today.
+   */
+  const zoneLabel = $derived(
+    event.timezone && event.timezone !== localZone()
+      ? fmtZoneLabel(event.timezone, event.windows[0]?.begin ?? null)
+      : null,
   );
 
   const canEnterEdit = $derived(
     event.mode === Mode.VIEW
       && event.interactive
-      && (session.owns(event.id) || (session.account !== null && session.account === event.admin)),
+      && (session.owns(event.id) || isOwner),
   );
 
   /**
    * Whether another volunteer may be added. Mirrors the server's cap: with
-   * multi-user signups off, one entry per identity.
+   * multi-user signups off, one entry per identity — the organiser excepted,
+   * since they are signing other people up rather than themselves.
    */
   const canAddVolunteer = $derived(
     event.interactive
       && !editingLayout
       && (event.allowMultiuserSignups
-        || session.account === event.admin
+        || isOwner
         || (!event.volunteersMaxed && event.volunteers.length === 0)),
   );
 </script>
@@ -57,6 +93,11 @@
           <div class="cell">
             <h2 class="is-size-2">{event.title}</h2>
             <p>{event.description}</p>
+            {#if zoneLabel}
+              <p class="is-size-7 has-text-weight-semibold" data-testid="zone-note">
+                All times shown in {zoneLabel}.
+              </p>
+            {/if}
             <div class="buttons is-left">
               {#if editingLayout}
                 <button class="button is-light is-outlined is-primary is-small" onclick={onEditSummary}>
@@ -83,7 +124,11 @@
               docs/rewrite-deltas.md.
             -->
             {#if editingLayout}
-              <DetailTable details={event.details} onSelect={onDetailClick} />
+              <DetailTable
+                details={event.details}
+                onSelect={onDetailClick}
+                onMove={onDetailMove}
+              />
             {:else}
               <VolunteerPanel
                 {event}

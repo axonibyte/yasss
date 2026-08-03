@@ -9,6 +9,7 @@
  */
 import { Activity, Detail, EventWindow, Slot, Volunteer } from './entities.svelte.js';
 import { clampStep, maxStep } from '../lib/grid.js';
+import { localZone } from '../lib/format/dates.js';
 import {
   activityFromApi, detailFromApi, eventSummaryFromApi, windowFromEventRead,
 } from '../lib/api/dto.js';
@@ -31,6 +32,10 @@ export class EventModel {
   notifyOnSignup = $state(true);
   allowMultiuserSignups = $state(false);
   isPublished = $state(false);
+  /** IANA zone the event happens in; null means render in the viewer's own. */
+  timezone = $state(null);
+  /** Minutes of notice for reminders; null means use the platform default. */
+  reminderLeadTime = $state(null);
   volunteersMaxed = $state(false);
   expired = $state(false);
 
@@ -76,6 +81,12 @@ export class EventModel {
     this.notifyOnSignup = true;
     this.allowMultiuserSignups = false;
     this.isPublished = false;
+    // A new event is being built by someone who is, presumably, in the place it
+    // happens, so their browser's zone is the best available guess. `load()`
+    // overwrites this from the payload, so an event that recorded no zone stays
+    // null and keeps rendering in each viewer's own.
+    this.timezone = localZone();
+    this.reminderLeadTime = null;
     this.volunteersMaxed = false;
     this.expired = false;
     this.activities = [];
@@ -179,7 +190,11 @@ export class EventModel {
     this.reset();
     Object.assign(this, eventSummaryFromApi(payload));
 
-    const windows = (payload.windows ?? []).map((w) => new EventWindow(windowFromEventRead(w)));
+    // The zone is copied onto each window so its label can stay a plain
+    // derived rather than reaching back up to the event.
+    const windows = (payload.windows ?? []).map(
+      (w) => new EventWindow({ ...windowFromEventRead(w), timezone: this.timezone }),
+    );
     const windowByServerId = new Map(windows.map((w) => [w.id, w]));
 
     const activities = (payload.activities ?? []).map((raw) => {
@@ -211,6 +226,9 @@ export class EventModel {
         id: raw.id,
         name: raw.name ?? '',
         remindersEnabled: Boolean(raw.remindersEnabled),
+        // The address itself is deliberately never sent back, so an organiser
+        // reading the event cannot harvest volunteers' contact details.
+        reminderConfirmed: Boolean(raw.reminderConfirmed),
         user: raw.user ?? null,
       });
       for (const entry of raw.details ?? []) {

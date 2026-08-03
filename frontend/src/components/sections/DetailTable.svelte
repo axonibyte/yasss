@@ -12,7 +12,7 @@
    */
   import { typeLabel } from '../../lib/validation/detailTypes.js';
 
-  let { details = [], onSelect } = $props();
+  let { details = [], onSelect, onMove = null } = $props();
 
   const empty = $derived(details.length === 0);
 </script>
@@ -28,15 +28,16 @@
           <tr class="is-primary">
             <th>Detail</th>
             <th>Type</th>
+            {#if onMove}<th class="has-text-centered">Order</th>{/if}
           </tr>
           {#if empty}
             <tr>
-              <td class="is-light is-warning has-text-centered is-size-7" colspan="2">
+              <td class="is-light is-warning has-text-centered is-size-7" colspan={onMove ? 3 : 2}>
                 You haven't specified any custom fields yet! :)
               </td>
             </tr>
           {:else}
-            {#each details as detail (detail.key)}
+            {#each details as detail, i (detail.key)}
               <tr>
                 <td>
                   <button type="button" class="row-action" onclick={() => onSelect?.(detail)}>
@@ -44,6 +45,26 @@
                   </button>
                 </td>
                 <td>{typeLabel(detail.type)}{detail.required ? ' (required)' : ''}</td>
+                {#if onMove}
+                  <td class="has-text-centered is-narrow">
+                    <!-- Ordering is a property of the list, so the controls sit
+                         on the row rather than inside the edit modal. -->
+                    <button
+                      type="button"
+                      class="button is-small is-ghost"
+                      aria-label="Move {detail.label} up"
+                      disabled={i === 0}
+                      onclick={() => onMove(detail, -1)}
+                    >&uarr;</button>
+                    <button
+                      type="button"
+                      class="button is-small is-ghost"
+                      aria-label="Move {detail.label} down"
+                      disabled={i === details.length - 1}
+                      onclick={() => onMove(detail, 1)}
+                    >&darr;</button>
+                  </td>
+                {/if}
               </tr>
             {/each}
           {/if}

@@ -62,10 +62,10 @@ public class Mail {
    * @param senderAddr the sender's email address
    * @param senderName the human-readable informal name of the sender
    */
-  public static void initMailer(String smtpHost, int smtpPort, String smtpUser, String smtpPass, String senderAddr, String senderName) {
+  public static void initMailer(String smtpHost, int smtpPort, String smtpUser, String smtpPass, String transport, String senderAddr, String senderName) {
     Mail.mailer = MailerBuilder
       .withSMTPServer(smtpHost, smtpPort, smtpUser, smtpPass)
-      .withTransportStrategy(TransportStrategy.SMTP_TLS)
+      .withTransportStrategy(TransportStrategy.valueOf(transport))
       .withDebugLogging(YasssCore.debugEnabled())
       .withThreadPoolSize(20)
       .buildMailer();
@@ -253,22 +253,46 @@ public class Mail {
     return replyTo;
   }
 
-  public void send() {
+  /**
+   * Sends this message.
+   *
+   * <p>Delivery failures are logged, not thrown. Mail is a side effect of the
+   * action a user actually asked for -- signing up, registering, resetting a
+   * password -- and none of those should fail because a relay is down. That is
+   * exactly what happened before: an unreachable SMTP server turned every
+   * volunteer signup into a 500, and the signup was lost with it.
+   *
+   * <p>Callers that genuinely need to know whether mail went out should check
+   * the return value rather than relying on an exception.
+   *
+   * @return {@code true} if the message was handed to the mailer
+   */
+  public boolean send() {
     if(null == mailer) {
       logger.warn("mailer not instantiated (check config?)");
-      return;
+      return false;
     }
-    
-    var email = EmailBuilder.startingBlank()
-      .from(sender)
-      .to(new Recipient(null, recipient, RecipientType.TO))
-      .withSubject(subject)
-      .withHTMLText(body)
-      .withPlainText("Please consider reading this email in a modern mail client. Thank you!");
-    if(null != replyTo)
-      email.withReplyTo(replyTo);
-    mailer.sendMail(email.buildEmail());
+
+    try {
+      var email = EmailBuilder.startingBlank()
+          .to(recipient)
+          .withSubject(subject)
+          .withHTMLText(body)
+          .from(sender);
+      if(null != replyTo) email.withReplyTo(replyTo);
+
+      mailer.sendMail(email.buildEmail());
+      return true;
+    } catch(Exception e) {
+      logger.error(
+          "could not send \"{}\" to {}: {}",
+          subject,
+          recipient,
+          null == e.getMessage() ? e.getClass().getSimpleName() : e.getMessage());
+      return false;
+    }
   }
+
   
   /**
    * Indicates that a piece of mail could not be instantiated.

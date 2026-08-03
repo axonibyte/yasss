@@ -86,8 +86,8 @@ test('the custom-fields table replaces the volunteer picker while editing', asyn
   await page.getByLabel('Field').fill('Contact email');
   await page.getByRole('button', { name: 'Save Detail' }).click();
 
-  await expect(page.getByRole('cell', { name: 'Contact email' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Email Address' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Contact email', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Email Address', exact: true })).toBeVisible();
 });
 
 test('publishing round-trips the event, and lands on its share link', async ({ page }) => {
@@ -134,4 +134,80 @@ test('a blank title is refused before anything is sent', async ({ page }) => {
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(page.getByText('The title of your event cannot be blank.')).toBeVisible();
+});
+
+test('a slot disabled in the wizard stays disabled after publishing', async ({ page }) => {
+  // The assertion this file's header says it exists for, and did not make.
+  // The server creates a slot for any (activity, window) pair the payload does
+  // not explicitly disable, so an omission silently switches a slot back on.
+  await page.goto('/');
+  await waitForApp(page);
+  await startEvent(page, 'Disabled Slot Survives');
+
+  await addActivity(page, 'Setup');
+  await page.getByRole('button', { name: 'Add a Window' }).click();
+  await page.getByRole('button', { name: 'Save Window' }).click();
+  await expect(page.locator('.modal.is-active')).toHaveCount(0);
+
+  await page.locator('.event-cell li').filter({ hasText: /^Available$/ }).click();
+  await page.getByText('Enable this slot?').click();
+  await page.getByRole('button', { name: 'Update Slot' }).click();
+  await expect(page.locator('.event-cell li').filter({ hasText: /^Unavailable$/ })).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Publish Event' }).click();
+  await page.getByRole('button', { name: "No thanks, I'm good!" }).click();
+  await expect(page.getByText('Successfully created your event!')).toBeVisible();
+
+  await page.reload();
+  await waitForApp(page);
+  await expect(page.locator('.event-cell li').filter({ hasText: /^Unavailable$/ })).toHaveCount(1);
+  await expect(page.locator('.event-cell li').filter({ hasText: /^Available$/ })).toHaveCount(0);
+});
+
+test('a window added in the wizard is enabled for every activity', async ({ page }) => {
+  // The CREATE-side counterpart of edit mode's disabled-by-default rule. These
+  // two branches diverging is precisely the legacy failure structureActions
+  // was written to prevent.
+  await page.goto('/');
+  await waitForApp(page);
+  await startEvent(page, 'Wizard Window');
+
+  await addActivity(page, 'A');
+  await addActivity(page, 'B');
+  await page.getByRole('button', { name: 'Add a Window' }).click();
+  await page.getByRole('button', { name: 'Save Window' }).click();
+
+  await expect(page.locator('.event-cell li').filter({ hasText: /^Available$/ })).toHaveCount(2);
+});
+
+test('deleting an activity in the wizard sends nothing', async ({ page }) => {
+  await page.goto('/');
+  await waitForApp(page);
+  await startEvent(page, 'Local Only');
+  await addActivity(page, 'Doomed');
+
+  const calls = [];
+  page.on('request', (r) => { if (r.url().includes('/activities')) calls.push(r.url()); });
+
+  await page.locator('.event-cell li').filter({ hasText: /^Doomed$/ }).click();
+  await page.getByRole('button', { name: 'Remove Activity' }).click();
+
+  await expect(page.locator('.event-cell li').filter({ hasText: /^Doomed$/ })).toHaveCount(0);
+  // Nothing exists server-side until publish, so there is nothing to delete.
+  expect(calls).toEqual([]);
+});
+
+test('publishing anonymously leaves the event unowned', async ({ page }) => {
+  await page.goto('/');
+  await waitForApp(page);
+  await startEvent(page, 'Unowned');
+  await addActivity(page, 'Setup');
+  await page.getByRole('button', { name: 'Publish Event' }).click();
+  await page.getByRole('button', { name: "No thanks, I'm good!" }).click();
+  await expect(page.getByText('Successfully created your event!')).toBeVisible();
+
+  await page.reload();
+  await waitForApp(page);
+  // The warning in the guest prompt is true: there is no way back in.
+  await expect(page.getByRole('button', { name: 'Modify Event' })).toHaveCount(0);
 });

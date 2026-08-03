@@ -127,6 +127,13 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
                 .put("id", volunteer.getID())
                 .put("name", volunteer.getName())
                 .put("remindersEnabled", volunteer.remindersEnabled())
+                          // The address itself is deliberately not
+                          // disclosed: the platform is the sender, and
+                          // the organiser has no operational need for it.
+                          .put(
+                              "reminderConfirmed",
+                              Volunteer.ReminderState.CONFIRMED
+                                  == volunteer.getReminderState())
                 .put(
                     "details",
                     (JSONArray)volunteer.getDetails()
@@ -155,6 +162,8 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
               .put("longDescription", event.getLongDescription())
               .put("emailOnSubmission", event.emailOnSubmissionEnabled())
               .put("allowMultiUserSignups", event.allowMultiUserSignups())
+              .put("timezone", event.getTimezone())
+              .put("reminderLeadTime", event.getReminderLeadTime())
               .put("isPublished", event.isPublished())
               .put("activities", activityArr)
               .put("windows", windowArr)

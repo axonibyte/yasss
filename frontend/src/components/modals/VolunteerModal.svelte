@@ -18,6 +18,8 @@
     volunteer,
     details = [],
     isNew = true,
+    /** Signed-in account's address, offered as the reminder default. */
+    accountEmail = null,
     onSave,
     onDelete,
     onClose,
@@ -31,8 +33,24 @@
   let name = $state(volunteer?.name ?? '');
   // svelte-ignore state_referenced_locally
   let values = $state(new Map(volunteer?.values ?? []));
+  // svelte-ignore state_referenced_locally
+  let remindersEnabled = $state(volunteer?.remindersEnabled ?? false);
+  // svelte-ignore state_referenced_locally
+  let reminderEmail = $state(volunteer?.reminderEmail ?? '');
   let errors = $state({});
   let busy = $state(false);
+
+  // Signed-in volunteers do not have to retype an address the platform already
+  // holds, and one that matches their account needs no confirmation email.
+  const emailPlaceholder = $derived(
+    accountEmail ? accountEmail : 'Where should we send the reminder?',
+  );
+
+  // Already confirmed and unchanged: say so rather than implying another
+  // confirmation email is coming, because none will be sent.
+  const alreadyConfirmed = $derived(
+    Boolean(volunteer?.reminderConfirmed) && !reminderEmail.trim(),
+  );
 
   /** Details we can actually render; unknown types are skipped, not fatal. */
   const renderable = $derived(details.filter((d) => DETAIL_TYPES[d.type]));
@@ -48,13 +66,22 @@
   }
 
   async function save() {
-    const verdict = validateVolunteer({ name, values }, renderable);
+    const verdict = validateVolunteer(
+      { name, values, remindersEnabled, reminderEmail },
+      renderable,
+      { accountEmail },
+    );
     errors = verdict.errors;
     if (!verdict.ok) return;
 
     busy = true;
     try {
-      await onSave?.({ name: verdict.values.name, values });
+      await onSave?.({
+        name: verdict.values.name,
+        values,
+        remindersEnabled,
+        reminderEmail: verdict.values.reminderEmail,
+      });
     } finally {
       busy = false;
     }
@@ -126,6 +153,39 @@
       </Field>
     {/if}
   {/each}
+
+  <div class="field">
+    <div class="control">
+      <input
+        id="vol-reminders"
+        type="checkbox"
+        class="switch is-rtl"
+        bind:checked={remindersEnabled}
+        onchange={() => clearError('reminderEmail')}
+      />
+      <label class="switch" for="vol-reminders">Email me a reminder before the event</label>
+    </div>
+  </div>
+
+  {#if remindersEnabled}
+    <Field label="Reminder Email" error={errors.reminderEmail} id="vol-reminder-email">
+      <input
+        id="vol-reminder-email"
+        class="input"
+        class:is-danger={errors.reminderEmail}
+        type="email"
+        placeholder={emailPlaceholder}
+        bind:value={reminderEmail}
+        oninput={() => clearError('reminderEmail')}
+        onblur={() => { reminderEmail = reminderEmail.trim().toLowerCase(); }}
+      />
+      {#if alreadyConfirmed}
+        <p class="help">Your reminders are confirmed.</p>
+      {:else}
+        <p class="help">We'll send one email to confirm. You can unsubscribe from any of them.</p>
+      {/if}
+    </Field>
+  {/if}
 
   {#snippet footer()}
     <div class="buttons">

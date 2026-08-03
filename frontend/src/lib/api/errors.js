@@ -25,15 +25,3 @@ export const isUnpublished = (e) => e instanceof ApiError && e.httpStatus === 40
 export const isForbidden = (e) => e instanceof ApiError && e.httpStatus === 403;
 export const isExpired = (e) => e instanceof ApiError && e.httpStatus === 412;
 export const isConflict = (e) => e instanceof ApiError && e.httpStatus === 409;
-
-/**
- * Raised when an authenticated request comes back without a rotated session
- * header. The server issues `AXB-SESSION` on every successful authentication,
- * so its absence means the session is gone (app.js:1370-1379).
- */
-export class SessionLostError extends Error {
-  constructor() {
-    super('Your user session was lost! Please log in again.');
-    this.name = 'SessionLostError';
-  }
-}

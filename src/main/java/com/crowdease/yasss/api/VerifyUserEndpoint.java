@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import com.axonibyte.lib.auth.CryptoException;
 import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
@@ -70,30 +69,19 @@ public class VerifyUserEndpoint extends APIEndpoint {
         if(null == user.getPendingEmail())
           throw new EndpointException(req, "user has no pending email", 409);
 
-        Map<String, String> args = new HashMap<>();
-        args.put(
-            "VERIFY_LINK",
-            String.format(
-                "%1$s?action=verify-user&user=%2$s&token=%3$s",
-                YasssCore.getAPIHost(),
-                user.getID().toString(),
-                YasssCore.getTicketEngine().sign(
-                    user.getID().toString())));
+        // A fresh token per send, so an older email cannot verify an address
+        // the user has since corrected.
+        user.setVerifyToken(UUID.randomUUID());
+        user.commit();
 
-        Mail mail = new Mail(
-            user.getPendingEmail(),
-            "welcome",
-            args);
-        mail.send();
+        sendVerificationMail(user);
 
         res.status(202);
         return new JSONObject()
           .put("status", "ok")
           .put("info", "resent verification request");
         
-      } else if(!YasssCore.getTicketEngine().verify(
-          user.getID().toString(),
-          deserializer.getString("token"))) {
+      } else if(!tokenMatches(user, deserializer.getString("token"))) {
         throw new EndpointException(req, "access denied", 403);
       }
       
@@ -105,6 +93,16 @@ public class VerifyUserEndpoint extends APIEndpoint {
       case UNVERIFIED:
         user.setEmail(user.getPendingEmail());
         user.setPendingEmail(null);
+        // Single-use: the link cannot be replayed to re-verify a later address.
+        user.setVerifyToken(null);
+        // Promotion is the entire point of verifying, and it was missing.
+        // Confirming the address populated `email` -- which is what
+        // authentication resolves against, so the user could suddenly log in --
+        // but left the access level at UNVERIFIED, so every endpoint gated on
+        // atLeast(STANDARD) still refused them. A self-registered user could
+        // therefore never create an event without an ADMIN promoting them by
+        // hand, and nothing anywhere said so.
+        user.setAccessLevel(AccessLevel.STANDARD);
         user.commit();
         
         res.status(200);
@@ -122,11 +120,51 @@ public class VerifyUserEndpoint extends APIEndpoint {
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
-    } catch(CryptoException e) {
-      throw new EndpointException(req, "cryptographic malfunction", 500, e);
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }
   }
-  
+
+  /**
+   * Compares a supplied token against the one stored for a user.
+   *
+   * <p>A user with no outstanding verification matches nothing, which is what
+   * stops a cleared token from being replayed.
+   *
+   * @param user the {@link User}
+   * @param supplied the token from the request
+   * @return {@code true} if they match
+   */
+  static boolean tokenMatches(User user, String supplied) {
+    if(null == user.getVerifyToken() || null == supplied) return false;
+    try {
+      return user.getVerifyToken().equals(UUID.fromString(supplied));
+    } catch(IllegalArgumentException e) {
+      // Indistinguishable from a wrong token, on purpose.
+      return false;
+    }
+  }
+
+  /**
+   * Sends the welcome mail carrying a user's verification link.
+   *
+   * <p>Call only after the user has been committed: the link quotes the stored
+   * token, and mailing one that a later failure rolls back gives the recipient
+   * a link that can never work.
+   *
+   * @param user the {@link User}, already committed
+   */
+  static void sendVerificationMail(User user) {
+    Map<String, String> args = new HashMap<>();
+    args.put(
+        "VERIFY_LINK",
+        String.format(
+            "%1$s?action=verify-user&user=%2$s&token=%3$s",
+            YasssCore.getAPIHost(),
+            user.getID().toString(),
+            user.getVerifyToken()));
+
+    new Mail(user.getPendingEmail(), "welcome", args).send();
+  }
+
 }

@@ -61,6 +61,8 @@ public final class CreateEventEndpoint extends APIEndpoint {
         .tokenize("longDescription", false)
         .tokenize("emailOnSubmission", false)
         .tokenize("allowMultiUserSignups", false)
+        .tokenize("timezone", false)
+        .tokenize("reminderLeadTime", false)
         .tokenize("activities", true)
         .tokenize("windows", true)
         .tokenize("details", true)
@@ -87,9 +89,9 @@ public final class CreateEventEndpoint extends APIEndpoint {
           deserializer.has("admin")
               ? deserializer.getUUID("admin")
               : null,
-          deserializer.getString("shortDescription").strip(),
+          bounded(req, deserializer.getString("shortDescription").strip(), "shortDescription"),
           deserializer.has("longDescription")
-              ? deserializer.getString("longDescription").strip()
+              ? bounded(req, deserializer.getString("longDescription").strip(), "longDescription")
               : "",
           new Timestamp(System.currentTimeMillis()),
           deserializer.has("emailOnSubmission")
@@ -99,6 +101,18 @@ public final class CreateEventEndpoint extends APIEndpoint {
               ? deserializer.getBool("allowMultiUserSignups")
               : false,
           !paymentRequired);
+
+      // Optional: an event without one renders in each viewer's own zone, which
+      // is what every event predating the column does.
+      if(deserializer.has("timezone"))
+        event.setTimezone(
+            validTimezone(req, deserializer.getString("timezone").strip()));
+
+      // Absent means "use the global", which is what every event does unless
+      // it says otherwise.
+      if(deserializer.has("reminderLeadTime"))
+        event.setReminderLeadTime(
+            validLeadTime(req, deserializer.getInt("reminderLeadTime")));
 
       if(event.getShortDescription().isBlank())
         throw new EndpointException(req, "malformed argument (string: shortDescription)", 400);
@@ -117,7 +131,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
         Activity activity = new Activity(
             null,
             null,
-            activityDeserializer.getString("shortDescription").strip(),
+            bounded(req, activityDeserializer.getString("shortDescription").strip(), "activities[].shortDescription"),
             activityDeserializer.has("longDescription")
                 ? activityDeserializer.getString("longDescription")
                 : "",
@@ -183,7 +197,8 @@ public final class CreateEventEndpoint extends APIEndpoint {
           else if(window.getBeginTime().after(window.getEndTime()))
             throw new EndpointException(
                 req,
-                "malformed arguments (timestamp: activities[] | beginTime, endTime)");
+                "malformed arguments (timestamp: activities[] | beginTime, endTime)",
+                400);
         }
 
         windows.add(window);
@@ -211,9 +226,9 @@ public final class CreateEventEndpoint extends APIEndpoint {
             null,
             null,
             type,
-            detailDeserializer.getString("label").strip(),
+            bounded(req, detailDeserializer.getString("label").strip(), "details[].label"),
             detailDeserializer.has("hint")
-                ? detailDeserializer.getString("hint").strip()
+                ? bounded(req, detailDeserializer.getString("hint").strip(), "details[].hint")
                 : "",
             detailDeserializer.has("priority")
                 ? detailDeserializer.getInt("priority")
@@ -224,6 +239,12 @@ public final class CreateEventEndpoint extends APIEndpoint {
 
         if(detail.getLabel().isBlank())
           throw new EndpointException(req, "malformed argument (details[].label)", 400);
+
+        // Activities in this same request already bound their priority; details
+        // did not, so an out-of-range value reached a TINYINT UNSIGNED column
+        // and came back as "database malfunction" with a 500 and a stack trace.
+        if(0 > detail.getPriority() || 255 < detail.getPriority())
+          throw new EndpointException(req, "malformed argument (int: details[].priority)", 400);
 
         details.add(detail);
       }
@@ -307,6 +328,8 @@ public final class CreateEventEndpoint extends APIEndpoint {
               .put("longDescription", event.getLongDescription())
               .put("emailOnSubmission", event.emailOnSubmissionEnabled())
               .put("allowMultiUserSignups", event.allowMultiUserSignups())
+              .put("timezone", event.getTimezone())
+              .put("reminderLeadTime", event.getReminderLeadTime())
               .put("isPublished", event.isPublished())
               .put(
                   "activities",
