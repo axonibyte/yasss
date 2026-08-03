@@ -11,8 +11,16 @@ app through a real browser, and tears everything down.
 YASSS_E2E_PORT=8455 ./e2e/run.sh
 ```
 
-Requires `podman` and `node`. Pulls `mariadb:11` and `eclipse-temurin:17-jre` on
-first run.
+Requires `podman` and a JDK. Everything else runs in a container, including the
+drivers themselves — there is no host `node`, no `npx`, and no locally installed
+Playwright browsers. Pulls `mariadb:11`, `eclipse-temurin:17-jre`,
+`mailpit`, `node:22-slim` and the Playwright image on first run.
+
+The drivers run *inside the pod*, which is why the stack needs no published
+ports: a container in the pod reaches the app on the same `127.0.0.1:7455` the
+app's own config names. `YASSS_E2E_PUBLISH=1` (the default on Linux) also maps
+the app and mailpit to host ports, purely so a `--keep` stack can be poked at
+from outside.
 
 ## Why this exists
 
@@ -36,7 +44,7 @@ It has already earned its keep — see "What this suite found" below.
 | fuzz | ~400 malformed requests across every endpoint (`FUZZ_ITERATIONS` to raise it); see below |
 | accounts | Self-service registration end to end: register, receive the email, click the link, get promoted, create an event; see below |
 | reminders | The reminder feature end to end against real SMTP and the real daemon; see below |
-| browser | Fourteen flows through Chromium against the live stack |
+| browser | Fourteen flows through Chromium against the live stack, in the Playwright image so the browser matches the client that drives it |
 | down | Runs on every exit path, including Ctrl-C and a failed stage |
 
 ## The accounts stage
@@ -143,13 +151,46 @@ never the real thing.
 
 ## Notes
 
-- Only the app port is published; the database stays inside the pod.
+- Nothing is published by default beyond the app and mailpit, and on a host that
+  cannot publish at all nothing is. The database is never reachable from outside
+  the pod either way.
 - Config lives in `config/yasss.cfg` with CAPTCHAs off and sign-in required —
   the exact combination that used to NPE on every request before the CAPTCHA
   fix, so it is worth being the default here.
 - `config/content/*.md` back `GET /v1/texts/*`, so the markdown path is
   exercised too.
 - `yasss.jar` is a build artifact and is gitignored.
-- Not wired into CI. It needs podman and pulls two images; the existing
+- Not wired into CI. It needs podman and pulls several images; the existing
   Playwright step against the fake covers per-commit needs. This is for
   pre-merge and pre-release.
+
+## FreeBSD
+
+The suite runs on FreeBSD. Linux is the default path and takes none of the
+branches below; they exist because podman there is not the same animal.
+
+Containers are jails run by `ocijail`, not a Linux VM — a container's processes
+appear in the host's own `ps` with the `J` flag. Linux images run through the
+linuxulator, which is what makes the arrangement work at all and also what
+constrains it:
+
+- **Rootless mode does not exist**, so `run.sh` calls podman through `sudo`. A
+  `NOPASSWD` entry for `/usr/local/bin/podman` is enough.
+- **Images must be asked for by platform.** podman reports the host OS as
+  `freebsd`, so a multi-arch manifest resolves to nothing and a plain pull fails
+  with `no image found in image index`. Pulls pass `--os linux --arch amd64`.
+- **Publishing a port needs `pf`**, which podman drives via `pfctl`; without it
+  the pod fails to start rather than merely losing the mapping. This is why the
+  drivers moved into the pod, and why publishing defaults off when `/dev/pf` is
+  absent. A pod on `--network none` still has the shared loopback the suite
+  needs.
+- **MariaDB cannot run as uid 0 here.** Its entrypoint reads `/proc/self/cgroup`
+  when it is root, the linuxulator's procfs has no such file, and the container
+  dies instantly under `set -e` with nothing useful in the log. It runs as
+  `mysql` instead, and warns its way past `io_uring` and native AIO before
+  falling back and starting normally.
+- **Do not swap in an alpine image.** A musl binary hangs forever under the
+  linuxulator instead of failing, which costs an afternoon to notice. The driver
+  image is `node:22-slim` for exactly this reason.
+- `pkg install catatonit` — podman needs it for a pod's infra container and does
+  not depend on it.

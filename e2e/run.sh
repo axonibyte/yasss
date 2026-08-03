@@ -10,6 +10,12 @@
 #
 # Stages: build -> up -> migrate/health -> fuzz -> browser -> down.
 #
+# Every driver runs *inside* the pod, in a container. Nothing but podman and a
+# JDK is needed on the host: no node, no npx, no locally installed Playwright
+# browsers, and -- the point of the arrangement -- no published ports, since a
+# driver in the pod reaches the app on the same `127.0.0.1` the app's own config
+# names. Publishing is then only ever a debugging convenience.
+#
 # Teardown runs on any exit path, including Ctrl-C and a failed stage. Use
 # --keep to leave the stack running for debugging.
 set -Eeuo pipefail
@@ -26,8 +32,21 @@ readonly DB_NAME=yasss
 readonly DB_USER=yasss
 readonly DB_PW=yasss-test-pw
 
+# glibc, deliberately. An alpine/musl image hangs indefinitely under FreeBSD's
+# linuxulator rather than failing, which is a miserable thing to debug.
+readonly DRIVER_IMAGE=docker.io/library/node:22-slim
+# Keep in sync with @playwright/test in frontend/package.json and with the image
+# bitbucket-pipelines.yml uses: Playwright refuses to run browsers it did not
+# ship with. The browsers come from the image, so nothing is downloaded here.
+readonly BROWSER_IMAGE=mcr.microsoft.com/playwright:v1.62.1-noble
+
 readonly HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ROOT="$(cd "${HERE}/.." && pwd)"
+
+# Inside the pod, always. These are not host addresses and do not depend on
+# whether anything is published.
+readonly API=http://127.0.0.1:7455
+readonly MAILPIT=http://127.0.0.1:8025
 
 KEEP=0
 SKIP_BUILD=0
@@ -43,7 +62,13 @@ usage: e2e/run.sh [options]
   -h, --help       this text
 
 Environment:
-  YASSS_E2E_PORT   host port for the app (default 7455)
+  YASSS_E2E_PORT      host port for the app when publishing (default 7455)
+  YASSS_E2E_MAIL_PORT host port for mailpit's web UI when publishing (default 8025)
+  YASSS_E2E_PUBLISH   1 to publish those ports to the host, 0 not to. Defaults to
+                      1, and to 0 on a FreeBSD host with no pf(4) -- podman
+                      publishes ports by writing pf rules, so without it the pod
+                      cannot start at all. Nothing in the suite needs publishing;
+                      it is for poking at a --keep stack from the host.
 USAGE
 }
 
@@ -63,6 +88,42 @@ die() { printf '\n\033[1;31m==> FAILED\033[0m %s\n' "$*" >&2; exit 1; }
 
 has_stage() { [[ ",${STAGES}," == *",$1,"* ]]; }
 
+# --- host differences -------------------------------------------------------
+
+# Three things differ on FreeBSD, and nothing else does. Linux takes every
+# default, so this is invisible there.
+#
+#   1. podman has no rootless mode on FreeBSD and refuses to start without root.
+#   2. Containers are jails run by ocijail, so podman reports the host OS as
+#      freebsd and a multi-arch manifest resolves to nothing. Linux images do
+#      run -- via the linuxulator -- but only if asked for by platform.
+#   3. Running as root means containers write into the repo as root, so the
+#      drivers get the invoking user's ids.
+PODMAN=(podman)
+PLATFORM_ARGS=()
+DB_USER_ARGS=()
+DRIVER_USER_ARGS=()
+
+if [[ "$(uname -s)" == FreeBSD ]]; then
+  PODMAN=(sudo -n podman)
+  PLATFORM_ARGS=(--os linux --arch amd64)
+  DRIVER_USER_ARGS=(--user "$(id -u):$(id -g)")
+  # mariadb's entrypoint reads /proc/self/cgroup when it is uid 0, and the
+  # linuxulator's procfs has no such file, so the container dies on the spot
+  # with `set -e` and no useful message. As any other user it never looks.
+  DB_USER_ARGS=(--user mysql)
+fi
+
+pm() { "${PODMAN[@]}" "$@"; }
+
+if [[ -n "${YASSS_E2E_PUBLISH:-}" ]]; then
+  PUBLISH="${YASSS_E2E_PUBLISH}"
+elif [[ "$(uname -s)" == FreeBSD && ! -c /dev/pf ]]; then
+  PUBLISH=0
+else
+  PUBLISH=1
+fi
+
 # --- teardown ---------------------------------------------------------------
 
 teardown() {
@@ -71,15 +132,15 @@ teardown() {
   # this twice -- once for the signal, once for the exit it causes.
   trap - EXIT INT TERM
   if [[ ${KEEP} -eq 1 ]]; then
-    log "leaving the stack up (--keep); tear down with: podman pod rm -f ${POD}"
+    log "leaving the stack up (--keep); tear down with: ${PODMAN[*]} pod rm -f ${POD}"
     return
   fi
 
   log "tearing down"
-  # The pod owns both containers, so removing it is enough; the individual
+  # The pod owns every container, so removing it is enough; the individual
   # removals are belt and braces for a partially-created stack.
-  podman pod rm -f "${POD}" >/dev/null 2>&1 || true
-  podman rm -f "${DB_CTR}" "${APP_CTR}" "${MAIL_CTR}" >/dev/null 2>&1 || true
+  pm pod rm -f "${POD}" >/dev/null 2>&1 || true
+  pm rm -f "${DB_CTR}" "${APP_CTR}" "${MAIL_CTR}" >/dev/null 2>&1 || true
 
   if [[ ${code} -ne 0 ]]; then
     printf '\033[1;31m==> suite failed (exit %s)\033[0m\n' "${code}" >&2
@@ -90,20 +151,69 @@ trap teardown EXIT INT TERM
 # Fail loudly about *where* something broke rather than leaving a bare set -e.
 trap 'die "at ${BASH_SOURCE[0]}:${LINENO}"' ERR
 
+# --- drivers ----------------------------------------------------------------
+
+# Run something in the pod against the live stack. The repo is mounted rather
+# than copied so a driver can be edited and re-run without rebuilding anything;
+# it is writable because Playwright puts its traces and report under frontend/.
+drive() {
+  local image="$1" workdir="$2"; shift 2
+
+  local env_args=(
+    -e "HOME=/tmp"
+    -e "YASSS_API=${API}"
+    -e "YASSS_MAILPIT=${MAILPIT}"
+    -e "YASSS_LIVE_URL=${API}"
+    # Empty until the bootstrap stage runs, which is after the first few calls.
+    -e "YASSS_ADMIN_EMAIL=${YASSS_ADMIN_EMAIL:-}"
+    -e "YASSS_ADMIN_PASSWORD=${YASSS_ADMIN_PASSWORD:-}"
+    # Playwright looks here rather than in ~/.cache, so the browsers are the
+    # ones baked into the image.
+    -e "PLAYWRIGHT_BROWSERS_PATH=/ms-playwright"
+  )
+  # Only when set: fuzz.mjs reads these with Number(x ?? default), and an empty
+  # string is not nullish -- it would quietly become a zero-iteration run.
+  [[ -n "${YASSS_ADMIN_ID:-}" ]] && env_args+=(-e "YASSS_ADMIN_ID=${YASSS_ADMIN_ID}")
+  [[ -n "${FUZZ_ITERATIONS:-}" ]] && env_args+=(-e "FUZZ_ITERATIONS=${FUZZ_ITERATIONS}")
+  [[ -n "${FUZZ_SEED:-}" ]] && env_args+=(-e "FUZZ_SEED=${FUZZ_SEED}")
+
+  pm run --rm --pod "${POD}" "${PLATFORM_ARGS[@]}" "${DRIVER_USER_ARGS[@]}" \
+    -v "${ROOT}:/repo" -w "${workdir}" "${env_args[@]}" "${image}" "$@"
+}
+
 # --- preflight --------------------------------------------------------------
 
-command -v podman >/dev/null || die "podman is not installed"
-command -v node >/dev/null || die "node is not installed"
+command -v "${PODMAN[-1]}" >/dev/null || die "podman is not installed"
+pm info >/dev/null 2>&1 || die "podman is installed but cannot run; try: ${PODMAN[*]} info"
 
 # A stale stack from an interrupted run would silently shadow this one.
-if podman pod exists "${POD}" 2>/dev/null; then
+if pm pod exists "${POD}" 2>/dev/null; then
   warn "removing a stale ${POD} pod from a previous run"
-  podman pod rm -f "${POD}" >/dev/null
+  pm pod rm -f "${POD}" >/dev/null
 fi
 
-if ss -ltn 2>/dev/null | grep -q ":${APP_PORT}\b"; then
+port_in_use() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn 2>/dev/null | grep -q ":$1\b"
+  elif command -v sockstat >/dev/null 2>&1; then
+    # No ss(1) on FreeBSD. Field 6 is the local address, so match the port on
+    # that alone -- the line also carries a foreign address that would collide.
+    sockstat -4 -6 -l 2>/dev/null | awk '{print $6}' | grep -qE "[:.]$1$"
+  else
+    return 1
+  fi
+}
+
+if [[ ${PUBLISH} -eq 1 ]] && port_in_use "${APP_PORT}"; then
   die "port ${APP_PORT} is already in use; set YASSS_E2E_PORT to something else"
 fi
+
+ensure_image() {
+  pm image exists "$1" 2>/dev/null || {
+    log "pulling $1"
+    pm pull "${PLATFORM_ARGS[@]}" "$1" >/dev/null || die "could not pull $1"
+  }
+}
 
 # --- build ------------------------------------------------------------------
 
@@ -118,22 +228,42 @@ if [[ ${SKIP_BUILD} -eq 0 ]]; then
   cp "${jar}" "${HERE}/yasss.jar"
 
   log "building the app image"
-  podman build --quiet -t "${APP_IMAGE}" "${HERE}" >/dev/null || die "image build failed"
+  pm build --quiet -t "${APP_IMAGE}" "${HERE}" >/dev/null || die "image build failed"
 else
   log "skipping build (--skip-build)"
   [[ -f "${HERE}/yasss.jar" ]] || die "no jar to reuse; drop --skip-build"
 fi
 
+# The browser stage runs Playwright out of the repo's node_modules against the
+# browsers in the image, so the install has to have happened. It normally has:
+# the Gradle build above runs npmInstall.
+if has_stage browser && [[ ! -d "${ROOT}/frontend/node_modules/@playwright" ]]; then
+  die "frontend/node_modules is missing @playwright; run the build without --skip-build"
+fi
+
 # --- up ---------------------------------------------------------------------
 
-log "creating pod ${POD} (app on host port ${APP_PORT})"
-# One pod so both containers share a network namespace: the app reaches the
-# database on 127.0.0.1:3306, exactly as the config file expects. Only the app
-# port is published; the database stays internal.
-podman pod create --name "${POD}" -p "${APP_PORT}:7455" -p "${MAIL_PORT}:8025" >/dev/null
+ensure_image docker.io/library/mariadb:11
+ensure_image docker.io/axllent/mailpit:latest
+ensure_image "${DRIVER_IMAGE}"
+has_stage browser && ensure_image "${BROWSER_IMAGE}"
+
+if [[ ${PUBLISH} -eq 1 ]]; then
+  log "creating pod ${POD} (app published on host port ${APP_PORT})"
+  pm pod create --name "${POD}" -p "${APP_PORT}:7455" -p "${MAIL_PORT}:8025" >/dev/null
+else
+  # A pod with no network still has a loopback its containers share, which is
+  # everything the suite needs. Podman publishes ports by writing pf rules, so
+  # asking for them on a FreeBSD host without pf(4) fails the pod outright.
+  log "creating pod ${POD} (no published ports)"
+  pm pod create --name "${POD}" --network none >/dev/null
+fi
 
 log "starting mariadb"
-podman run -d --pod "${POD}" --name "${DB_CTR}" \
+# One pod so every container shares a network namespace: the app reaches the
+# database on 127.0.0.1:3306, exactly as the config file expects, and the
+# database is reachable from nowhere else.
+pm run -d --pod "${POD}" --name "${DB_CTR}" "${PLATFORM_ARGS[@]}" "${DB_USER_ARGS[@]}" \
   -e MARIADB_ROOT_PASSWORD="${DB_ROOT_PW}" \
   -e MARIADB_DATABASE="${DB_NAME}" \
   -e MARIADB_USER="${DB_USER}" \
@@ -141,46 +271,41 @@ podman run -d --pod "${POD}" --name "${DB_CTR}" \
   docker.io/library/mariadb:11 >/dev/null
 
 log "waiting for the database"
-for i in $(seq 1 60); do
-  if podman exec "${DB_CTR}" mariadb-admin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
+for i in $(seq 1 90); do
+  if pm exec "${DB_CTR}" mariadb-admin ping -h 127.0.0.1 --silent >/dev/null 2>&1; then
     echo "  database ready after ${i}s"
     break
   fi
-  [[ ${i} -eq 60 ]] && die "database never became ready"
+  if [[ ${i} -eq 90 ]]; then
+    pm logs "${DB_CTR}" 2>&1 | tail -30 >&2
+    die "database never became ready"
+  fi
   sleep 1
 done
 
 log "starting the mail sink"
 # Reminders are only verifiable if the mail goes somewhere inspectable. Mailpit
 # accepts SMTP on 1025 and exposes what it caught over HTTP on 8025.
-podman run -d --pod "${POD}" --name "${MAIL_CTR}" \
+pm run -d --pod "${POD}" --name "${MAIL_CTR}" "${PLATFORM_ARGS[@]}" \
   docker.io/axllent/mailpit:latest >/dev/null
 
 log "starting the application"
 # The schema is applied by the app itself at boot -- Database.setup runs every
 # script in db/ on every start -- so a successful health check also means the
 # migrations, including the new IPv6 one, applied cleanly against a real server.
-podman run -d --pod "${POD}" --name "${APP_CTR}" "${APP_IMAGE}" >/dev/null
+pm run -d --pod "${POD}" --name "${APP_CTR}" "${APP_IMAGE}" >/dev/null
 
 log "waiting for the API"
-api="http://127.0.0.1:${APP_PORT}"
-for i in $(seq 1 90); do
-  if curl -fsS "${api}/v1" 2>/dev/null | tr -d " \n" | grep -q '"status":"ok"'; then
-    echo "  API ready after ${i}s"
-    break
-  fi
-  if [[ ${i} -eq 90 ]]; then
-    warn "application log follows:"
-    podman logs "${APP_CTR}" 2>&1 | tail -40 >&2
-    die "API never became ready"
-  fi
-  sleep 1
-done
+if ! drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 120 '"status":"ok"'; then
+  warn "application log follows:"
+  pm logs "${APP_CTR}" 2>&1 | tail -40 >&2
+  die "API never became ready"
+fi
 
 # Nothing below should see a 500 from a healthy server; a crash here is a real
 # finding rather than a flaky environment.
 log "verifying the schema actually applied"
-tables="$(podman exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
+tables="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
   -N -B -e "SHOW TABLES;" 2>/dev/null | tr '\n' ' ')"
 echo "  tables: ${tables}"
 for t in yasss_user yasss_event yasss_activity yasss_event_window yasss_slot yasss_volunteer; do
@@ -189,7 +314,7 @@ done
 
 # The IPv6 migration is new and idempotent by construction; prove both.
 log "verifying the IPv6 migration"
-col="$(podman exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
+col="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
   -N -B -e "SELECT COLUMN_TYPE FROM information_schema.COLUMNS
             WHERE TABLE_NAME='yasss_volunteer' AND COLUMN_NAME='ip_addr_bin';" 2>/dev/null)"
 [[ "${col}" == "varbinary(16)" ]] || die "ip_addr_bin is '${col}', expected varbinary(16)"
@@ -198,15 +323,11 @@ echo "  ip_addr_bin is ${col}"
 log "restarting the app to prove the migrations are re-runnable"
 # Database.setup tracks nothing and replays every script on every boot, so a
 # second start is the only thing that proves the migrations are idempotent.
-podman restart "${APP_CTR}" >/dev/null
-for i in $(seq 1 90); do
-  curl -fsS "${api}/v1" 2>/dev/null | tr -d " \n" | grep -q '"status":"ok"' && break
-  if [[ ${i} -eq 90 ]]; then
-    podman logs "${APP_CTR}" 2>&1 | tail -40 >&2
-    die "app did not survive a restart -- a migration is not idempotent"
-  fi
-  sleep 1
-done
+pm restart "${APP_CTR}" >/dev/null
+if ! drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 120 '"status":"ok"'; then
+  pm logs "${APP_CTR}" 2>&1 | tail -40 >&2
+  die "app did not survive a restart -- a migration is not idempotent"
+fi
 echo "  survived a restart"
 
 # --- bootstrap administrator ------------------------------------------------
@@ -223,7 +344,7 @@ echo "  survived a restart"
 log "registering the bootstrap administrator"
 export YASSS_ADMIN_EMAIL="e2e-admin@example.com"
 export YASSS_ADMIN_PASSWORD="e2e-admin-password"
-YASSS_ADMIN_ID="$( cd "${ROOT}/frontend" && YASSS_API="${api}" node tools/register-admin.mjs )" \
+YASSS_ADMIN_ID="$( drive "${DRIVER_IMAGE}" /repo/frontend node tools/register-admin.mjs )" \
   || die "could not register the bootstrap administrator"
 export YASSS_ADMIN_ID
 echo "  administrator ${YASSS_ADMIN_ID}"
@@ -234,7 +355,7 @@ failures=0
 
 if has_stage fuzz; then
   log "fuzzing the API"
-  if ! ( cd "${HERE}" && YASSS_API="${api}" node fuzz/fuzz.mjs ); then
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node fuzz/fuzz.mjs; then
     failures=$((failures + 1))
     warn "fuzz stage failed"
   fi
@@ -242,9 +363,7 @@ fi
 
 if has_stage accounts; then
   log "verifying self-service registration end to end"
-  if ! ( cd "${HERE}" \
-      && YASSS_API="${api}" YASSS_MAILPIT="http://127.0.0.1:${MAIL_PORT}" \
-      node accounts/verify.mjs ); then
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node accounts/verify.mjs; then
     failures=$((failures + 1))
     warn "accounts stage failed"
   fi
@@ -255,9 +374,7 @@ if has_stage reminders; then
   # a reminder is *not* re-sent means waiting out a second sweep. There is no
   # way to shorten it without making the thing being verified untrue.
   log "verifying reminders end to end (this waits on the sweep, ~3 minutes)"
-  if ! ( cd "${HERE}" \
-      && YASSS_API="${api}" YASSS_MAILPIT="http://127.0.0.1:${MAIL_PORT}" \
-      node reminders/verify.mjs ); then
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node reminders/verify.mjs; then
     failures=$((failures + 1))
     warn "reminders stage failed"
   fi
@@ -265,7 +382,8 @@ fi
 
 if has_stage browser; then
   log "driving the real stack through a browser"
-  if ! ( cd "${ROOT}/frontend" && YASSS_LIVE_URL="${api}" npx playwright test --config playwright.live.config.js ); then
+  if ! drive "${BROWSER_IMAGE}" /repo/frontend \
+      npx playwright test --config playwright.live.config.js; then
     failures=$((failures + 1))
     warn "browser stage failed"
   fi
@@ -274,12 +392,13 @@ fi
 # The server must still be healthy at the end: a fuzz run that leaves it wedged
 # but reports no individual failure is still a failure.
 log "final health check"
-curl -fsS "${api}/v1" >/dev/null 2>&1 || die "server is no longer healthy after the suite"
+drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 10 '"status":"ok"' \
+  >/dev/null || die "server is no longer healthy after the suite"
 
 # A stack trace in the log is worth surfacing even when every assertion passed.
-if podman logs "${APP_CTR}" 2>&1 | grep -qE '^\s+at com\.crowdease'; then
+if pm logs "${APP_CTR}" 2>&1 | grep -qE '^\s+at com\.crowdease'; then
   warn "the application logged stack traces:"
-  podman logs "${APP_CTR}" 2>&1 | grep -B3 -A6 '^\s\+at com\.crowdease' | head -40 >&2
+  pm logs "${APP_CTR}" 2>&1 | grep -B3 -A6 '^\s\+at com\.crowdease' | head -40 >&2
   failures=$((failures + 1))
 fi
 
