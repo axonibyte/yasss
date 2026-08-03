@@ -16,7 +16,9 @@
  * guard belongs on the key, not the constraint, and the name that follows is
  * the index name rather than a constraint symbol.
  *
- * One statement, block comments only. See docs/upstream-axb-lib-db.md.
+ * One statement, block comments only. That was a hard constraint of
+ * axb-lib-db before 0.4.1 and is now merely the house style; see
+ * docs/upstream-axb-lib-db.md.
  */
 ALTER TABLE ${database}.${prefix}volunteer
   ADD FOREIGN KEY IF NOT EXISTS fk_volunteer_user (user)

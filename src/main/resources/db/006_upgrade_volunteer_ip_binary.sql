@@ -13,9 +13,11 @@
  * The legacy `ip_addr` column, its ADD script and its backfill have since been
  * removed; 012 drops the column. See that file for why they went together.
  *
- * NOTE: block comments, not `--`. Database.setup joins the lines of a script
- * with no separator, so a `--` comment silently comments out everything that
- * follows it -- the statement then executes as a no-op with no error at all.
+ * NOTE: block comments, not `--`. Before axb-lib-db 0.4.1, Database.setup
+ * joined the lines of a script with no separator, so a `--` comment silently
+ * commented out everything after it and the statement executed as a no-op with
+ * no error at all. That is fixed, and this file is left as-is only because
+ * rewriting a working migration buys nothing.
  */
 ALTER TABLE ${database}.${prefix}volunteer
   ADD COLUMN IF NOT EXISTS

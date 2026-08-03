@@ -1,73 +1,90 @@
-# Upstream report: `Database.setup` in `axb-lib-db`
+# `Database.setup` in `axb-lib-db` — fixed in 0.4.1
 
-Filed here rather than fixed, because the behaviour is in a dependency. Two properties of
-`com.axonibyte.lib.db.Database.setup` are undocumented, silent, and each cost time on this
-project. Both were verified against the shipped bytecode, not inferred.
+**Status: resolved upstream.** This was written as a report against 0.3.4/0.4.0; the
+behaviours below were fixed in `axb-lib-db-java` 0.4.1, and this project now depends on that
+version. Kept as a record, because the constraints shaped every migration in `db/` and the
+reasoning is worth not rediscovering.
 
-Applies to `axb-lib-db` as consumed by YASSS (`com.axonibyte.lib:db`). Reproduced on
-MariaDB 11.
+Verified against MariaDB 11.
 
 ---
 
-## 1. Script lines are joined with a single space, so `--` comments swallow the file
+## 1. Script lines were joined with a single space, so `--` comments swallowed the file
 
-`setup` reads each `db/*.sql` resource and joins its lines with `" "`, discarding the
-newlines. A SQL line comment therefore extends to the end of the **file**, not the end of the
-line.
+`setup` read each `db/*.sql` resource and joined its lines with `" "`, discarding the
+newlines. A SQL line comment therefore extended to the end of the **file**, not the line.
 
-The failure mode is the problem. A script whose entire body sits behind a `--` header
-comment becomes:
+The failure mode was the problem. A script whose body sat behind a `--` header became:
 
 ```sql
 -- Widen the address column for IPv6.        ALTER TABLE ... ;
 ```
 
-That is a valid, empty statement. It executes without error, `setup` reports success, and the
-migration simply did not happen. Nothing in any log distinguishes it from a migration that
-ran.
+A valid, empty statement. It executed without error, `setup` reported success, and the
+migration simply did not happen. Nothing in any log distinguished it from one that ran.
 
 **How it surfaced here.** A migration widening `ip_addr` to `VARBINARY(16)` carried a
 fifteen-line comment header. It never ran. It was caught only because the E2E suite asserts
 the resulting column type directly — had it merely asserted "the app starts", the schema
 would have been silently wrong in production.
 
-Every pre-existing migration in `db/` happens to contain no `--` comments at all, which is
-presumably why this was never hit before. That is folklore, not a safeguard.
+Every pre-existing migration in `db/` happened to contain no `--` comments at all, which is
+presumably why this was never hit before. That was folklore, not a safeguard.
 
-**Suggested fix:** join with `"\n"`. That is behaviour-preserving for every script that does
-not rely on the current behaviour, and no script reasonably could.
+**Fixed** by joining with `"\n"` and parsing comments properly.
 
-**Workaround in this repository:** every migration uses `/* */` block comments only.
+## 2. Each file was prepared and executed as a single statement
 
----
+`setup` called `prepareStatement` once per file with the whole joined body, so a file
+containing two statements separated by `;` was a syntax error at prepare time. That one at
+least failed loudly, but the rule was documented nowhere and the error named a syntax problem
+rather than the actual constraint.
 
-## 2. Each file is prepared and executed as a single statement
+It also shaped migration design in non-obvious ways: adding three columns had to be one
+`ALTER TABLE` with three `ADD COLUMN` clauses, and a table plus its index had to be two
+separate files — hence the paired `009_table_reminder_log.sql` /
+`009_table_reminder_suppression.sql`.
 
-`setup` calls `Connection.prepareStatement` once per file with the whole joined body. A file
-containing two statements separated by `;` is a syntax error at prepare time.
+**Fixed.** Scripts may now hold several statements. Semicolons inside string literals, quoted
+identifiers, and comments are left alone, so a semicolon in a default value no longer splits a
+statement in half.
 
-This one at least fails loudly, but the constraint is not documented anywhere, and the error
-names a syntax problem rather than the actual rule. It also shapes migration design in a way
-that is not obvious: adding three columns to a table has to be one `ALTER TABLE` with three
-`ADD COLUMN` clauses rather than three statements, and a table plus its index has to be two
-separate files.
-
-**Suggested fix:** split on statement boundaries, or document the one-statement rule.
-
-**Workaround in this repository:** one statement per file, hence the paired
-`009_table_reminder_log.sql` / `009_table_reminder_suppression.sql`.
-
----
-
-## 3. Related: `setup` tracks nothing
+## 3. Related: `setup` still tracks nothing
 
 Every script is replayed on every boot. This is not a bug — it is a deliberate design that
-makes migrations idempotent by construction — but it has a consequence worth stating: a
-migration must use `IF NOT EXISTS` throughout, and **`DROP` is effectively unavailable**,
-because a second boot would fail on the already-dropped object.
+makes migrations idempotent by construction — but the consequence stands: a migration must use
+`IF NOT EXISTS` throughout, and `DROP` is only safe in its `IF EXISTS` form.
 
-This is why the legacy `ip_addr` column is still present in this schema (see
-`docs/remaining-work.md` §2.4) rather than dropped after the IPv6 backfill.
+This is why `012_upgrade_volunteer_drop_ip_addr.sql` uses `DROP COLUMN IF EXISTS`, and why the
+E2E suite restarts the application once specifically to prove the migrations survive a replay.
 
-The E2E suite restarts the application once specifically to prove the migrations survive a
-replay; see `e2e/README.md`.
+---
+
+## What this project does now
+
+The migrations were **not** rewritten to use the newly-available features. They work, they are
+idempotent, and churning 21 files to change comment syntax would risk a schema for no
+functional gain. The `/* */` headers and one-statement-per-file layout stay.
+
+What changed is that the constraint is no longer load-bearing: a future migration may use
+`--` comments or hold several statements, and the header comments in `db/*.sql` that cite this
+document as a reason to avoid them are now historical rather than binding.
+
+## Other fixes that arrived with the version jump
+
+0.3.4 → 0.4.1 also brings 0.4.0, which is worth knowing about even though neither change
+affects this project:
+
+- **`SQLBuilder.or()` is retroactive by one filter.** `.where("a").or().where("b")` produces
+  `(a = ? OR b = ?)`, not `a AND (b = ?)` — so a scoping predicate written before `or()` gets
+  pulled into the OR group, widening the result set. Unbalanced parentheses in that
+  construction were fixed in 0.4.0. **This project builds no OR groups**, so nothing here is
+  affected; recorded because the trap is easy to walk into.
+- **`Database.close()` no longer swallows exceptions**, logging them at WARN instead. It still
+  does not throw, so no `finally` block anywhere changes behaviour — but a connection that
+  fails to return to the pool is now visible in the log rather than silent.
+- **`Database.transaction()`** was added, for work that spans several statements. Connections
+  come from the pool with autocommit on, so a multi-statement sequence issued through
+  `connect()` is not atomic. Nothing in this project currently needs it; `Volunteer.commit()`
+  and `Event.commit()` would be the candidates if partial-write behaviour ever becomes a
+  concern.

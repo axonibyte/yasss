@@ -6,6 +6,10 @@ source rather than recalled.
 The previous revision's backlog has since been implemented — see §4 for what that turned up,
 including two entries that were simply wrong. What is left below is genuinely open.
 
+One former entry has since been fixed upstream rather than worked around: `axb-lib-db` 0.4.1
+repairs `Database.setup`. It is struck through in §1 rather than deleted, because the
+constraint it describes shaped every migration in `db/`.
+
 ---
 
 ## 1. Open items
@@ -13,7 +17,7 @@ including two entries that were simply wrong. What is left below is genuinely op
 | Issue | Detail |
 |---|---|
 | **Sessions die after ~15 minutes idle** | `ticket.refreshInterval` (1 min) × `ticket.maxHistory` (15) bounds the window, and every session dies on restart because the signing keys live in memory. The knock-on for emailed links is now fixed — verification and reminder links carry stored tokens — but a signed-in user is still logged out after a quarter-hour of inactivity. Worth confirming against how the service is actually operated before changing; the fix is either persisting the signers or lengthening the ring. |
-| **`Database.setup` joins SQL lines with no separator** | Upstream, in `axb-lib-db`. Any `--` comment silently comments out the rest of the script, which then executes as a no-op with no error. Each file is also prepared and executed as a single statement, so a migration cannot contain two. Both cost real time here. Written up in `docs/upstream-axb-lib-db.md`, ready to file. |
+| ~~**`Database.setup` joins SQL lines with no separator**~~ | **Fixed upstream in `axb-lib-db` 0.4.1**, which this project now depends on. A `--` comment no longer swallows the rest of a script, and a file may hold several statements. See `docs/upstream-axb-lib-db.md`. The existing migrations were deliberately not rewritten: they work and are idempotent, so churning 21 files to change comment syntax buys nothing. |
 | **Storage is server-local wall clock** | Events now carry an IANA zone and every surface renders in it, so the user-facing half is fixed. Underneath, `DATETIME` columns still store whatever instant the JDBC driver converted using the JVM's zone. Instants round-trip correctly and consistently, but *relocating the server or changing the container's `TZ` would silently shift every stored time*. Converting to UTC storage is a one-shot data migration, and `Database.setup` replays every script on every boot — so it needs a guard this schema has no natural place for. Worth doing deliberately, not incidentally. |
 
 ### Not a defect, recorded so it is not re-raised

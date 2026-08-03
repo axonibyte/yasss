@@ -12,7 +12,9 @@
  *
  * Idempotent by construction -- once no orphans remain it matches nothing.
  *
- * One statement, block comments only. See docs/upstream-axb-lib-db.md.
+ * One statement, block comments only. That was a hard constraint of
+ * axb-lib-db before 0.4.1 and is now merely the house style; see
+ * docs/upstream-axb-lib-db.md.
  */
 UPDATE ${database}.${prefix}volunteer v
   LEFT JOIN ${database}.${prefix}user u ON v.user = u.id

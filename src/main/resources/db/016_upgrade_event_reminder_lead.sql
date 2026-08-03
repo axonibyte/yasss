@@ -12,7 +12,9 @@
  * time measured in months is a reasonable thing to want. The endpoint bounds it
  * to a year, which is the number worth defending rather than the column width.
  *
- * One statement, block comments only. See docs/upstream-axb-lib-db.md.
+ * One statement, block comments only. That was a hard constraint of
+ * axb-lib-db before 0.4.1 and is now merely the house style; see
+ * docs/upstream-axb-lib-db.md.
  */
 ALTER TABLE ${database}.${prefix}event
   ADD COLUMN IF NOT EXISTS reminder_lead_time INT UNSIGNED DEFAULT NULL

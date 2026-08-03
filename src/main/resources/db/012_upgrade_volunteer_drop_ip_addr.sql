@@ -20,7 +20,9 @@
  * DROP COLUMN IF EXISTS is what makes this survive Database.setup replaying
  * every script on every boot. A bare DROP would fail on the second start.
  *
- * One statement, block comments only. See docs/upstream-axb-lib-db.md.
+ * One statement, block comments only. That was a hard constraint of
+ * axb-lib-db before 0.4.1 and is now merely the house style; see
+ * docs/upstream-axb-lib-db.md.
  */
 ALTER TABLE ${database}.${prefix}volunteer
   DROP COLUMN IF EXISTS ip_addr

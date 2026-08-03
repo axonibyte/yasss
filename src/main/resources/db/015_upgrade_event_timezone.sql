@@ -20,7 +20,9 @@
  * half the year anywhere that observes DST. 64 characters comfortably exceeds
  * the longest name in the tz database.
  *
- * One statement, block comments only. See docs/upstream-axb-lib-db.md.
+ * One statement, block comments only. That was a hard constraint of
+ * axb-lib-db before 0.4.1 and is now merely the house style; see
+ * docs/upstream-axb-lib-db.md.
  */
 ALTER TABLE ${database}.${prefix}event
   ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) DEFAULT NULL

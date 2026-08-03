@@ -11,7 +11,9 @@
  * Nullable: existing users may have no pending verification, and one is minted
  * whenever a link is sent.
  *
- * One statement, block comments only. See docs/upstream-axb-lib-db.md.
+ * One statement, block comments only. That was a hard constraint of
+ * axb-lib-db before 0.4.1 and is now merely the house style; see
+ * docs/upstream-axb-lib-db.md.
  */
 ALTER TABLE ${database}.${prefix}user
   ADD COLUMN IF NOT EXISTS verify_token BINARY(16) DEFAULT NULL
