@@ -174,18 +174,27 @@ public class Slot {
           stmt.setBytes(++idx, SQLBuilder.uuidToBytes(volunteer.getID()));
         }
         res = stmt.executeQuery();
-        
-        while(res.next())
+
+        // One query for every field, rather than one per answer -- the same N+1
+        // that getVolunteers had. And null-guarded: the event lookup above can
+        // legitimately answer null if the event was deleted between these two
+        // statements, and dereferencing it threw out of a model getter that no
+        // endpoint catches.
+        Map<UUID, Detail> fields =
+            null == event ? Map.of() : event.getDetailsByID();
+
+        while(res.next()) {
+          Detail field = fields.get(
+              SQLBuilder.bytesToUUID(
+                  res.getBytes("detail_field")));
+          if(null == field) continue;
           details
               .get(
                   SQLBuilder.bytesToUUID(
                       res.getBytes("volunteer")))
-              .put(
-                  event.getDetail(
-                      SQLBuilder.bytesToUUID(
-                          res.getBytes("detail_field"))),
-                  res.getString("detail_value"));
-        
+              .put(field, res.getString("detail_value"));
+        }
+
         for(var volunteer : rsvps.values())
           volunteer.setDetails(
               details.get(

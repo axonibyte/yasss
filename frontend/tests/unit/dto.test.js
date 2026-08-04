@@ -87,6 +87,53 @@ describe('event summary', () => {
     expect(eventSummaryToApi({ ...prev, notifyOnSignup: true }, prev))
       .toEqual({ emailOnSubmission: true });
   });
+
+  describe('clearing a nullable field', () => {
+    // Both of these offer a "use the default" choice in the interface — "each
+    // viewer's own zone", and an empty lead time meaning the global one — and
+    // neither cleared value was ever sent, because the server could not tell an
+    // explicit null from an absent key and answered 400. So the select moved,
+    // nothing was sent, and a reload put it back. It now goes as an explicit
+    // null; `JSONDeserializer.isNull` is the other half.
+
+    it('sends an explicit null when the zone is cleared', () => {
+      expect(eventSummaryToApi({ timezone: null }, { timezone: 'America/Chicago' }))
+        .toEqual({ timezone: null });
+    });
+
+    it('sends an explicit null when the lead time is cleared', () => {
+      expect(eventSummaryToApi({ reminderLeadTime: null }, { reminderLeadTime: 120 }))
+        .toEqual({ reminderLeadTime: null });
+    });
+
+    it('treats the empty string the select produces as a clear', () => {
+      expect(eventSummaryToApi({ timezone: '' }, { timezone: 'UTC' }))
+        .toEqual({ timezone: null });
+    });
+
+    it('does not send anything when it was already unset', () => {
+      // undefined, null and '' all mean the same thing here, so none of the
+      // combinations may read as a change and produce a pointless PATCH.
+      for (const before of [undefined, null, '']) {
+        for (const after of [undefined, null, '']) {
+          expect(eventSummaryToApi({ timezone: after }, { timezone: before })).toEqual({});
+        }
+      }
+      for (const before of [undefined, null, 0]) {
+        for (const after of [undefined, null, 0]) {
+          expect(eventSummaryToApi({ reminderLeadTime: after }, { reminderLeadTime: before }))
+            .toEqual({});
+        }
+      }
+    });
+
+    it('still sends a real value when one is chosen', () => {
+      expect(eventSummaryToApi({ timezone: 'Europe/London' }, { timezone: null }))
+        .toEqual({ timezone: 'Europe/London' });
+      expect(eventSummaryToApi({ reminderLeadTime: 60 }, { reminderLeadTime: null }))
+        .toEqual({ reminderLeadTime: 60 });
+    });
+  });
 });
 
 describe('activity', () => {

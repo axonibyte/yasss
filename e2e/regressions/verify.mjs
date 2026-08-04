@@ -359,4 +359,84 @@ console.log('\ncodes are unique and stable');
   check(before === after, 'the code survives an edit', `${before} -> ${after}`);
 }
 
+console.log('\na nullable field can actually be cleared');
+
+{
+  // The timezone select offers "each viewer's own zone" and the reminder lead
+  // time offers "use the global one", and neither could be chosen: both columns
+  // are nullable, but a JSON null was a 400 -- `JSONDeserializer.has` answers
+  // true for `JSONObject.NULL` while every typed getter then fails its cast --
+  // so the client omitted the key instead. The select moved, nothing was sent,
+  // and a reload put it back.
+  const event = await createEvent(api, { auth, title: 'Clearable' });
+
+  const set = await api('PATCH', `/v1/events/${event.id}`, {
+    auth,
+    body: { timezone: 'America/Chicago', reminderLeadTime: 120 },
+  });
+  sane(set, 'setting a zone and a lead time');
+  check(set.status === 200, 'a zone and lead time can be set', `got ${set.status}`);
+
+  const read = async () => (await api('GET', `/v1/events/${event.id}`, { auth })).payload.event;
+
+  const withValues = await read();
+  check(withValues.timezone === 'America/Chicago', 'the zone is stored',
+    `got ${withValues.timezone}`);
+  check(withValues.reminderLeadTime === 120, 'the lead time is stored',
+    `got ${withValues.reminderLeadTime}`);
+
+  const cleared = await api('PATCH', `/v1/events/${event.id}`, {
+    auth,
+    body: { timezone: null, reminderLeadTime: null },
+  });
+  sane(cleared, 'clearing a zone and a lead time');
+  check(
+    cleared.status === 200,
+    'an explicit null is accepted rather than a 400',
+    `got ${cleared.status}: ${cleared.payload?.info}`,
+  );
+
+  // Absent rather than null on the wire: org.json's `put(key, null)` removes
+  // the key outright, so every nullable field in this payload simply vanishes
+  // when it is unset. `eventSummaryFromApi` already reads it that way with
+  // `?? null`. What matters here is that the old value is gone, not which of
+  // the two spellings of "nothing" comes back.
+  const emptied = await read();
+  check(
+    (emptied.timezone ?? null) === null,
+    'the zone is actually cleared',
+    `got ${JSON.stringify(emptied.timezone)} -- still set, so the null was swallowed`,
+  );
+  check(
+    (emptied.reminderLeadTime ?? null) === null,
+    'the lead time is actually cleared',
+    `got ${JSON.stringify(emptied.reminderLeadTime)}`,
+  );
+
+  // Omitting the key must still mean "leave it alone" -- that is the whole
+  // distinction, and conflating the two would silently wipe a zone on every
+  // unrelated edit.
+  await api('PATCH', `/v1/events/${event.id}`, {
+    auth,
+    body: { timezone: 'Europe/London' },
+  });
+  await api('PATCH', `/v1/events/${event.id}`, {
+    auth,
+    body: { shortDescription: 'Clearable II' },
+  });
+  const untouched = await read();
+  check(
+    untouched.timezone === 'Europe/London',
+    'an absent key leaves the zone alone',
+    `got ${untouched.timezone}`,
+  );
+
+  // And a bad value is still a 400, so accepting null did not open the gate.
+  const nonsense = await api('PATCH', `/v1/events/${event.id}`, {
+    auth,
+    body: { timezone: 'Mars/Olympus_Mons' },
+  });
+  check(nonsense.status === 400, 'an unknown zone is still refused', `got ${nonsense.status}`);
+}
+
 finish('regressions');

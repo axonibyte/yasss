@@ -74,6 +74,15 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       JSONArray detailArr = new JSONArray();
       Map<UUID, Volunteer> volunteers = new HashMap<>();
 
+      // Hoisted, and checked first everywhere below. It is loop-invariant, and
+      // putting it first means an organiser viewing their own event -- who can
+      // see everyone by definition -- never performs a single per-volunteer user
+      // lookup. The lookups that remain are memoised, because the same account
+      // routinely owns several volunteers on one event and because the RSVP loop
+      // asked for each of them once per slot.
+      final boolean eventAdmin = auth.atLeast(event);
+      final Map<UUID, User> actors = new HashMap<>();
+
       for(var volunteer : event.getVolunteers())
         volunteers.put(volunteer.getID(), volunteer);
 
@@ -94,7 +103,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
             // and the count is what every viewer legitimately needs in order to
             // see whether a slot has room.
             rsvpCount++;
-            if(auth.atLeast(User.getUser(rsvp.getValue().getUser())) || auth.atLeast(event))
+            if(eventAdmin || auth.atLeast(owner(actors, rsvp.getValue().getUser())))
               rsvpArr.put(rsvp.getValue().getID());
           }
           slotArr.put(
@@ -137,8 +146,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
                 .put("required", detail.isRequired()));
 
       for(var volunteer : volunteers.values()) {
-        if(!auth.atLeast(User.getUser(volunteer.getUser()))
-            && !auth.atLeast(event))
+        if(!eventAdmin && !auth.atLeast(owner(actors, volunteer.getUser())))
           continue;
         
         volunteerArr.put(
@@ -213,5 +221,27 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
     } catch(StripeException e) {
       throw new EndpointException(req, "stripe malfunction", 500, e);
     }
+  }
+
+  /**
+   * Resolves the account a volunteer belongs to, remembering the answer.
+   *
+   * <p>A null id is answered without touching the database, and a miss is
+   * cached as readily as a hit -- both are stable for the life of one request,
+   * and an account that has been deleted is exactly the case that would
+   * otherwise be looked up again for every RSVP it left behind.
+   *
+   * @param cache the per-request memo
+   * @param userID the volunteer's account, which may be {@code null} for an
+   *        anonymous signup
+   * @return the {@link User}, or {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
+  private static User owner(Map<UUID, User> cache, UUID userID) throws SQLException {
+    if(null == userID) return null;
+    if(cache.containsKey(userID)) return cache.get(userID);
+    User user = User.getUser(userID);
+    cache.put(userID, user);
+    return user;
   }
 }

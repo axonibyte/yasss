@@ -88,16 +88,21 @@ export function eventSummaryToApi(next, previous = {}) {
   if (next.allowMultiuserSignups !== previous.allowMultiuserSignups) {
     changes.allowMultiUserSignups = next.allowMultiuserSignups;
   }
-  // Never sent as null: the server has no way to express "forget the zone", and
-  // an anchored validation would reject it.
-  if (next.timezone && next.timezone !== previous.timezone) {
-    changes.timezone = next.timezone;
-  }
-  // Only sent when set: the server has no way to express "back to the global",
-  // and a null would fail its range check.
-  if (next.reminderLeadTime && next.reminderLeadTime !== previous.reminderLeadTime) {
-    changes.reminderLeadTime = next.reminderLeadTime;
-  }
+  // Both of these are nullable server-side, and both offer a "use the default"
+  // choice here — "each viewer's own zone", and an empty lead time meaning the
+  // global one. Neither cleared value used to be sent, because a null was a 400:
+  // the endpoint could not tell an explicit null from an absent key. It can now,
+  // so clearing one is a change like any other.
+  //
+  // Normalised to null first, so that undefined (never loaded) and '' (the
+  // select's empty option) do not read as different values from one another and
+  // produce a pointless PATCH.
+  const zone = next.timezone || null;
+  if (zone !== (previous.timezone || null)) changes.timezone = zone;
+
+  const lead = next.reminderLeadTime || null;
+  if (lead !== (previous.reminderLeadTime || null)) changes.reminderLeadTime = lead;
+
   return changes;
 }
 

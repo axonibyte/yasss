@@ -49,6 +49,15 @@
   let eventLoaded = $state(false);
   /** True while a publish or RSVP submission is in flight; disables both buttons. */
   let eventBusy = $state(false);
+  /**
+   * A navigation is in flight.
+   *
+   * Separate from `eventBusy`, which marks a mutation and is answered by the
+   * LoadingButton that started it. This one covers the page, because opening an
+   * event *is* a page transition and there is no button left on screen to spin:
+   * the dashboard just sat there for the length of the request.
+   */
+  let navigating = $state(false);
 
   const event = currentEvent;
 
@@ -205,15 +214,36 @@
       // Already showing it: Forward back onto the event we never left, or a
       // change to some other parameter. Re-fetching would only flicker.
       if (route.eventId === event.id) return;
-      eventLoaded = await loadEvent(event, route.eventId);
+      // Covered by the loader for the same reason as openEvent: Back onto an
+      // event is a page transition with no button to spin.
+      navigating = true;
+      try {
+        eventLoaded = await loadEvent(event, route.eventId);
+      } finally {
+        navigating = false;
+      }
     });
   }
 
   // --- event interactions --------------------------------------------------
 
   async function openEvent(eventId) {
+    // The URL moves first so Back works, but the load is what takes the time,
+    // and there used to be nothing on screen saying so — the dashboard simply
+    // sat there. Worse, a failed load left the address bar reading `?event=X`
+    // on a page still showing the dashboard, so reloading reproduced the error
+    // and there was no obvious way back.
+    if (navigating) return;
+    navigating = true;
     route.goToEvent(eventId);
-    eventLoaded = await loadEvent(event, eventId);
+    try {
+      eventLoaded = await loadEvent(event, eventId);
+      // `loadEvent` has already said what went wrong. Drop the id so the URL
+      // matches what is actually on screen.
+      if (!eventLoaded) route.goHome();
+    } finally {
+      navigating = false;
+    }
   }
 
   function addVolunteer() {
@@ -236,13 +266,37 @@
     volunteer,
     { name, values, remindersEnabled, reminderEmail },
   ) {
-    volunteer.name = name;
-    volunteer.remindersEnabled = remindersEnabled;
-    volunteer.reminderEmail = reminderEmail;
-    volunteer.values.clear();
-    for (const [k, v] of values) volunteer.values.set(k, v);
+    const apply = (v) => {
+      volunteer.name = v.name;
+      volunteer.remindersEnabled = v.remindersEnabled;
+      volunteer.reminderEmail = v.reminderEmail;
+      volunteer.values.clear();
+      for (const [k, val] of v.values) volunteer.values.set(k, val);
+    };
+
+    // Snapshotted because `saveVolunteer` serialises the entity itself, so the
+    // new values have to be on it before the request goes out. What this did
+    // was write them and then close the modal unconditionally — so a failed
+    // save left the new name on screen against the old server state, with the
+    // form gone and no way to retry. Every other mutation in the app gets this
+    // right; this one did not.
+    const previous = {
+      name: volunteer.name,
+      remindersEnabled: volunteer.remindersEnabled,
+      reminderEmail: volunteer.reminderEmail,
+      values: new Map(volunteer.values),
+    };
+
+    apply({ name, values, remindersEnabled, reminderEmail });
+
     // Only persisted volunteers hit the network; the rest go with the submit.
-    if (volunteer.persisted) await saveVolunteer(event, volunteer);
+    if (volunteer.persisted && !(await saveVolunteer(event, volunteer))) {
+      // `saveVolunteer` has already toasted why. Roll the entity back and leave
+      // the modal open: it edits its own snapshot, so the user's typing is
+      // still in the form and Save can simply be pressed again.
+      apply(previous);
+      return;
+    }
     modal = null;
   }
 
@@ -371,13 +425,15 @@
 
   function logout() {
     session.logout();
-    toastError({ message: "You've been logged out!" }, "You've been logged out!");
+    // Logging out is something the user asked for and got. It was reported with
+    // `toastError`, which is `is-danger` — the same red banner as a failed save.
+    toastSuccess("You've been logged out!");
   }
 </script>
 
 <svelte:window onbeforeunload={beforeUnload} />
 
-<PageLoader active={loading} />
+<PageLoader active={loading || navigating} />
 
 <NavBar
   loggedIn={session.loggedIn}

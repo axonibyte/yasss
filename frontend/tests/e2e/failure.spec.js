@@ -110,6 +110,90 @@ test.describe('loading an event that cannot be shown', () => {
   }
 });
 
+test.describe('a rejected volunteer edit', () => {
+  // This one path wrote the local model *before* the request and closed the
+  // modal regardless, so a failed save left the new name on screen against the
+  // old server state, with the form gone and no way to retry. Every other
+  // mutation in the app already got this right.
+  async function openVolunteerEditor(page, request) {
+    const seeded = await seed(request, {
+      user: {},
+      event: {
+        activities: 1,
+        windows: 1,
+        admin: 'self',
+        title: 'Has Volunteers',
+        volunteers: [{ name: 'Original Name' }],
+      },
+    });
+    await signIn(page, { user: seeded.user, session: seeded.session });
+    await page.goto(`/?event=${seeded.eventId}`);
+    await waitForApp(page);
+    return seeded;
+  }
+
+  test('keeps the modal open and leaves the old name on the page',
+    async ({ page, request }) => {
+      await openVolunteerEditor(page, request);
+
+      await page.getByRole('button', { name: 'Update Volunteer' }).click();
+      await expect(page.locator('.modal-card-title')).toContainText(/volunteer/i);
+      await page.locator('#vol-name').fill('Renamed');
+
+      await page.route('**/v1/events/*/volunteers/*', boom);
+      await page.getByRole('button', { name: 'Save Volunteer' }).click();
+
+      await expect(page.locator('.notification.is-danger')).toContainText('boom');
+      // Still open, still holding what was typed, so Save can be pressed again.
+      await expect(page.locator('.modal-card')).toBeVisible();
+      await expect(page.locator('#vol-name')).toHaveValue('Renamed');
+
+      // And the name the server refused must not be showing behind it. The
+      // picker is where a volunteer's name is rendered, so it is the surface
+      // that would have carried the optimistic lie.
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.modal-card')).toHaveCount(0);
+      await expect(page.locator('#view-event-volunteer')).not.toContainText('Renamed');
+      await expect(page.locator('#view-event-volunteer')).toContainText('Original Name');
+    });
+
+  test('lands the change once the server stops refusing', async ({ page, request }) => {
+    await openVolunteerEditor(page, request);
+
+    await page.getByRole('button', { name: 'Update Volunteer' }).click();
+    await page.locator('#vol-name').fill('Renamed');
+
+    await page.route('**/v1/events/*/volunteers/*', boom);
+    await page.getByRole('button', { name: 'Save Volunteer' }).click();
+    await expect(page.locator('.notification.is-danger')).toBeVisible();
+
+    await page.unroute('**/v1/events/*/volunteers/*');
+    await page.getByRole('button', { name: 'Save Volunteer' }).click();
+
+    await expect(page.locator('.modal-card')).toHaveCount(0);
+    await expect(page.locator('#view-event-volunteer')).toContainText('Renamed');
+  });
+});
+
+test('opening an event that fails puts the URL back', async ({ page, request }) => {
+  // The address bar moves before the load, so a failure used to leave
+  // `?event=X` showing over a dashboard — which meant reloading reproduced the
+  // error and there was no obvious way out.
+  const me = await seed(request, {
+    user: {}, event: { activities: 1, windows: 1, admin: 'self', title: 'Doomed Event' },
+  });
+  await signIn(page, { user: me.user, session: me.session });
+  await page.goto('/');
+  await waitForApp(page);
+
+  await page.route('**/v1/events/*', boom);
+  await page.getByText('Doomed Event').click();
+
+  await expect(page.locator('.notification.is-danger')).toBeVisible();
+  await expect(page).toHaveURL(/\/$|\/\?$/);
+  await expect(page.getByText('Your Upcoming Events')).toBeVisible();
+});
+
 test('a mid-session rejection does not log you out', async ({ page, request }) => {
   // Session loss is decided only by `Session.refresh`, at boot and on a timer.
   // A single forbidden request is not evidence that the session is gone, and

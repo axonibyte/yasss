@@ -28,6 +28,48 @@ import { getToken, notifyRotate } from './authBridge.js';
 
 const BASE = '/v1';
 
+/**
+ * How long any one request may take before it is abandoned.
+ *
+ * There was no timeout anywhere. A connection that opens and then stalls — a
+ * dropped mobile connection, a proxy holding the socket, a server wedged
+ * mid-request — leaves `fetch` pending indefinitely, and every caller in this
+ * app awaits it: a LoadingButton spins for ever, the unload guard keeps
+ * insisting there is unsaved work, and the only way out is a reload.
+ *
+ * Thirty seconds is well past anything the API legitimately takes — the slowest
+ * real call is publishing an event with its whole structure — while still being
+ * inside the patience of someone staring at a spinner.
+ */
+const TIMEOUT_MS = 30_000;
+
+/**
+ * Runs a fetch under a deadline, translating an abort into an ApiError.
+ *
+ * A bare `AbortError` would reach `toastError` as a DOMException with no `info`,
+ * so the caller's fallback would be shown — accurate but vague. This says what
+ * actually happened, which for a timeout is the useful part: the request may
+ * well have been received.
+ */
+async function fetchWithTimeout(url, init) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      throw new ApiError(
+        'That took too long, so we gave up waiting. It may still have gone through — '
+        + 'reload before trying again.',
+        0,
+      );
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const SESSION_HEADER = 'axb-session';
 const ACCOUNT_HEADER = 'axb-account';
 const ACCESS_LEVEL_HEADER = 'axb-access-level';
@@ -84,7 +126,7 @@ export async function request(method, path, opts = {}) {
   if (captcha) headers[CAPTCHA_HEADER] = captcha;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-  const response = await fetch(buildUrl(path, query), {
+  const response = await fetchWithTimeout(buildUrl(path, query), {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -124,7 +166,7 @@ export async function requestRaw(path, opts = {}) {
   if (token) headers.Authorization = `AXB-SIG-REQ ${token}`;
   if (accept) headers.Accept = accept;
 
-  const response = await fetch(`${BASE}${path}`, { headers });
+  const response = await fetchWithTimeout(`${BASE}${path}`, { headers });
   absorbAuthHeaders(response);
 
   if (!response.ok) {

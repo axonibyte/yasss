@@ -16,10 +16,32 @@ import {
   activityChangesToApi, detailChangesToApi, windowFromWrite, windowToApi,
 } from '../../lib/api/dto.js';
 import { Activity, Detail, EventWindow, Slot } from '../entities.svelte.js';
-import { toastError } from '../toast.js';
+import { toastDanger, toastError } from '../toast.js';
 
 /** True once the event exists server-side and changes must be published. */
 const isRemote = (event) => event.persisted;
+
+/**
+ * Asserts that a write actually came back with an id.
+ *
+ * Every one of these used to be `res.thing?.id ?? null`, which reads as
+ * defensive and is the opposite. An id is what every later operation gates on —
+ * `updateActivity`, `removeDetail`, `updateSlot` all check `item.id` and quietly
+ * skip the network when it is missing. So a response that did not carry one left
+ * an item on screen that looked saved, reported success, and then silently
+ * absorbed every subsequent edit to it. Failing here instead routes into the
+ * caller's existing catch, which toasts and removes the half-made item.
+ *
+ * @param {unknown} id the id from the write response
+ * @param {string} label what to call the thing in the error
+ * @returns {string} the id
+ */
+function requireId(id, label) {
+  if (typeof id !== 'string' || !id) {
+    throw new Error(`The server did not say which ${label} it created.`);
+  }
+  return id;
+}
 
 // --- activities ------------------------------------------------------------
 
@@ -36,7 +58,7 @@ export async function addActivity(event, values) {
   if (isRemote(event)) {
     try {
       const res = await api.addActivity(event.id, activity, event.activities.length);
-      activity.id = res.activity?.id ?? null;
+      activity.id = requireId(res.activity?.id, 'activity');
       // A newly added activity has no slots server-side until they are set.
       for (const slot of activity.slots.values()) slot.enabled = false;
     } catch (e) {
@@ -86,12 +108,34 @@ async function republishOrder(event, ordered, { push, label }) {
     .map((item, index) => ({ item, index }))
     .filter(({ item, index }) => item.id && item.priority !== index);
 
+  const applied = [];
   try {
-    for (const { item, index } of changed) {
-      await push(event.id, item.id, { priority: index });
+    for (const change of changed) {
+      await push(event.id, change.item.id, { priority: change.index });
+      applied.push(change);
     }
   } catch (e) {
     toastError(e, `Couldn't reorder that ${label}, sorry.`);
+
+    // Priorities go out one at a time, so a failure partway leaves the server
+    // holding some of the new order while the caller abandons the local move
+    // entirely. The two then disagree for good — and nothing on screen says so,
+    // because every request that did land answered 200. Put back what took.
+    //
+    // `item.priority` is still the original: callers only renumber the model
+    // after this resolves true.
+    try {
+      for (const { item } of applied.reverse()) {
+        await push(event.id, item.id, { priority: item.priority });
+      }
+    } catch {
+      // The rollback failed too, so the server's order is genuinely unknown.
+      // Say that plainly rather than leaving the user to discover it later.
+      toastDanger(
+        `The ${label} order on the server may not match what you see. `
+        + 'Reload the page to check.',
+      );
+    }
     return false;
   }
   return true;
@@ -168,7 +212,14 @@ export async function addWindow(event, values) {
   if (isRemote(event)) {
     try {
       const res = await api.addWindow(event.id, win);
-      Object.assign(win, windowFromWrite(res.window ?? {}));
+      // `res.window ?? {}` was worse than no guard at all: `windowFromWrite({})`
+      // returns `{id: undefined, begin: null, end: null}`, and assigning that
+      // over the window wiped the dates the user had just picked while leaving
+      // it id-less — so the window rendered blank and every later edit to it
+      // silently went local-only.
+      const written = windowFromWrite(res.window ?? {});
+      requireId(written.id, 'window');
+      Object.assign(win, written);
     } catch (e) {
       toastError(e, "Couldn't add that window, sorry.");
       return null;
@@ -222,7 +273,7 @@ export async function addDetail(event, values) {
   if (isRemote(event)) {
     try {
       const res = await api.addDetail(event.id, detail, event.details.length);
-      detail.id = res.detail?.id ?? null;
+      detail.id = requireId(res.detail?.id, 'field');
     } catch (e) {
       toastError(e, "Couldn't add that field, sorry.");
       return null;

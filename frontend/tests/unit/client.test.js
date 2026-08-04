@@ -168,6 +168,63 @@ describe('failure handling', () => {
   });
 });
 
+describe('the request deadline', () => {
+  // There was no timeout anywhere. A connection that opens and then stalls
+  // leaves `fetch` pending for ever, and every caller awaits it — so a
+  // LoadingButton spins indefinitely, the unload guard keeps insisting there is
+  // unsaved work, and only a reload gets out of it.
+
+  it('aborts a request that never settles, with a message worth reading', async () => {
+    vi.useFakeTimers();
+    try {
+      // Resolves only when the signal fires, which is what a stalled connection
+      // looks like from here.
+      fetchMock.mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => {
+          const e = new Error('aborted');
+          e.name = 'AbortError';
+          reject(e);
+        });
+      }));
+
+      const pending = get('/events');
+      // Attached before the clock moves: an unhandled rejection between the
+      // advance and the assertion would fail the run rather than this test.
+      const settled = pending.catch((e) => e);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      const error = await settled;
+
+      expect(error).toBeInstanceOf(ApiError);
+      // Not "Failed to fetch" or a bare DOMException. The useful part for a
+      // timeout is that the request may well have been received.
+      expect(error.info).toMatch(/too long/i);
+      expect(error.info).toMatch(/still have gone through/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not abort a request that answers in time', async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockResolvedValue(reply());
+      await expect(get('/events')).resolves.toBeTruthy();
+      // The timer must be cleared on the way out; otherwise every completed
+      // request leaves one armed for thirty seconds.
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('passes a signal on every request', async () => {
+    fetchMock.mockResolvedValue(reply());
+    await get('/events');
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
 describe('verbs', () => {
   it.each([
     ['GET', () => request('GET', '/x')],

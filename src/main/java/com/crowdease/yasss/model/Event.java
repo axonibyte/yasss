@@ -13,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -680,7 +681,31 @@ public class Event {
   }
 
   /**
+   * Retrieves this event's details, indexed by id.
+   *
+   * <p>One query for the lot, for the benefit of the two hottest reads on the
+   * platform. Both of them join every volunteer to every answer they gave and
+   * then resolved each answer's field with {@link #getDetail(UUID)} -- a fresh
+   * pooled connection, prepare, execute and close per <em>answer</em>. A hundred
+   * volunteers with five custom fields between them meant five hundred round
+   * trips to render one event page, and the cost grew with the square of a
+   * successful event.
+   *
+   * @return the details, keyed by {@link UUID}
+   * @throws SQLException if a database malfunction occurs
+   */
+  public Map<UUID, Detail> getDetailsByID() throws SQLException {
+    Map<UUID, Detail> byID = new HashMap<>();
+    for(var detail : getDetails())
+      byID.put(detail.getID(), detail);
+    return byID;
+  }
+
+  /**
    * Retrieves a specific event detail from thet database.
+   *
+   * <p>Prefer {@link #getDetailsByID()} when resolving more than one; this
+   * costs a connection and a round trip each time.
    *
    * @param detailID the {@link UUID} of the {@link Detail} in question
    * @return the {@link Detail}, if it exists; otherwise, {@code null}
@@ -987,18 +1012,26 @@ public class Event {
           stmt.setBytes(++idx, SQLBuilder.uuidToBytes(volunteer.getID()));
         }
         res = stmt.executeQuery();
-        
-        while(res.next())
+
+        // Resolved once, in one query, rather than per answer -- see
+        // getDetailsByID.
+        Map<UUID, Detail> fields = getDetailsByID();
+
+        while(res.next()) {
+          Detail field = fields.get(
+              SQLBuilder.bytesToUUID(
+                  res.getBytes("detail_field")));
+          // An answer whose field no longer exists. The map these go into is a
+          // TreeMap, so a null key is an NPE rather than a stray entry, and
+          // orphans do occur: the detail row is gone but its answers linger.
+          if(null == field) continue;
           details
               .get(
                   SQLBuilder.bytesToUUID(
                       res.getBytes("volunteer")))
-              .put(
-                  getDetail(
-                      SQLBuilder.bytesToUUID(
-                          res.getBytes("detail_field"))),
-                  res.getString("detail_value"));
-        
+              .put(field, res.getString("detail_value"));
+        }
+
         for(var volunteer : volunteers)
           if(details.containsKey(volunteer.getID()))
             volunteer.setDetails(

@@ -130,6 +130,38 @@ public class JSONDeserializer {
     }
   }
 
+  /**
+   * Determines whether a parameter was supplied as an explicit JSON {@code null}.
+   *
+   * <p>Distinct from {@link #has(String)}, and the distinction is the whole
+   * point: {@code org.json} represents a JSON null as {@link JSONObject#NULL},
+   * which is not a Java null, so {@code has} answers {@code true} for it. That
+   * is correct -- the caller did supply the key -- but every typed getter then
+   * fails its cast and the request comes back a 400.
+   *
+   * <p>Which is why "clear this field" was unexpressible. An event's timezone
+   * and reminder lead time are both nullable in the schema and both offer a
+   * "use the default" choice in the interface, but sending {@code null} for
+   * either was a 400, so the client simply omitted the key and the change was
+   * silently dropped.
+   *
+   * @param token the path to the requested value
+   * @return {@code true} iff the parameter is present and explicitly null
+   */
+  public boolean isNull(String token) {
+    try {
+      // Identity, not equals. `JSONObject.NULL.equals(null)` answers *true* --
+      // org.json's Null defines equality as "the other side is null or is me" --
+      // so the obvious spelling reports an absent key as an explicit null, and
+      // "leave this alone" becomes "clear this". NULL is a singleton and
+      // org.json always stores that exact instance, so `==` is both precise and
+      // the only reading that cannot be misled.
+      return JSONObject.NULL == get(token);
+    } catch(DeserializationException | RuntimeException e) {
+      return false;
+    }
+  }
+
   private Object get(String[] tokens, JSONObject json) throws ClassCastException {
     String token = tokens[0];
     if(token.isBlank()) throw new RuntimeException("malformed token");

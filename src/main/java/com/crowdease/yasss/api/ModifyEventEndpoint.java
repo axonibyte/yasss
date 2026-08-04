@@ -102,13 +102,23 @@ public final class ModifyEventEndpoint extends APIEndpoint {
         event.enableEmailOnSubmission(
             deserializer.getBool("emailOnSubmission"));
 
+      // Both of these accept an explicit null to mean "go back to the default",
+      // which is a choice the interface offers for each and which previously had
+      // nowhere to go: the column is nullable and the select offers "each
+      // viewer's own zone", but a null was a 400, so the client omitted the key
+      // and the change vanished. The user saw the select move and a reload put
+      // it back.
       if(deserializer.has("timezone"))
         event.setTimezone(
-            validTimezone(req, deserializer.getString("timezone").strip()));
+            deserializer.isNull("timezone")
+                ? null
+                : validTimezone(req, deserializer.getString("timezone").strip()));
 
       if(deserializer.has("reminderLeadTime"))
         event.setReminderLeadTime(
-            validLeadTime(req, deserializer.getInt("reminderLeadTime")));
+            deserializer.isNull("reminderLeadTime")
+                ? null
+                : validLeadTime(req, deserializer.getInt("reminderLeadTime")));
 
       if(deserializer.has("allowMultiUserSignups"))
         event.allowMultiUserSignups(
