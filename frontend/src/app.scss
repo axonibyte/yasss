@@ -76,8 +76,45 @@
 }
 
 // The one rule used from helpers/color, which costs 181 KB to import whole.
+//
+// `--bulma-primary-on-scheme` rather than `--bulma-primary`. Bulma's primary is
+// hsl(171, 100%, 41%), which as *text* on the near-white page background is
+// about 1.8:1 — well under the 4.5:1 WCAG asks for, and genuinely hard to read
+// rather than merely non-compliant. It was the only serious finding in the axe
+// sweep, and it covered every link and every emphasised word on the intro page,
+// the call to action and the dashboard.
+//
+// The `-on-scheme` variants exist for exactly this: same hue, same saturation,
+// lightness corrected against the current scheme (21% in light, 41% in dark).
+// The brand colour is unchanged everywhere it is used as a *background* —
+// buttons, tags, the grid's solid tiles — so this darkens text only.
 .has-text-primary {
-  color: var(--bulma-primary) !important;
+  color: var(--bulma-primary-on-scheme) !important;
+}
+
+// Same problem, same fix, for the surfaces that draw brand-coloured text on a
+// white background rather than the other way round: outlined primary buttons
+// and the grid's outlined slot tiles. Restricted to the resting state, because
+// hover and focus invert to white-on-primary and are already fine.
+// Selectors deliberately at least as specific as Bulma's own
+// (`.block-list.is-primary.is-outlined > li`, `.button.is-primary.is-outlined`),
+// since this is overriding them rather than adding to them. The border keeps
+// the brand colour: it is a 1px rule, not text, and legibility is the point
+// here.
+.button.is-primary.is-outlined:not(:hover):not(:focus):not(:active),
+.event-cell ul.block-list.is-primary.is-outlined > li,
+.event-cell ul.block-list.is-primary li.is-outlined {
+  color: var(--bulma-primary-on-scheme);
+}
+
+// Links sitting inside a paragraph were distinguishable from the text around
+// them by colour alone, which is invisible to a reader who cannot separate the
+// two. Nav items, buttons and block-list entries are excluded: they read as
+// controls from their position and surroundings, and WCAG 1.4.1 is about links
+// embedded in prose.
+.content a,
+.footer a {
+  text-decoration: underline;
 }
 
 // ---------------------------------------------------------------------------

@@ -79,6 +79,32 @@ class Route {
     this.eventId = null;
     this.share = false;
   }
+
+  /**
+   * Re-read the URL when the browser navigates within our own history.
+   *
+   * `parse()` ran once, at module load, which was right while every navigation
+   * was a full page load. It stopped being right when `goToEvent` and `goHome`
+   * started pushing entries: pressing Back after publishing rewound the URL and
+   * the app did not notice, so the event view stayed on screen against an
+   * address that no longer named it — and a reload or a shared link then showed
+   * something else entirely.
+   *
+   * A registered callback rather than an effect on `eventId`. An effect would
+   * also fire on our own `goToEvent`, which the caller already follows with its
+   * own load, so every navigation would fetch twice; and an async effect that
+   * writes state it also reads is where re-entrancy loops come from. This fires
+   * only on genuine browser navigation and cannot loop.
+   *
+   * @param {(previousEventId: string|null) => void} onNavigate
+   */
+  listen(onNavigate) {
+    window.addEventListener('popstate', () => {
+      const previous = this.eventId;
+      Object.assign(this, parse());
+      onNavigate?.(previous);
+    });
+  }
 }
 
 export const route = new Route();

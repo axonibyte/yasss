@@ -10,6 +10,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
+  import { fieldAria } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { DETAIL_TYPES } from '../../lib/validation/detailTypes.js';
   import { validateVolunteer } from '../../lib/validation/forms.js';
@@ -101,6 +102,7 @@
   <Field label="Name" error={errors.name} id="vol-name">
     <input
       id="vol-name"
+      {...fieldAria('vol-name', errors.name)}
       class="input"
       class:is-danger={errors.name}
       type="text"
@@ -139,6 +141,7 @@
       >
         <input
           {id}
+          {...fieldAria(id, errors[detail.key])}
           class="input"
           class:is-danger={errors[detail.key]}
           type={spec.input === 'number' ? 'number' : 'text'}
@@ -171,6 +174,7 @@
     <Field label="Reminder Email" error={errors.reminderEmail} id="vol-reminder-email">
       <input
         id="vol-reminder-email"
+        {...fieldAria('vol-reminder-email', errors.reminderEmail)}
         class="input"
         class:is-danger={errors.reminderEmail}
         type="email"

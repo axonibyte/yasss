@@ -33,6 +33,7 @@
   import { Volunteer } from './state/entities.svelte.js';
   import { toastSuccess, toastDanger, toastError } from './state/toast.js';
   import { configureCaptcha, requireCaptcha } from './lib/captcha.js';
+  import { setPasswordMinLength } from './lib/validation/policy.js';
   import { loadEvent, openReport, saveSummary } from './state/actions/eventActions.js';
   import { toggleRsvp } from './state/actions/rsvpActions.js';
   import { publishEvent } from './state/actions/publishActions.js';
@@ -153,6 +154,11 @@
     try {
       const info = await api.getApiInfo({ anonymous: true });
       configureCaptcha(info.captcha);
+      // The password minimum is the operator's, not ours. It cannot be checked
+      // server-side — the password never gets there — so the server states it
+      // and we apply it. An older server that does not report one leaves the
+      // built-in default standing.
+      setPasswordMinLength(info.passwordMinLength);
     } catch {
       // A failure here is not fatal — the app renders and CAPTCHAs stay off.
     }
@@ -173,6 +179,31 @@
     }
 
     await handleRouteAction();
+
+    // Back and Forward move within our own history once anything has pushed an
+    // entry, so the app has to follow the URL rather than assume it only ever
+    // changes when we change it.
+    route.listen(async (previousEventId) => {
+      // Chromium fires popstate for a fragment-link click as well as for
+      // history traversal, and every navbar item is an `href="#login"`-style
+      // link. Without this guard, opening any modal from the navbar closed it
+      // again in the same tick — the click set `modal`, the hash change fired
+      // popstate, and the handler below cleared it. Which event we are looking
+      // at is not knowable, but whether the route actually moved is, and that
+      // is the only thing worth reacting to.
+      if (route.eventId === previousEventId) return;
+
+      modal = null;
+      if (!route.eventId) {
+        eventLoaded = false;
+        event.reset();
+        return;
+      }
+      // Already showing it: Forward back onto the event we never left, or a
+      // change to some other parameter. Re-fetching would only flicker.
+      if (route.eventId === event.id) return;
+      eventLoaded = await loadEvent(event, route.eventId);
+    });
   }
 
   // --- event interactions --------------------------------------------------
@@ -245,6 +276,11 @@
         notifyOnSignup: event.notifyOnSignup,
         allowMultiuserSignups: event.allowMultiuserSignups,
         reminderLeadTime: event.reminderLeadTime,
+        // Without this key the diff never saw a zone change, so the PATCH the
+        // dto layer was already prepared to send could never be built and the
+        // zone was effectively frozen at whatever the browser reported when the
+        // event was created.
+        timezone: event.timezone,
       };
       const ok = await saveSummary(event, values, previous);
       if (!ok) return;

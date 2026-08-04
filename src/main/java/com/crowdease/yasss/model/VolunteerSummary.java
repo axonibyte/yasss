@@ -63,11 +63,13 @@ public final class VolunteerSummary {
     for(var detail : volunteer.getDetails().entrySet())
       list.push(
           new HTMLElem("li")
+              // Both halves are user-supplied and this goes into an email body,
+              // so it is built from escaped pieces rather than formatted into a
+              // markup template.
               .push(
-                  String.format(
-                      "<strong>%1$s</strong>: %2$s",
-                      detail.getKey().getLabel(),
-                      detail.getValue())));
+                  new HTMLElem("strong")
+                      .push(HTMLElem.text(detail.getKey().getLabel())),
+                  HTMLElem.text(": " + detail.getValue())));
     return list.toString();
   }
 
@@ -108,7 +110,7 @@ public final class VolunteerSummary {
 
       list.push(
           new HTMLElem("li")
-              .push(activity.getShortDescription())
+              .push(HTMLElem.text(activity.getShortDescription()))
               .push(windowList));
     }
 

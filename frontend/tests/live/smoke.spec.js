@@ -166,6 +166,11 @@ test('the stylesheet actually loaded', async ({ page }) => {
 
   const brand = page.locator('.navbar-brand strong');
   const color = await brand.evaluate((el) => getComputedStyle(el).color);
-  // Bulma's primary turquoise, which is also the brand colour in yasss.cfg.
-  expect(color).toBe('rgb(0, 209, 178)');
+  // The brand turquoise, darkened to `--bulma-primary-on-scheme` wherever it is
+  // used as *text*: hsl(171, 100%, 41%) reads at about 1.8:1 on the page
+  // background, which axe flags as a serious contrast failure and which is
+  // genuinely hard to read. Same hue, same saturation; backgrounds are
+  // untouched. Still an exact value, because the point of this test is to
+  // notice when the stylesheet has not loaded at all.
+  expect(color).toBe('rgb(0, 107, 91)');
 });

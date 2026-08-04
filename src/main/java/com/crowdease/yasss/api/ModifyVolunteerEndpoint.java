@@ -123,12 +123,21 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
           if(!fields.containsKey(detailID))
             throw new EndpointException(req, "detail not found", 404);
           Detail detail = fields.get(detailID);
-          String value = detailDeserializer.getString("value").strip();
+          // `bounded` for the same reason it guards `name`: detail_value is
+          // VARCHAR(255), and without it an over-long answer reached the insert
+          // and came back as `database malfunction` with a 500 -- on the one
+          // endpoint an anonymous volunteer has no way to avoid. Found by the
+          // frontend input fuzzer.
+          String value = bounded(
+              req,
+              detailDeserializer.getString("value").strip(),
+              "details[].value");
           if(!detail.isValid(value))
             throw new EndpointException(req, "malformed argument (details[].value)", 400);
-          details.put(
-              fields.get(detailID),
-              detailDeserializer.getString("value"));
+          // The stripped value is the one that was validated, so it is the one
+          // that gets stored; re-reading the raw token here wrote back a value
+          // nothing had checked.
+          details.put(detail, value);
         }
 
         for(var field : fields.values())

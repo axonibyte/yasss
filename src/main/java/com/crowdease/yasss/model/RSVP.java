@@ -11,6 +11,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.axonibyte.lib.db.SQLBuilder;
@@ -23,7 +29,210 @@ import com.crowdease.yasss.YasssCore;
  * @author Caleb L. Power <cpower@crowdease.com>
  */
 public class RSVP {
-  
+
+  /**
+   * Signals that a seat could not be claimed because the slot or its activity
+   * was already full.
+   *
+   * <p>Unchecked so that it can travel out of a
+   * {@link com.axonibyte.lib.db.Database.TransactionalWork} lambda, which may
+   * only declare {@link SQLException}. The library rolls the transaction back
+   * on any exception and rethrows, so the claim is atomic either way.
+   */
+  public static final class CapacityException extends RuntimeException {
+
+    private final UUID activity;
+    private final UUID window;
+
+    private CapacityException(UUID activity, UUID window) {
+      super(String.format("slot %s/%s is full", activity, window));
+      this.activity = activity;
+      this.window = window;
+    }
+
+    /** @return the {@link UUID} of the {@link Activity} that was full */
+    public UUID getActivity() {
+      return activity;
+    }
+
+    /** @return the {@link UUID} of the {@link Window} that was full */
+    public UUID getWindow() {
+      return window;
+    }
+  }
+
+  /**
+   * Atomically claims a single seat.
+   *
+   * @param activity the {@link UUID} of the {@link Activity}
+   * @param window the {@link UUID} of the {@link Window}
+   * @param volunteer the {@link UUID} of the {@link Volunteer}
+   * @throws CapacityException if the slot or its activity is full
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static void claim(UUID activity, UUID window, UUID volunteer) throws SQLException {
+    claimAll(List.of(new RSVP(activity, window, volunteer)));
+  }
+
+  /**
+   * Atomically claims several seats, all or none.
+   *
+   * <p><b>Why this exists.</b> Capacity used to be checked by counting on one
+   * pooled connection and then inserting on another, with nothing in between.
+   * Two claimants for the last seat both read the same count, both passed the
+   * guard, and both inserted -- and the endpoint the signup form actually uses
+   * did not check at all. Neither is fixable without holding something across
+   * the read and the write, and no constraint MariaDB can express says "at most
+   * N rows per (activity, window)".
+   *
+   * <p><b>Why the activity row.</b> A cap exists at two levels: per slot and
+   * across the whole activity. Locking the slot would let two claimants on
+   * different windows of the same activity proceed in parallel and both pass an
+   * activity-wide cap of one. The activity row is the coarsest thing both caps
+   * are a function of, and {@code activity} is keyed by its primary key, so
+   * this is a single record lock with no gap: contention is exactly per
+   * activity, which is the granularity of the invariant.
+   *
+   * <p><b>Why the lock comes first.</b> InnoDB establishes a transaction's read
+   * view at its first <em>consistent</em> read. {@code FOR UPDATE} is a locking
+   * read and establishes none, so a plain {@code COUNT(*)} issued after the
+   * lock has been granted sees whatever a competitor committed before releasing
+   * it. Were the count taken first, it would be answered from a snapshot older
+   * than the lock and the whole arrangement would be decorative. The isolation
+   * level is pinned for the same reason rather than inherited from the pool.
+   *
+   * <p><b>Why the ordering.</b> Activities are locked in {@link UUID} order,
+   * not in the order the caller listed them. Two requests naming the same two
+   * activities in opposite orders would otherwise form a cycle, and InnoDB
+   * would resolve it by killing one with a deadlock error that surfaces to the
+   * volunteer as a 500.
+   *
+   * @param slots the {@link Slot}s to claim a seat in
+   * @param volunteer the {@link UUID} of the {@link Volunteer}
+   * @throws CapacityException if any slot or activity is full; nothing is
+   *         written in that case
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static void claim(Collection<Slot> slots, UUID volunteer) throws SQLException {
+    final List<RSVP> wanted = new ArrayList<>();
+    for(var slot : slots)
+      wanted.add(new RSVP(slot.getActivity(), slot.getWindow(), volunteer));
+    claimAll(wanted);
+  }
+
+  /** The claim itself, once the caller's arguments are in one shape. */
+  private static void claimAll(List<RSVP> wanted) throws SQLException {
+    if(wanted.isEmpty()) return;
+
+    final String prefix = YasssCore.getDB().getPrefix();
+
+    YasssCore.getDB().transaction(con -> {
+      con.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+
+      List<UUID> activities = wanted.stream()
+          .map(RSVP::getActivity)
+          .distinct()
+          .sorted(Comparator.comparing(UUID::toString))
+          .toList();
+
+      Map<UUID, Integer> activityCaps = new LinkedHashMap<>();
+      for(var activity : activities)
+        activityCaps.put(activity, lockActivity(con, prefix, activity));
+
+      for(var rsvp : wanted) {
+        // Read rather than trusted from the caller's in-memory Slot: a
+        // concurrent SetSlotEndpoint could otherwise be raced, and a cap read
+        // before the lock was taken is a cap that may already be stale.
+        int slotCap = slotCap(con, prefix, rsvp.getActivity(), rsvp.getWindow());
+        if(0 != slotCap && slotCap <= countSlot(con, prefix, rsvp.getActivity(), rsvp.getWindow()))
+          throw new CapacityException(rsvp.getActivity(), rsvp.getWindow());
+
+        int activityCap = activityCaps.get(rsvp.getActivity());
+        if(0 != activityCap && activityCap <= countActivity(con, prefix, rsvp.getActivity()))
+          throw new CapacityException(rsvp.getActivity(), rsvp.getWindow());
+
+        // Counted again on the next iteration, deliberately: a transaction sees
+        // its own uncommitted inserts, so a request claiming two windows of a
+        // two-seat activity is counted correctly rather than twice against the
+        // same starting number.
+        insert(con, prefix, rsvp);
+      }
+
+      return null;
+    });
+  }
+
+  /**
+   * Takes the activity's row lock and returns its cap in the same statement.
+   *
+   * @return the activity's volunteer cap, {@code 0} meaning unlimited
+   * @throws CapacityException if the activity no longer exists
+   */
+  private static int lockActivity(Connection con, String prefix, UUID activity)
+      throws SQLException {
+    try(PreparedStatement stmt = con.prepareStatement(
+        "SELECT max_activity_volunteers FROM " + prefix + "activity WHERE id = ? FOR UPDATE")) {
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(activity));
+      try(ResultSet res = stmt.executeQuery()) {
+        // Deleted out from under the request. The 404 was already answered
+        // upstream, so treating it as "no room" is both true and simpler than
+        // a second error path.
+        if(!res.next()) throw new CapacityException(activity, null);
+        return res.getInt(1);
+      }
+    }
+  }
+
+  private static int slotCap(Connection con, String prefix, UUID activity, UUID window)
+      throws SQLException {
+    try(PreparedStatement stmt = con.prepareStatement(
+        "SELECT max_slot_volunteers FROM " + prefix
+            + "slot WHERE activity = ? AND event_window = ?")) {
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(activity));
+      stmt.setBytes(2, SQLBuilder.uuidToBytes(window));
+      try(ResultSet res = stmt.executeQuery()) {
+        if(!res.next()) throw new CapacityException(activity, window);
+        return res.getInt(1);
+      }
+    }
+  }
+
+  private static int countSlot(Connection con, String prefix, UUID activity, UUID window)
+      throws SQLException {
+    try(PreparedStatement stmt = con.prepareStatement(
+        "SELECT COUNT(1) FROM " + prefix + "rsvp WHERE activity = ? AND event_window = ?")) {
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(activity));
+      stmt.setBytes(2, SQLBuilder.uuidToBytes(window));
+      try(ResultSet res = stmt.executeQuery()) {
+        return res.next() ? res.getInt(1) : 0;
+      }
+    }
+  }
+
+  private static int countActivity(Connection con, String prefix, UUID activity)
+      throws SQLException {
+    try(PreparedStatement stmt = con.prepareStatement(
+        "SELECT COUNT(1) FROM " + prefix + "rsvp WHERE activity = ?")) {
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(activity));
+      try(ResultSet res = stmt.executeQuery()) {
+        return res.next() ? res.getInt(1) : 0;
+      }
+    }
+  }
+
+  /** The same insert {@link #commit()} performs, on the caller's connection. */
+  private static void insert(Connection con, String prefix, RSVP rsvp) throws SQLException {
+    try(PreparedStatement stmt = con.prepareStatement(
+        new SQLBuilder()
+            .insertIgnore(prefix + "rsvp", "activity", "event_window", "volunteer")
+            .toString())) {
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(rsvp.getActivity()));
+      stmt.setBytes(2, SQLBuilder.uuidToBytes(rsvp.getWindow()));
+      stmt.setBytes(3, SQLBuilder.uuidToBytes(rsvp.volunteer));
+      stmt.executeUpdate();
+    }
+  }
+
   private final UUID activity;
   private final UUID window;
   private final UUID volunteer;

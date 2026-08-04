@@ -9,6 +9,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
+  import { fieldAria } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { session } from '../../state/session.svelte.js';
   import { toastSuccess, toastInfo, toastError } from '../../state/toast.js';
@@ -94,6 +95,7 @@
   <Field label="Email Address" error={errors.email} id="auth-email">
     <input
       id="auth-email"
+      {...fieldAria('auth-email', errors.email)}
       class="input"
       class:is-danger={errors.email}
       type="email"
@@ -107,6 +109,7 @@
   <Field label="Password" error={errors.password} id="auth-password">
     <input
       id="auth-password"
+      {...fieldAria('auth-password', errors.password)}
       class="input"
       class:is-danger={errors.password}
       type="password"
@@ -135,6 +138,7 @@
     <Field label="Confirm Password" error={errors.confirmPassword} id="auth-confirm">
       <input
         id="auth-confirm"
+        {...fieldAria('auth-confirm', errors.confirmPassword)}
         class="input"
         class:is-danger={errors.confirmPassword}
         type="password"

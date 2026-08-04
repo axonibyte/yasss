@@ -77,6 +77,20 @@ public enum ParamEnum {
    * Require users to log in if they are changing an existing resource.
    */
   AUTH_REQUIRE_SIGNIN(new Param("auth.requireSignin", true)),
+
+  /**
+   * The shortest password an operator will allow on this deployment.
+   *
+   * <p>Published to the client via {@code GET /v1} and enforced there. It
+   * cannot be enforced here: the password never reaches the server. The client
+   * derives an Ed25519 keypair from it with scrypt and sends only the public
+   * key, which is the point of the scheme and the reason this is a policy the
+   * server states rather than a rule it checks.
+   *
+   * <p>Applies to setting a password -- registration, profile update, reset --
+   * and never to logging in, so raising it cannot lock out an existing account.
+   */
+  AUTH_PASSWORD_MIN_LENGTH(new Param("auth.password.minLength", 8)),
   
   /**
    * Path to the configuration file.

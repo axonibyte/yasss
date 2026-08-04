@@ -35,8 +35,15 @@ public class Detail implements Comparable<Detail> {
 
     /**
      * A standard string type.
+     *
+     * <p>{@code (?s)} rather than a bare {@code .*}: Java's {@code .} does not
+     * match a line terminator unless DOTALL is on, so the type that means "any
+     * string" was rejecting any answer containing a newline with a 400 -- while
+     * the event title, the activity label and every other free-text field
+     * accepted one happily. A pasted multi-line answer is the ordinary way to
+     * hit it.
      */
-    STRING(".*"),
+    STRING("(?s).*"),
 
     /**
      * A standard boolean (e.g. `true` or `false`).

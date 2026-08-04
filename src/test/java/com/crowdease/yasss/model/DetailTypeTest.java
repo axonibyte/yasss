@@ -37,16 +37,22 @@ import org.testng.annotations.Test;
  */
 public class DetailTypeTest {
 
-  /** Anything at all, except that `matches()` will not span a newline. */
+  /** Anything at all, including across lines. */
   @Test
-  public void stringAcceptsAnythingOnOneLine() {
+  public void stringAcceptsAnything() {
     assertTrue(Type.STRING.isValid(""));
     assertTrue(Type.STRING.isValid("   "));
     assertTrue(Type.STRING.isValid("anything at all: <>&\"'"));
 
-    // `.` excludes line terminators and there is no DOTALL, so a multi-line
-    // answer to a STRING field is a 400. Surprising, and worth knowing.
-    assertFalse(Type.STRING.isValid("two\nlines"));
+    // This used to be false and was recorded here as a known surprise: `.`
+    // excludes line terminators, so `.*` under `matches()` refused a multi-line
+    // answer with a 400 while the event title, activity label and every other
+    // free-text field took one happily. Pasting a multi-line answer is the
+    // ordinary way to reach it, and the type means "any string", so the pattern
+    // now says so -- `(?s).*`.
+    assertTrue(Type.STRING.isValid("two\nlines"));
+    assertTrue(Type.STRING.isValid("\r\n"));
+    assertTrue(Type.STRING.isValid("🎉\nemoji across lines"));
   }
 
   @Test

@@ -89,14 +89,18 @@ public final class SetRSVPEndpoint extends APIEndpoint {
       if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())
         throw new EndpointException(req, "event expired", 412);
 
-      if(0 != activity.getMaxActivityVolunteers()
-          && activity.getMaxActivityVolunteers() <= activity.countRSVPs()
-          || 0 != slot.getMaxSlotVolunteers()
-          && slot.getMaxSlotVolunteers() <= slot.countRSVPs())
-        throw new EndpointException(req, "volunteer cap exceeded", 409);
-
       RSVP rsvp = new RSVP(activity.getID(), slot.getWindow(), volunteer.getID());
-      rsvp.commit();
+
+      // The cap check and the insert are one transaction rather than three
+      // separate connections with nothing holding the gap between them; see
+      // RSVP.claim. The predicate it applies is the same `cap <= count` this
+      // used to apply inline, so re-claiming an existing seat in a full slot
+      // still answers 409 exactly as it did.
+      try {
+        RSVP.claim(activity.getID(), slot.getWindow(), volunteer.getID());
+      } catch(RSVP.CapacityException e) {
+        throw new EndpointException(req, "volunteer cap exceeded", 409);
+      }
 
       res.status(201);
       return new JSONObject()

@@ -77,7 +77,11 @@ public final class ModifyEventEndpoint extends APIEndpoint {
         String shortDescription = deserializer.getString("shortDescription");
         if(shortDescription.isBlank())
           throw new EndpointException(req, "malformed argument (string: shortDescription)", 400);
-        event.setShortDescription(shortDescription.strip());
+        // longDescription two lines below has always been bounded; this was
+        // simply missed, so a 256-character title reached the column on PATCH
+        // and came back a 500 where the same title on POST is a clean 400.
+        event.setShortDescription(
+            bounded(req, shortDescription.strip(), "shortDescription"));
       }
 
       if(deserializer.has("longDescription"))

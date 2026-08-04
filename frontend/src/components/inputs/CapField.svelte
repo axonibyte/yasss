@@ -10,6 +10,7 @@
    * Being a component, this one always does.
    */
   import Field from './Field.svelte';
+  import { fieldAria } from '../../lib/a11y.js';
 
   let {
     id,
@@ -39,9 +40,33 @@
   }
 
   function onInput(raw) {
-    const n = Number(raw);
-    capped = Number.isFinite(n) ? Math.min(Math.max(Math.trunc(n), min), max) : min;
+    const trimmed = String(raw).trim();
+    // A number input reports '' for anything it could not parse — a pasted
+    // word, a lone '-', a half-typed exponent. `Number('')` is 0, which used to
+    // clamp straight up to `min`: pasting "abc" silently became 1, with no
+    // error and nothing on screen to explain where the number came from.
+    // Keeping the last good value is both safer and what `onCommit` already
+    // assumes, since it snaps the box back to `capped` on blur.
+    if (trimmed === '') return;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n)) return;
+    capped = Math.min(Math.max(Math.trunc(n), min), max);
     value = capped;
+  }
+
+  /**
+   * Snap the box to the value that will actually be saved.
+   *
+   * The clamp runs on input, but the input is not bound — so when clamping
+   * leaves `capped` where it already was (typing `0` into a field showing the
+   * minimum, say) Svelte sees no change and leaves the box displaying what was
+   * typed. The number went out as 1 and the organiser was looking at 0.
+   *
+   * Done on change rather than on input so it does not fight someone midway
+   * through typing a longer number.
+   */
+  function onCommit(el) {
+    el.value = String(capped);
   }
 </script>
 
@@ -64,6 +89,7 @@
   <Field label={numberLabel} {error} {id}>
     <input
       {id}
+      {...fieldAria(id, error)}
       class="input"
       class:is-danger={error}
       type="number"
@@ -72,6 +98,7 @@
       {placeholder}
       value={capped}
       oninput={(e) => onInput(e.currentTarget.value)}
+      onchange={(e) => onCommit(e.currentTarget)}
     />
   </Field>
 {/if}

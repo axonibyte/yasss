@@ -63,10 +63,13 @@
 
     let cancelled = false;
     let instance = null;
+    /** The container bulma-calendar generates and owns; see the teardown. */
+    let container = null;
 
     loadCalendar().then((bulmaCalendar) => {
       if (cancelled) return;
       [instance] = bulmaCalendar.attach(element, options);
+      container = document.getElementById(instance.id);
 
       const publish = () => {
         begin = instance.startDate ?? null;
@@ -82,8 +85,26 @@
     // effect re-runs before the loader resolves.
     return () => {
       cancelled = true;
+      // Clears the emitter's own subscriptions ('select'/'save'), not any DOM
+      // listener -- despite the name.
       instance?.removeListeners?.();
-      instance?.destroy?.();
+
+      // `destroy()` is, in full, `document.getElementById(this.id).remove()`
+      // plus three null assignments -- with no guard on that lookup. Closing
+      // the window editor unmounts this component, and by the time the teardown
+      // runs Svelte has already detached the modal's subtree, so the lookup
+      // finds nothing and destroy throws. That made an uncaught TypeError the
+      // normal outcome of saving or dismissing a window.
+      //
+      // The lookup can still succeed when the effect re-runs with the modal
+      // left open, so prefer the library's own teardown when it will work and
+      // fall back to removing the container directly -- which is all destroy()
+      // would have done, and works on a detached node.
+      if (instance && document.getElementById(instance.id)) instance.destroy();
+      else container?.remove();
+
+      instance = null;
+      container = null;
     };
   });
 </script>

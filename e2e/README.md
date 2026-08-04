@@ -44,7 +44,9 @@ It has already earned its keep — see "What this suite found" below.
 | fuzz | ~400 malformed requests across every endpoint (`FUZZ_ITERATIONS` to raise it); see below |
 | accounts | Self-service registration end to end: register, receive the email, click the link, get promoted, create an event; see below |
 | reminders | The reminder feature end to end against real SMTP and the real daemon; see below |
-| browser | Fourteen flows through Chromium against the live stack, in the Playwright image so the browser matches the client that drives it |
+| text | Every text surface round-tripped through the database and read back, plus the length bounds and the escaping of user text on the HTML report; see below |
+| concurrency | Volunteer capacity under simultaneous claims — the slot cap, the activity cap and the all-or-nothing multi-slot signup; see below |
+| browser | Flows through Chromium against the live stack, in the Playwright image so the browser matches the client that drives it. `YASSS_E2E_BROWSERS=chromium,firefox,mobile-chromium` widens it to the `@compat` subset on other engines; the full cross-engine matrix lives on the fake suite, which is parallel and needs no stack |
 | down | Runs on every exit path, including Ctrl-C and a failed stage |
 
 ## The accounts stage
@@ -194,3 +196,43 @@ constrains it:
   image is `node:22-slim` for exactly this reason.
 - `pkg install catatonit` — podman needs it for a pod's infra container and does
   not depend on it.
+
+## The text stage
+
+`text/verify.mjs`. Publishing successfully and storing faithfully are different claims, and
+only the first was ever asserted: a title stored as `????`, truncated mid-character or
+double-escaped produces exactly the same success response. Every corpus value goes into the
+event title, description, activity label, volunteer name and custom-field answer, and comes
+back out again — through `POST`, through `PATCH`, and through `GET`.
+
+Three things make this non-trivial:
+
+- **The whitespace models differ.** Java's `String.strip()` and JS `trim()` disagree in both
+  directions — `trim()` removes U+00A0, U+2007, U+202F and U+FEFF, `strip()` removes
+  U+001C–U+001F. Expected values are written down in the corpus rather than computed.
+- **The serializer escapes.** `org.json` emits U+0080–U+009F and U+2000–U+20FF as `\uXXXX`,
+  so assertions compare the parsed value and never the raw body.
+- **The columns had no character set.** Nothing in the schema ever named one, so text columns
+  inherited the server default — utf8mb4 on a modern image, latin1 before MariaDB 11.6. The
+  suite now starts MariaDB *as latin1 on purpose* so that migration `017` and the charset
+  assertions actually prove something rather than passing by accident.
+
+The stage also carries the checks for edges that need no fixture of their own: the length
+bound counted in code points rather than UTF-16 units, an over-long title on `PATCH`, a
+token-less password reset, and that a volunteer named `<img src=x onerror=...>` reaches the
+organiser's printable report escaped.
+
+## The concurrency stage
+
+`concurrency/verify.mjs`. Capacity was checked by counting on one pooled connection and
+inserting on another, with nothing holding the gap — so two claimants for the last seat both
+read the same count and both won. The endpoint the signup form actually uses did not check at
+all, which needed no concurrency to exploit.
+
+Eight scenarios, 16 simultaneous requests each, five rounds apiece against a freshly built
+event: a race that passes once has proved nothing. The oracle is the event's own `rsvpCount`
+read back afterwards, because counting `201`s alone would miss a fix that answers correctly
+and stores wrongly. Scenario E exists to catch the opposite mistake — an uncapped activity
+must still admit all sixteen rather than being serialised into spurious rejections.
+
+Scenario H is a known gap rather than a regression test; see `docs/remaining-work.md`.

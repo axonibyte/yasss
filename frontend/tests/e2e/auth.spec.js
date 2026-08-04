@@ -51,8 +51,10 @@ test('registration posts the key derived from the password', async ({ page }) =>
   // bulma-switch hides the input behind its label, so the label is the control.
   await page.getByText("Click here if you'd like to register!").click();
   await page.getByLabel('Email Address').fill('newcomer@example.com');
-  await page.getByLabel('Password', { exact: true }).fill('hunter2');
-  await page.getByLabel('Confirm Password').fill('hunter2');
+  // Eight characters, not the seven `logIn` defaults to: registration applies
+  // the deployment's minimum password length, and login deliberately does not.
+  await page.getByLabel('Password', { exact: true }).fill('hunter2!');
+  await page.getByLabel('Confirm Password').fill('hunter2!');
 
   const posted = page.waitForRequest((r) => r.url().endsWith('/v1/users') && r.method() === 'POST');
   await page.getByRole('button', { name: 'Register!' }).click();

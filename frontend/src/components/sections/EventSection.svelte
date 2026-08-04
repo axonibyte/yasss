@@ -91,7 +91,13 @@
       <div class="content">
         <div class="grid">
           <div class="cell">
-            <h2 class="is-size-2">{event.title}</h2>
+            <!--
+              A test hook rather than a class: the read-back tests compare this
+              node's textContent byte-for-byte against what the server stored,
+              and locating it by heading level or by its own text would be
+              circular.
+            -->
+            <h2 class="is-size-2" data-testid="event-title">{event.title}</h2>
             <p>{event.description}</p>
             {#if zoneLabel}
               <p class="is-size-7 has-text-weight-semibold" data-testid="zone-note">

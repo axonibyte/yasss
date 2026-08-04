@@ -83,6 +83,7 @@ public class YasssCore {
   private static StripeDriver stripe = null;
   private static boolean authRequired = true;
   private static boolean debugEnabled = false;
+  private static int passwordMinLength = 8;
 
   /**
    * Entry-point.
@@ -113,6 +114,7 @@ public class YasssCore {
       }
 
       debugEnabled = config.getBoolean(ParamEnum.DEBUG_ENABLED);
+      passwordMinLength = config.getInteger(ParamEnum.AUTH_PASSWORD_MIN_LENGTH);
 
       database = new Database(
           config.getString(ParamEnum.DB_LOCATION),
@@ -372,6 +374,20 @@ public class YasssCore {
    */
   public static boolean debugEnabled() {
     return debugEnabled;
+  }
+
+  /**
+   * The shortest password this deployment accepts when one is being set.
+   *
+   * <p>Advertised through {@code GET /v1} and applied by the client. It is not
+   * enforceable here -- the password is never transmitted, only an Ed25519
+   * public key derived from it -- so this is a policy the server publishes, not
+   * a check it performs. Anyone building on this should read it that way.
+   *
+   * @return the minimum password length, in characters
+   */
+  public static int getPasswordMinLength() {
+    return passwordMinLength;
   }
 
 }

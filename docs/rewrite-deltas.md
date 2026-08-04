@@ -44,6 +44,11 @@ Decision: normalize typos, grammar, and punctuation; list every change here.
 | Activity header cells | `data-tooltip` without a `has-tooltip-*` class | `has-tooltip-top` added | Tooltips never actually rendered |
 | Grid cells | `.html(label)` — XSS on activity short descriptions | text interpolation; window headers render two nodes rather than a `<br />` string | |
 | Grid cells, detail rows | click handlers on non-interactive elements | real `<button>` inside the styled container | Keyboard-unreachable and unannounced |
+| `.has-text-primary`, outlined primary buttons, outlined grid tiles | `var(--bulma-primary)` — hsl(171, 100%, 41%) | `var(--bulma-primary-on-scheme)` | As *text* on the page background that is about 1.8:1, against the 4.5:1 WCAG asks for, and it was the only serious finding in the axe sweep — it covered every link and emphasised word on the intro page, the call to action and the dashboard. Same hue and saturation, lightness corrected per scheme. Backgrounds are untouched, so the brand colour is unchanged everywhere it is a fill. |
+| Links inside prose (`.content`, `.footer`) | distinguished from surrounding text by colour alone | underlined | WCAG 1.4.1. Nav items and buttons are excluded — they read as controls from their position. |
+| `Field.svelte` | red `Error` pill appended *inside* the `<label>` as a `<button>` carrying a tooltip (legacy `setErrorTag`, aesthetics §2.8) | pill moved into the `help` line as a `<span>`; tooltip dropped; `aria-describedby`/`aria-invalid` added at each call site | A `<button>` is interactive content and is not permitted inside a `<label>`: it added a tab stop that appeared only in the error state, clicking it activated the label, and it changed the field's accessible name from "Email Address" to "Email Address Error" — which is why the live harness had to locate every field by id. The tooltip duplicated the message already printed directly below it. The red pill, its colour and the message position are unchanged. |
+| `Modal.svelte` | `<div class="modal is-active">` | `role="dialog" aria-modal="true"` + `aria-labelledby` on the card title | Assistive tech could tab into the page behind an open modal, and the dialog announced no name. No visual change. |
+| Reminder lead time (`SummaryModal.svelte`) | `<input type="number">` | `<input type="text" inputmode="numeric">` | Svelte coerces a number input's binding, so anything unparseable arrived as blank — and blank means "use the platform default". Pasting `1440abc` silently produced the default with no feedback. The spinner arrows are lost; a spinner that discards what you typed is worse than none. |
 
 ---
 
@@ -112,6 +117,17 @@ Reminders were described in the schema and the mail templates but implemented no
 Two supporting changes: `upcoming-event.json` was a zero-byte file that threw an unchecked
 exception on any use and is deleted; `signup-prompt.json`'s subject was byte-identical to
 `signup-alert.json`'s.
+
+---
+
+## Feature changes
+
+Genuine additions rather than fidelity deltas, flagged separately so they are easy to veto.
+
+| What | Why |
+|---|---|
+| The event's time zone is a field in the summary modal, and can be changed after publishing | It was captured silently from the browser at creation and was then unchangeable — `App.svelte` never put it in the PATCH diff, so the branch `dto.js` already had for it could not fire. An organiser building an event while travelling, or on a machine with the wrong zone set, could neither see that it was wrong nor correct it. "Show in each viewer's own time zone" is an explicit option, so an event created before zones existed does not silently acquire one the first time its description is edited. |
+| A minimum password length, configurable by the operator as `auth.password.minLength` (default 8) | There was no minimum at all: `x` was a valid password. **The server cannot enforce this and does not pretend to** — the password never leaves the browser, which derives an Ed25519 keypair from it and sends only the public key. So the value is published by `GET /v1` and applied by the client. It is applied only where a password is *set*; never at login, where it would lock out accounts created under a lower setting. |
 
 ---
 

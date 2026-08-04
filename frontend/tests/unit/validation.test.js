@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validateSummary, validateActivity, validateWindow, validateSlot,
   validateDetail, validateVolunteer, validateLogin, validateRegistration,
+  MAX_TEXT,
   validateProfileUpdate, validatePasswordReset, CAP_MIN, CAP_MAX,
 } from '../../src/lib/validation/forms.js';
 import * as patterns from '../../src/lib/validation/patterns.js';
@@ -63,8 +64,19 @@ describe('validateSummary', () => {
     const v = validateSummary({ title: '  Party  ', description: '  fun  ', notifyOnSignup: 1 });
     expect(v.values).toEqual({
       title: 'Party', description: 'fun', notifyOnSignup: true, allowMultiuserSignups: false,
-      reminderLeadTime: null,
+      reminderLeadTime: null, timezone: null,
     });
+  });
+
+  it('keeps a recognised time zone and refuses one the engine does not know', () => {
+    expect(validateSummary({ title: 'T', timezone: 'America/Chicago' }).values.timezone)
+      .toBe('America/Chicago');
+    // A blank zone is a real value -- the event renders in each viewer's own --
+    // rather than a missing one, so it is not an error.
+    expect(validateSummary({ title: 'T', timezone: '' }).values.timezone).toBeNull();
+    const bad = validateSummary({ title: 'T', timezone: 'Mars/Olympus_Mons' });
+    expect(bad.ok).toBe(false);
+    expect(bad.errors.timezone).toMatch(/time zone/i);
   });
 });
 
@@ -124,6 +136,55 @@ describe('validateSlot', () => {
   it('enforces the cap when enabled', () => {
     expect(validateSlot({ enabled: true, cap: 256 }).ok).toBe(false);
     expect(validateSlot({ enabled: true, cap: 255 }).ok).toBe(true);
+  });
+
+  it('sends 0 only when unlimited was actually asked for', () => {
+    const v = validateSlot({ enabled: true, unlimited: true, cap: 12 });
+    expect(v.ok).toBe(true);
+    expect(v.values).toEqual({ enabled: true, cap: 0 });
+  });
+
+  it('refuses an empty or zero cap while the switch is off', () => {
+    // Reading a blank box as "unlimited" granted the opposite of what the
+    // organiser had just clicked.
+    for (const cap of [0, null, undefined, '']) {
+      expect(validateSlot({ enabled: true, unlimited: false, cap }).ok, String(cap))
+        .toBe(false);
+    }
+  });
+});
+
+describe('text length', () => {
+  const long = 'x'.repeat(MAX_TEXT + 1);
+  const atLimit = 'x'.repeat(MAX_TEXT);
+
+  it('mirrors the server\'s VARCHAR(255) on every free-text field', () => {
+    expect(validateSummary({ title: atLimit }).ok).toBe(true);
+    expect(validateSummary({ title: long }).errors.title).toMatch(/255/);
+    expect(validateSummary({ title: 'ok', description: long }).errors.description)
+      .toMatch(/255/);
+
+    expect(validateActivity({ label: long }).errors.label).toMatch(/255/);
+    expect(validateActivity({ label: 'ok', description: long }).errors.description)
+      .toMatch(/255/);
+
+    expect(validateDetail({ type: 'STRING', label: long }).errors.label).toMatch(/255/);
+    expect(validateDetail({ type: 'STRING', label: 'ok', hint: long }).errors.hint)
+      .toMatch(/255/);
+
+    expect(validateVolunteer({ name: long }).errors.name).toMatch(/255/);
+  });
+
+  it('refuses an over-long answer to a custom field', () => {
+    // This one is not merely an opaque 400 server-side: the volunteer endpoint
+    // does not length-check the value, so it reaches the insert and 500s.
+    const details = [{ key: 'd1', type: 'STRING', required: false }];
+    const v = validateVolunteer({ name: 'Ada', values: { d1: long } }, details);
+    expect(v.ok).toBe(false);
+    expect(v.errors.d1).toMatch(/255/);
+
+    expect(validateVolunteer({ name: 'Ada', values: { d1: atLimit } }, details).ok)
+      .toBe(true);
   });
 });
 
@@ -206,15 +267,22 @@ describe('validateVolunteer', () => {
 
 describe('credential forms', () => {
   it('rejects a mistyped registration confirmation', () => {
-    const v = validateRegistration({ email: 'a@b.co', password: 'x', confirmPassword: 'y' });
+    const v = validateRegistration({
+      email: 'a@b.co', password: 'hunter22', confirmPassword: 'hunter23',
+    });
     expect(v.errors.confirmPassword)
       .toBe('Oops! You might have mistyped your password confirmation.');
   });
 
-  it('requires a non-empty registration password', () => {
+  it('requires a registration password of at least the configured length', () => {
     const v = validateRegistration({ email: 'a@b.co', password: '', confirmPassword: '' });
-    expect(v.errors.password)
-      .toBe('Your password should be at least one character in length.');
+    expect(v.errors.password).toBe('Your password needs to be at least 8 characters.');
+    expect(validateRegistration({
+      email: 'a@b.co', password: 'hunter7', confirmPassword: 'hunter7',
+    }).ok).toBe(false);
+    expect(validateRegistration({
+      email: 'a@b.co', password: 'hunter78', confirmPassword: 'hunter78',
+    }).ok).toBe(true);
   });
 
   it('treats an entirely empty profile update as a valid no-op', () => {
@@ -226,13 +294,32 @@ describe('credential forms', () => {
   it('only checks the profile confirmation when a password was entered', () => {
     expect(validateProfileUpdate({ email: 'a@b.co', password: '', confirmPassword: 'junk' }).ok)
       .toBe(true);
-    expect(validateProfileUpdate({ password: 'x', confirmPassword: 'y' }).ok).toBe(false);
+    expect(validateProfileUpdate({ password: 'hunter78', confirmPassword: 'nope1234' }).ok)
+      .toBe(false);
   });
 
   it('validates a password reset without an email', () => {
     // accountReset signs with an empty email; only the password matters.
-    expect(validatePasswordReset({ password: 'x', confirmPassword: 'x' }).ok).toBe(true);
-    expect(validatePasswordReset({ password: 'x', confirmPassword: 'z' }).ok).toBe(false);
+    expect(validatePasswordReset({ password: 'hunter78', confirmPassword: 'hunter78' }).ok)
+      .toBe(true);
+    expect(validatePasswordReset({ password: 'hunter78', confirmPassword: 'nope1234' }).ok)
+      .toBe(false);
+  });
+
+  // The one flow that checks a password rather than setting one. An account
+  // made before the policy existed, or under a lower one, has to stay usable --
+  // a minimum applied here would lock people out of their own accounts.
+  it('never applies the minimum length when logging in', () => {
+    expect(validateLogin({ email: 'a@b.co', password: 'x' }).ok).toBe(true);
+    expect(validateLogin({ email: 'a@b.co', password: '' }).errors.password)
+      .toBe('Please enter your password.');
+  });
+
+  it('bounds an account email at the column width', () => {
+    const long = `${'a'.repeat(250)}@example.com`;
+    expect(validateLogin({ email: long, password: 'x' }).errors.email).toMatch(/255/);
+    expect(validateRegistration({ email: long, password: 'hunter78', confirmPassword: 'hunter78' })
+      .errors.email).toMatch(/255/);
   });
 });
 

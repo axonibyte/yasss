@@ -68,6 +68,29 @@ export class EventModel {
 
   isEmpty = $derived(this.activities.length === 0 && this.windows.length === 0);
 
+  /**
+   * True when closing the tab right now would lose something.
+   *
+   * Unsubmitted volunteers are the obvious case and were, for a while, the only
+   * one this reported — which left the larger case uncovered. Until an event is
+   * published nothing about it is remote: activities, windows, custom fields
+   * and slots are all local state, and the whole graph goes to the server in a
+   * single POST at publish. So an organiser fifteen minutes into building an
+   * event, with no volunteers on it at all, could close the tab and be asked
+   * nothing.
+   *
+   * The `persisted` short-circuit is what keeps this from firing on an event
+   * that is merely being looked at.
+   */
+  get hasUnsavedWork() {
+    if (this.volunteers.some((v) => !v.persisted)) return true;
+    if (this.persisted) return false;
+    return Boolean(this.title)
+      || this.activities.length > 0
+      || this.windows.length > 0
+      || this.details.length > 0;
+  }
+
   maxStep = $derived(maxStep(this.activities.length));
 
   /** True when the viewer may act on cells at all. */

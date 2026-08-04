@@ -128,7 +128,9 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
           null,
           null == user ? null : user.getID(),
           event.getID(),
-          deserializer.getString("name"),
+          // `name`, not the raw token: the stripped value is what the blank and
+          // length checks above were applied to.
+          name,
           deserializer.has("remindersEnabled")
               ? deserializer.getBool("remindersEnabled")
               : false,
@@ -152,12 +154,21 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
         if(!fields.containsKey(detailID))
           throw new EndpointException(req, "detail not found", 404);
         Detail detail = fields.get(detailID);
-        String value = detailDeserializer.getString("value").strip();
+        // `bounded` for the same reason it guards `name`: detail_value is
+        // VARCHAR(255), and without it an over-long answer reached the insert
+        // and came back as `database malfunction` with a 500 -- on the one
+        // endpoint an anonymous volunteer has no way to avoid. Found by the
+        // frontend input fuzzer.
+        String value = bounded(
+            req,
+            detailDeserializer.getString("value").strip(),
+            "details[].value");
         if(!detail.isValid(value))
           throw new EndpointException(req, "malformed argument (details[].value)", 400);
-        details.put(
-            fields.get(detailID),
-            detailDeserializer.getString("value"));
+        // The stripped value is the one that was validated, so it is the one
+        // that gets stored; re-reading the raw token here wrote back a value
+        // nothing had checked.
+        details.put(detail, value);
       }
 
       for(var field : fields.values())
@@ -216,25 +227,42 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
 
       volunteer.commit();
 
-      for(var slot : slots) {
-        RSVP rsvp = new RSVP(
-            slot.getActivity(),
-            slot.getWindow(),
-            volunteer.getID());
-        rsvp.commit();
+      // This endpoint is the one the signup form uses, and until now it never
+      // checked capacity at all -- a single ordinary request naming a full slot
+      // simply overfilled it.
+      //
+      // The claim cannot precede the volunteer's own commit, because rsvp is
+      // foreign-keyed to volunteer. So a refusal is compensated rather than
+      // rolled back. All of the seats are claimed in one transaction, so a
+      // partial claim unwinds itself and only the volunteer row is left to
+      // clean up; nothing external has happened yet, since the organiser alert
+      // and the opt-in prompt are both sent below. Worst case, if the
+      // compensating delete itself fails, what remains is a volunteer with no
+      // RSVPs -- an ordinary state in this schema rather than a corrupt one.
+      try {
+        RSVP.claim(slots, volunteer.getID());
+      } catch(RSVP.CapacityException e) {
+        volunteer.delete();
+        throw new EndpointException(req, "volunteer cap exceeded", 409);
+      } catch(SQLException e) {
+        volunteer.delete();
+        throw e;
       }
 
       User admin = User.getUser(event.getAdmin());
       if(null != admin) {
+        // Mail substitutes these straight into an HTML body, so anything
+        // user-supplied is escaped here. VOLUNTEER_DETAILS and RSVP_LIST are
+        // already markup built by VolunteerSummary, which escapes as it builds.
         Map<String, String> args = new HashMap<>();
-        args.put("EVENT_TITLE", event.getShortDescription());
+        args.put("EVENT_TITLE", HTMLElem.escape(event.getShortDescription()));
         args.put(
             "EVENT_URL",
             String.format(
                 "%1$s/?event=%2$s",
                 YasssCore.getAPIHost(),
                 event.getID().toString()));
-        args.put("VOLUNTEER_NAME", volunteer.getName());
+        args.put("VOLUNTEER_NAME", HTMLElem.escape(volunteer.getName()));
         args.put("VOLUNTEER_DETAILS", VolunteerSummary.detailList(volunteer));
         args.put("RSVP_LIST", VolunteerSummary.rsvpList(event, volunteer));
 

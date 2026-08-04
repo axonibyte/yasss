@@ -23,6 +23,9 @@ frontend: &frontend
     - npm run test
     - npm run build
     - npm run test:e2e
+    # The @compat subset on Firefox, WebKit and a mobile viewport. The image
+    # already carries all three, so this costs about a minute.
+    - npm run test:e2e:compat
   artifacts:
     - frontend/playwright-report/**
 

@@ -19,53 +19,18 @@
  * Env: YASSS_API, YASSS_MAILPIT.
  */
 import { genCreds } from '../../frontend/src/lib/crypto/creds.js';
+import { makeApi } from '../lib/api.mjs';
+import { check, finish } from '../lib/check.mjs';
+import { messageBody, waitForMail as waitForMessage } from '../lib/mailpit.mjs';
 
-const API = process.env.YASSS_API ?? 'http://127.0.0.1:7455';
-const MAILPIT = process.env.YASSS_MAILPIT ?? 'http://127.0.0.1:8025';
-
-let failures = 0;
-
-function check(ok, what, detail = '') {
-  if (ok) console.log(`  ✓ ${what}`);
-  else {
-    failures += 1;
-    console.log(`  ✗ ${what}${detail ? `\n      ${detail}` : ''}`);
-  }
-  return ok;
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function api(method, path, { body, auth } = {}) {
-  const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (auth) headers.Authorization = `AXB-SIG-REQ ${auth}`;
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  return {
-    status: res.status,
-    payload: await res.json().catch(() => null),
-    accessLevel: res.headers.get('axb-access-level'),
-    account: res.headers.get('axb-account'),
-  };
-}
+const api = makeApi();
 
 /** Polls mailpit for a message to `address` and returns its body. */
 async function waitForMail(address, timeoutMs = 20_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const list = await fetch(`${MAILPIT}/api/v1/messages?limit=200`).then((r) => r.json());
-    const found = list.messages?.find((m) => m.To?.some((t) => t.Address === address));
-    if (found) {
-      const d = await fetch(`${MAILPIT}/api/v1/message/${found.ID}`).then((r) => r.json());
-      return ((d.HTML ?? '') + (d.Text ?? '')).replace(/&amp;/g, '&');
-    }
-    await sleep(1000);
-  }
-  return null;
+  const found = await waitForMessage(address, { timeoutMs });
+  // The links in these bodies are compared and followed rather than parsed, so
+  // the entity-encoded separators come out here rather than at each use.
+  return found ? (await messageBody(found.ID)).replace(/&amp;/g, '&') : null;
 }
 
 const EMAIL = `signup-${Date.now()}@example.com`;
@@ -153,5 +118,4 @@ check(wrong.status === 403, 'a wrong token is refused', `got ${wrong.status}`);
 const malformed = await api('PUT', `/v1/users/${userId}`, { body: { token: 'not-a-uuid' } });
 check(malformed.status === 403, 'a malformed token is a 403, not a 500', `got ${malformed.status}`);
 
-console.log(failures === 0 ? '\naccounts: all checks passed' : `\naccounts: ${failures} failed`);
-process.exit(failures === 0 ? 0 : 1);
+finish('accounts');

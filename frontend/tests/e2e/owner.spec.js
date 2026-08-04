@@ -147,6 +147,12 @@ test('publishing while signed in skips the guest interstitial and claims the eve
     await expect(page.getByText('Hey there friend!')).toHaveCount(0);
     await expect(page.getByText('Successfully created your event!')).toBeVisible();
 
+    // The toast fires before the URL is pushed -- publishActions toasts, then
+    // App awaits loadOwnedEvents, and only then calls goToEvent. Reloading on
+    // the toast alone races that and lands back on the homepage, where there is
+    // no Modify Event to find.
+    await page.waitForURL(/\?event=/);
+
     // loadOwnedEvents runs after publishing, so the event is immediately editable.
     await page.reload();
     await waitForApp(page);

@@ -43,7 +43,11 @@ public final class APIInfoEndpoint extends APIEndpoint {
       .put("status", "ok")
       .put("uptime", System.currentTimeMillis() - YasssCore.getLaunchTime())
       .put("version", APIVersion.VERSION_1.ordinal())
-      .put("debug", YasssCore.debugEnabled());
+      .put("debug", YasssCore.debugEnabled())
+      // Published rather than enforced: the password never leaves the browser,
+      // so the client is the only tier that can apply this. See
+      // YasssCore.getPasswordMinLength.
+      .put("passwordMinLength", YasssCore.getPasswordMinLength());
 
     if(null != YasssCore.getCAPTCHAValidator())
       resBody.put("captcha", YasssCore.getCAPTCHAValidator().getSiteKey());

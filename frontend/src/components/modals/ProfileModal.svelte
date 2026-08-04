@@ -9,6 +9,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
+  import { fieldAria } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { session } from '../../state/session.svelte.js';
   import { toastSuccess, toastError } from '../../state/toast.js';
@@ -72,6 +73,7 @@
   <Field label="Change your email address?" error={errors.email} id="profile-email">
     <input
       id="profile-email"
+      {...fieldAria('profile-email', errors.email)}
       class="input"
       class:is-danger={errors.email}
       type="email"
@@ -82,12 +84,19 @@
     />
   </Field>
 
-  <Field label="Change your password?" id="profile-password">
+  <!--
+    This field was passed no `error` prop at all, so a password rule could
+    never have shown here even once there was one to break.
+  -->
+  <Field label="Change your password?" error={errors.password} id="profile-password">
     <input
       id="profile-password"
+      {...fieldAria('profile-password', errors.password)}
       class="input"
+      class:is-danger={errors.password}
       type="password"
       bind:value={password}
+      oninput={() => clearError('password')}
     />
   </Field>
 
@@ -95,6 +104,7 @@
     <Field label="Please confirm your password." error={errors.confirmPassword} id="profile-confirm">
       <input
         id="profile-confirm"
+        {...fieldAria('profile-confirm', errors.confirmPassword)}
         class="input"
         class:is-danger={errors.confirmPassword}
         type="password"

@@ -18,8 +18,14 @@ import { volunteerCreatePayload, volunteerUpdatePayload } from '../serialize/vol
 /** Volunteers that exist only in the browser. */
 export const pendingVolunteers = (event) => event.volunteers.filter((v) => !v.persisted);
 
-/** True when closing the tab would lose something. */
-export const hasUnsavedWork = (event) => pendingVolunteers(event).length > 0;
+/**
+ * True when closing the tab would lose something.
+ *
+ * The predicate itself lives on the model now that it is about more than
+ * volunteers — an unpublished event is entirely local until it is published.
+ * Re-exported from here because this is where callers already import it from.
+ */
+export const hasUnsavedWork = (event) => event.hasUnsavedWork;
 
 /**
  * Persist one volunteer and adopt the server's id, wiring their RSVPs into the
@@ -79,7 +85,9 @@ export async function submitVolunteers(event, { account, captcha }) {
   const names = failures.map((f) => f.volunteer.name).join(', ');
   toastDanger(
     failures.length === pending.length
-      ? `Couldn't submit your RSVP: ${failures[0].error.info ?? failures[0].error.message}`
+      // `info` only, never `.message` -- see toastError. A network failure has
+      // no `info`, and the browser's own wording for it is not an explanation.
+      ? `Couldn't submit your RSVP: ${failures[0].error?.info ?? 'please try again.'}`
       : `Some volunteers couldn't be saved (${names}). Please try again.`,
   );
   return false;

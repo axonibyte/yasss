@@ -7,6 +7,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
+  import { fieldAria } from '../../lib/a11y.js';
   import CapField from '../inputs/CapField.svelte';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { validateActivity } from '../../lib/validation/forms.js';
@@ -57,6 +58,7 @@
   <Field label="Activity" error={errors.label} id="activity-label">
     <input
       id="activity-label"
+      {...fieldAria('activity-label', errors.label)}
       class="input"
       class:is-danger={errors.label}
       type="text"
@@ -66,13 +68,16 @@
     />
   </Field>
 
-  <Field label="Description" id="activity-description">
+  <Field label="Description" error={errors.description} id="activity-description">
     <textarea
       id="activity-description"
+      {...fieldAria('activity-description', errors.description)}
       class="textarea"
+      class:is-danger={errors.description}
       rows="4"
       placeholder="Describe the activity!"
       bind:value={description}
+      oninput={() => { errors = { ...errors, description: undefined }; }}
     ></textarea>
   </Field>
 

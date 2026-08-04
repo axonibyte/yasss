@@ -50,7 +50,7 @@ readonly MAILPIT=http://127.0.0.1:8025
 
 KEEP=0
 SKIP_BUILD=0
-STAGES="fuzz,accounts,reminders,browser"
+STAGES="fuzz,accounts,reminders,text,concurrency,browser"
 
 usage() {
   cat <<'USAGE'
@@ -58,12 +58,19 @@ usage: e2e/run.sh [options]
 
   --keep           leave the stack running after the suite finishes
   --skip-build     reuse the existing jar and image
-  --only STAGES    comma-separated subset of: fuzz,accounts,reminders,browser  (default: all)
+  --only STAGES    comma-separated subset of:
+                   fuzz,accounts,reminders,text,concurrency,browser  (default: all)
   -h, --help       this text
 
 Environment:
   YASSS_E2E_PORT      host port for the app when publishing (default 7455)
   YASSS_E2E_MAIL_PORT host port for mailpit's web UI when publishing (default 8025)
+  YASSS_E2E_BROWSERS  space-separated Playwright projects for the browser stage
+                      (default: chromium). The cross-engine @compat matrix lives
+                      on the fake suite -- npm run test:e2e:compat -- which is
+                      parallel and needs no stack; this is for checking the
+                      bundle the jar actually serves. Note that WebKit does not
+                      run under FreeBSD's linuxulator.
   YASSS_E2E_PUBLISH   1 to publish those ports to the host, 0 not to. Defaults to
                       1, and to 0 on a FreeBSD host with no pf(4) -- podman
                       publishes ports by writing pf rules, so without it the pod
@@ -153,6 +160,14 @@ trap 'die "at ${BASH_SOURCE[0]}:${LINENO}"' ERR
 
 # --- drivers ----------------------------------------------------------------
 
+# Extra `KEY=VALUE` pairs for the *next* drive() call only; drive() consumes and
+# clears it, so a value set for one stage cannot leak into the next.
+#
+# Assign on its own line -- `DRIVE_ENV=(...) drive ...` is a bash syntax error
+# rather than the temporary assignment it looks like, because drive is a
+# function and arrays cannot be passed that way regardless.
+DRIVE_ENV=()
+
 # Run something in the pod against the live stack. The repo is mounted rather
 # than copied so a driver can be edited and re-run without rebuilding anything;
 # it is writable because Playwright puts its traces and report under frontend/.
@@ -176,6 +191,14 @@ drive() {
   [[ -n "${YASSS_ADMIN_ID:-}" ]] && env_args+=(-e "YASSS_ADMIN_ID=${YASSS_ADMIN_ID}")
   [[ -n "${FUZZ_ITERATIONS:-}" ]] && env_args+=(-e "FUZZ_ITERATIONS=${FUZZ_ITERATIONS}")
   [[ -n "${FUZZ_SEED:-}" ]] && env_args+=(-e "FUZZ_SEED=${FUZZ_SEED}")
+
+  # `${#a[@]}` rather than `"${a[@]}"` -- expanding an empty array is an unbound
+  # variable error under `set -u` on older bash, and the FreeBSD path is real.
+  if [[ ${#DRIVE_ENV[@]} -gt 0 ]]; then
+    local kv
+    for kv in "${DRIVE_ENV[@]}"; do env_args+=(-e "${kv}"); done
+  fi
+  DRIVE_ENV=()
 
   pm run --rm --pod "${POD}" "${PLATFORM_ARGS[@]}" "${DRIVER_USER_ARGS[@]}" \
     -v "${ROOT}:/repo" -w "${workdir}" "${env_args[@]}" "${image}" "$@"
@@ -263,12 +286,19 @@ log "starting mariadb"
 # One pod so every container shares a network namespace: the app reaches the
 # database on 127.0.0.1:3306, exactly as the config file expects, and the
 # database is reachable from nowhere else.
+#
+# Deliberately started as latin1. mariadb:11 defaults to utf8mb4, and the schema
+# never named a character set, so with the image default every emoji assertion in
+# this suite passed by accident and proved nothing about a server configured any
+# other way -- which, before MariaDB 11.6, is every server. Starting latin1 makes
+# migration 017 and the charset assertions below actually load-bearing.
 pm run -d --pod "${POD}" --name "${DB_CTR}" "${PLATFORM_ARGS[@]}" "${DB_USER_ARGS[@]}" \
   -e MARIADB_ROOT_PASSWORD="${DB_ROOT_PW}" \
   -e MARIADB_DATABASE="${DB_NAME}" \
   -e MARIADB_USER="${DB_USER}" \
   -e MARIADB_PASSWORD="${DB_PW}" \
-  docker.io/library/mariadb:11 >/dev/null
+  docker.io/library/mariadb:11 \
+  --character-set-server=latin1 --collation-server=latin1_swedish_ci >/dev/null
 
 log "waiting for the database"
 for i in $(seq 1 90); do
@@ -320,6 +350,37 @@ col="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
 [[ "${col}" == "varbinary(16)" ]] || die "ip_addr_bin is '${col}', expected varbinary(16)"
 echo "  ip_addr_bin is ${col}"
 
+# The server above was started as latin1 on purpose, so this is a real check:
+# without migration 017 every one of these columns comes back latin1 and any
+# emoji, CJK or astral-plane value is either a 500 or a silent '?'.
+log "verifying the utf8mb4 migration"
+bad="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
+  -N -B -e "SELECT CONCAT(TABLE_NAME,'.',COLUMN_NAME,'=',CHARACTER_SET_NAME)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA='${DB_NAME}'
+              AND CHARACTER_SET_NAME IS NOT NULL
+              AND CHARACTER_SET_NAME <> 'utf8mb4';" 2>/dev/null | tr '\n' ' ')"
+[[ -z "${bad}" ]] || die "these columns are not utf8mb4: ${bad}"
+echo "  every character column is utf8mb4"
+
+# reminder_suppression's primary key is a VARCHAR(255): 1020 bytes once each
+# character can take four. That fits DYNAMIC's 3072-byte limit and does not fit
+# COMPACT's 767, so the conversion above silently depends on the row format.
+rowfmt="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
+  -N -B -e "SELECT ROW_FORMAT FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='yasss_reminder_suppression';" 2>/dev/null)"
+[[ "${rowfmt}" == "Dynamic" ]] \
+  || die "reminder_suppression is ${rowfmt}; a 255-char utf8mb4 primary key needs DYNAMIC"
+echo "  reminder_suppression row format is ${rowfmt}"
+
+# Captured here and compared after the restart below. CONVERT TO CHARACTER SET
+# rebuilds a table whether or not there is anything to convert, and setup replays
+# every script on every boot -- so an unguarded 017 would rebuild all eight
+# tables on every start. A rebuild bumps CREATE_TIME; nothing else does.
+created_before="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
+  -N -B -e "SELECT CREATE_TIME FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='yasss_volunteer';" 2>/dev/null)"
+
 log "restarting the app to prove the migrations are re-runnable"
 # Database.setup tracks nothing and replays every script on every boot, so a
 # second start is the only thing that proves the migrations are idempotent.
@@ -329,6 +390,13 @@ if ! drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 120 '
   die "app did not survive a restart -- a migration is not idempotent"
 fi
 echo "  survived a restart"
+
+created_after="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
+  -N -B -e "SELECT CREATE_TIME FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='yasss_volunteer';" 2>/dev/null)"
+[[ "${created_before}" == "${created_after}" ]] \
+  || die "yasss_volunteer was rebuilt on restart (${created_before} -> ${created_after}); 017's guard is not working"
+echo "  no table was rebuilt on the second boot"
 
 # --- bootstrap administrator ------------------------------------------------
 
@@ -369,6 +437,14 @@ if has_stage accounts; then
   fi
 fi
 
+if has_stage text; then
+  log "verifying text round-trips and output escaping"
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node text/verify.mjs; then
+    failures=$((failures + 1))
+    warn "text stage failed"
+  fi
+fi
+
 if has_stage reminders; then
   # Slow by nature: the daemon polls on a one-minute interval here, and proving
   # a reminder is *not* re-sent means waiting out a second sweep. There is no
@@ -380,10 +456,28 @@ if has_stage reminders; then
   fi
 fi
 
+if has_stage concurrency; then
+  log "verifying volunteer capacity under concurrent claims"
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node concurrency/verify.mjs; then
+    failures=$((failures + 1))
+    warn "concurrency stage failed"
+  fi
+fi
+
 if has_stage browser; then
-  log "driving the real stack through a browser"
+  # Which engines the live ribbon runs on. Chromium alone by default: the whole
+  # cross-engine matrix lives on the fake suite, which is parallel and needs no
+  # stack, and what the live stage adds over it is the real server rather than a
+  # second opinion on layout.
+  #
+  # Note that WebKit does not run under FreeBSD's linuxulator; on that host use
+  # chromium,firefox,mobile-chromium.
+  browser_args=()
+  for p in ${YASSS_E2E_BROWSERS:-chromium}; do browser_args+=("--project=${p}"); done
+
+  log "driving the real stack through a browser (${YASSS_E2E_BROWSERS:-chromium})"
   if ! drive "${BROWSER_IMAGE}" /repo/frontend \
-      npx playwright test --config playwright.live.config.js; then
+      npx playwright test --config playwright.live.config.js "${browser_args[@]}"; then
     failures=$((failures + 1))
     warn "browser stage failed"
   fi

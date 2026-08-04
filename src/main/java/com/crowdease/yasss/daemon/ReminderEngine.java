@@ -18,6 +18,7 @@ import java.util.UUID;
 import com.axonibyte.lib.db.SQLBuilder;
 import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.HTMLElem;
 import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.Volunteer;
 import com.crowdease.yasss.model.Volunteer.PendingReminder;
@@ -244,11 +245,12 @@ public class ReminderEngine implements Runnable {
     Volunteer volunteer = event.getVolunteer(due.volunteerID());
 
     Map<String, String> args = new HashMap<>();
-    args.put("EVENT_TITLE", due.eventTitle());
+    // Substituted into an HTML body by Mail, so escaped here.
+    args.put("EVENT_TITLE", HTMLElem.escape(due.eventTitle()));
     args.put(
         "EVENT_DATE",
         VolunteerSummary.eventDate(due.windowBegin(), event.getTimezone()));
-    args.put("VOLUNTEER_NAME", due.volunteerName());
+    args.put("VOLUNTEER_NAME", HTMLElem.escape(due.volunteerName()));
     args.put(
         "RSVP_LIST",
         null == volunteer ? "<ul></ul>" : VolunteerSummary.rsvpList(event, volunteer));

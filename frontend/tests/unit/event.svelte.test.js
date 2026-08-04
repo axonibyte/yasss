@@ -141,6 +141,46 @@ describe('mode', () => {
   });
 });
 
+/**
+ * What the beforeunload guard asks before letting the tab close.
+ *
+ * This reported only unsubmitted volunteers for a long time, which left the
+ * larger case uncovered: until an event is published nothing about it is
+ * remote, so an organiser who had built activities, windows and custom fields
+ * but added no volunteers could close the tab and be asked nothing at all.
+ */
+describe('hasUnsavedWork', () => {
+  it('is false for an untouched model', () => {
+    expect(event.hasUnsavedWork).toBe(false);
+  });
+
+  it('is true once a draft has a title', () => {
+    event.title = 'Bake Sale';
+    expect(event.hasUnsavedWork).toBe(true);
+  });
+
+  it('is true for a draft with structure but no volunteers', () => {
+    // The case that used to go unwarned.
+    event.load(payload());
+    const activities = event.activities;
+    event.reset();
+    event.activities = activities;
+    expect(event.hasUnsavedWork).toBe(true);
+  });
+
+  it('is false for a published event with nothing pending', () => {
+    event.load(payload());
+    expect(event.persisted).toBe(true);
+    expect(event.hasUnsavedWork).toBe(false);
+  });
+
+  it('is true for a published event with an unsubmitted volunteer', () => {
+    event.load(payload());
+    event.volunteers.push(new Volunteer({ id: null, name: 'Grace' }));
+    expect(event.hasUnsavedWork).toBe(true);
+  });
+});
+
 describe('capacity', () => {
   it('reports a slot full at its own cap', () => {
     event.load(payload());

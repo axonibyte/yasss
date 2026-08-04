@@ -8,6 +8,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
+  import { fieldAria } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { toastSuccess, toastError } from '../../state/toast.js';
   import { validatePasswordReset } from '../../lib/validation/forms.js';
@@ -47,6 +48,7 @@
   <Field label="New password" error={errors.password} id="reset-password">
     <input
       id="reset-password"
+      {...fieldAria('reset-password', errors.password)}
       class="input"
       class:is-danger={errors.password}
       type="password"
@@ -58,6 +60,7 @@
   <Field label="Please confirm your password." error={errors.confirmPassword} id="reset-confirm">
     <input
       id="reset-confirm"
+      {...fieldAria('reset-confirm', errors.confirmPassword)}
       class="input"
       class:is-danger={errors.confirmPassword}
       type="password"

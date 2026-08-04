@@ -13,9 +13,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "vectors": "node tools/gen-creds-vectors.mjs",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:all": "vitest run && playwright test",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:compat": "playwright test --project=firefox --project=webkit --project=mobile-chromium",
+    "test:e2e:ui": "playwright test --ui --project=chromium",
+    "test:all": "vitest run && playwright test --project=chromium",
     "test:coverage": "vitest run --coverage --coverage.include='src/**'"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "scrypt-js": "^3.0.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.2",
     "@hono/node-server": "^2.0.12",
     "@playwright/test": "^1.62.1",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

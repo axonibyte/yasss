@@ -178,6 +178,15 @@ public abstract class APIEndpoint extends JSONEndpoint {
    * stack trace -- a plain client mistake reported as a server fault. Found by
    * the fuzzer with a 256-character volunteer name.
    *
+   * <p>Counted in code points rather than {@link String#length()}, because
+   * {@code VARCHAR(255)} counts characters and {@code length()} counts UTF-16
+   * code units. Everything outside the basic multilingual plane -- most emoji,
+   * historic scripts, a good deal of CJK extension -- takes two units per
+   * character, so a 200-emoji name measured 400 and was refused with a 400
+   * despite fitting the column with room to spare. The old count was strictly
+   * conservative, so this only ever accepts more than it did; it is not a hole
+   * being opened.
+   *
    * @param req the HTTP {@link Request}
    * @param value the value to check, which may be {@code null}
    * @param token the argument name, for the error message
@@ -186,7 +195,7 @@ public abstract class APIEndpoint extends JSONEndpoint {
    */
   protected static String bounded(Request req, String value, String token)
       throws EndpointException {
-    if(null != value && MAX_TEXT_LENGTH < value.length())
+    if(null != value && MAX_TEXT_LENGTH < value.codePointCount(0, value.length()))
       throw new EndpointException(
           req,
           String.format("malformed argument (string too long: %1$s)", token),

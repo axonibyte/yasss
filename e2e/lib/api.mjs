@@ -1,0 +1,56 @@
+/**
+ * A minimal HTTP client for the drivers.
+ *
+ * Built on global `fetch` with no dependencies, because these run in a bare
+ * node:22-slim container with only the repo mounted -- there is no install step
+ * and nothing to install from.
+ *
+ * `text` is returned alongside `payload` because not every endpoint answers
+ * JSON: `GET /v1/events/:id/report` returns HTML, and the escaping assertions
+ * need the bytes rather than a parse of them.
+ */
+
+/** Binds a base URL and returns the request helper. */
+export function makeApi(base = process.env.YASSS_API ?? 'http://127.0.0.1:7455') {
+  return async function api(method, path, { body, auth, query = '', headers = {} } = {}) {
+    const hdrs = { ...headers };
+    if (body !== undefined) hdrs['Content-Type'] = 'application/json';
+    // The signed credential blob is static once derived, so the same value
+    // authenticates every request for the life of the process.
+    if (auth) hdrs.Authorization = `AXB-SIG-REQ ${auth}`;
+
+    const res = await fetch(`${base}${path}${query}`, {
+      method,
+      headers: hdrs,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    const text = await res.text();
+    let payload = null;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      // Not JSON. That is legitimate for the report endpoint and interesting
+      // everywhere else, which is why `text` is returned either way.
+    }
+
+    return {
+      status: res.status,
+      payload,
+      text,
+      contentType: res.headers.get('content-type'),
+      accessLevel: res.headers.get('axb-access-level'),
+      account: res.headers.get('axb-account'),
+    };
+  };
+}
+
+/**
+ * True when a response is the library's generic unhandled-exception catch.
+ *
+ * Worth distinguishing from an endpoint-authored 500 like "database
+ * malfunction": this exact string, capital I and trailing period, is what
+ * `Endpoint.onRequest` produces when something threw that nobody anticipated.
+ * It is the reliable signal of a genuine backend bug.
+ */
+export const isUnhandled = (res) => res.payload?.info === 'Internal server error.';

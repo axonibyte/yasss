@@ -15,59 +15,15 @@
  *
  * Env: YASSS_API, YASSS_MAILPIT.
  */
-const API = process.env.YASSS_API ?? 'http://127.0.0.1:7455';
-const MAILPIT = process.env.YASSS_MAILPIT ?? 'http://127.0.0.1:8025';
+import { makeApi } from '../lib/api.mjs';
+import { check, finish, sleep } from '../lib/check.mjs';
+import { inbox, linkParams, messageBody, waitForMail } from '../lib/mailpit.mjs';
 
-let failures = 0;
-
-function check(ok, what, detail = '') {
-  if (ok) {
-    console.log(`  ✓ ${what}`);
-  } else {
-    failures += 1;
-    console.log(`  ✗ ${what}${detail ? `\n      ${detail}` : ''}`);
-  }
-  return ok;
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function api(method, path, body, query = '') {
-  const res = await fetch(`${API}${path}${query}`, {
-    method,
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const payload = await res.json().catch(() => null);
-  return { status: res.status, payload };
-}
-
-/** Every message mailpit currently holds, newest first. */
-async function inbox() {
-  const res = await fetch(`${MAILPIT}/api/v1/messages?limit=200`);
-  const { messages = [] } = await res.json();
-  return messages;
-}
-
-async function messageBody(id) {
-  const res = await fetch(`${MAILPIT}/api/v1/message/${id}`);
-  const { HTML = '', Text = '' } = await res.json();
-  return HTML + Text;
-}
-
-/** Polls the inbox for a message to `address`, up to `timeoutMs`. */
-async function waitForMail(address, { subject, timeoutMs = 20_000 } = {}) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const found = (await inbox()).find(
-      (m) => m.To?.some((t) => t.Address === address)
-        && (!subject || m.Subject.includes(subject)),
-    );
-    if (found) return found;
-    await sleep(1000);
-  }
-  return null;
-}
+// Positional rather than the shared client's option object. This driver calls
+// it about twenty times and none of those calls authenticate; adapting the
+// signature here is less churn, and less risk, than rewriting all of them.
+const http = makeApi();
+const api = (method, path, body, query = '') => http(method, path, { body, query });
 
 /**
  * Creates an event with one window.
@@ -101,13 +57,6 @@ function signUp(event, { name, email, remindersEnabled = true }) {
     details: [],
     rsvps: [{ activity: event.activity, window: event.window }],
   });
-}
-
-/** Pulls `?action=...` query params out of a confirmation or unsubscribe link. */
-function linkParams(body, action) {
-  const match = body.match(new RegExp(`action=${action}[^"'\\s<>]*`));
-  if (!match) return null;
-  return Object.fromEntries(new URLSearchParams(match[0].replace(/&amp;/g, '&')));
 }
 
 // --- the happy path ---------------------------------------------------------
@@ -295,5 +244,4 @@ const badLead = await api('POST', '/v1/events', {
 });
 check(badLead.status === 400, 'a zero lead time is refused', `got ${badLead.status}`);
 
-console.log(failures === 0 ? '\nreminders: all checks passed' : `\nreminders: ${failures} failed`);
-process.exit(failures === 0 ? 0 : 1);
+finish('reminders');

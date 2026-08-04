@@ -27,7 +27,17 @@ export default defineConfig({
     timezoneId: 'UTC',
   },
 
+  // `workers` is global rather than per-project, so it must stay at 1 even
+  // with several projects defined: these specs share one MariaDB and one
+  // bootstrap administrator and build their state through the UI.
+  //
+  // Only tests tagged `@compat` run on anything but Chromium, and none of the
+  // tagged ones log in — scrypt at N=16384 in the browser already needs most of
+  // the 60s timeout on its own. Selected by `YASSS_E2E_BROWSERS` in e2e/run.sh.
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] }, grep: /@compat/ },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, grep: /@compat/ },
+    { name: 'mobile-chromium', use: { ...devices['Pixel 7'] }, grep: /@compat/ },
   ],
 });

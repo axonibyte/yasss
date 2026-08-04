@@ -162,4 +162,43 @@ public class VolunteerSummaryTest {
         rendered.matches("\\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2} [AP]M \\S+"),
         "unexpected format: " + rendered);
   }
+
+  // --- escaping -------------------------------------------------------------
+  //
+  // Both of these fragments are built from text a volunteer chose and are then
+  // dropped into an HTML email body. An organiser reading their signup alert is
+  // the target, and they have no way to tell markup they are being shown from
+  // markup the platform wrote.
+
+  private static final String XSS = "<img src=x onerror=\"alert('h')\">";
+
+  @Test public void rsvpList_escapesActivityLabels() {
+    Activity a = activity(XSS);
+    Window w = window(0L);
+    String html = VolunteerSummary.rsvpList(
+        List.of(a),
+        List.of(w),
+        Map.of(a.getID(), Set.of(w.getID())),
+        "UTC");
+    assertFalse(html.contains("<img"), html);
+    assertTrue(html.contains("&lt;img"), html);
+  }
+
+  @Test public void detailList_escapesLabelsAndAnswers() {
+    Detail detail = new Detail(
+        UUID.randomUUID(), EVENT, Detail.Type.STRING, XSS, "", 0, false);
+    Map<Detail, String> answers = new LinkedHashMap<>();
+    answers.put(detail, "</strong><script>alert(1)</script>");
+
+    Volunteer volunteer = new Volunteer(
+        UUID.randomUUID(), null, EVENT, "Ada", false, null).setDetails(answers);
+
+    String html = VolunteerSummary.detailList(volunteer);
+    assertFalse(html.contains("<img"), html);
+    assertFalse(html.contains("<script"), html);
+    assertTrue(html.contains("&lt;script"), html);
+    // The wrapper this class writes itself must survive intact -- escaping the
+    // answer is only useful if the surrounding markup is still markup.
+    assertTrue(html.startsWith("<ul><li><strong>"), html);
+  }
 }

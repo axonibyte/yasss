@@ -10,6 +10,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
+  import { fieldAria } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { validateSlot } from '../../lib/validation/forms.js';
 
@@ -28,7 +29,10 @@
   let busy = $state(false);
 
   async function save() {
-    const verdict = validateSlot({ enabled, cap: unlimited ? 0 : cap });
+    // `unlimited` goes through as its own flag rather than being folded into a
+    // zero, so an empty box with the switch off is distinguishable from a
+    // deliberate "no limit".
+    const verdict = validateSlot({ enabled, unlimited, cap });
     errors = verdict.errors;
     if (!verdict.ok) return;
     busy = true;
@@ -80,6 +84,7 @@
       <Field label="Volunteers for this slot" error={errors.cap} id="slot-cap">
         <input
           id="slot-cap"
+          {...fieldAria('slot-cap', errors.cap)}
           class="input"
           class:is-danger={errors.cap}
           type="number"
