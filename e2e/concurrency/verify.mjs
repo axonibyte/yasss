@@ -1,8 +1,7 @@
 /**
  * Volunteer capacity under concurrent claims.
  *
- * Two separate defects live here, and only one of them needs concurrency to
- * see:
+ * Three defects live here, and only two of them need concurrency to see:
  *
  *   - `SetRSVPEndpoint` checked capacity with `Slot.countRSVPs()` and
  *     `Activity.countRSVPs()` -- each on its own pooled connection -- and then
@@ -14,6 +13,14 @@
  *     uses, never checked capacity at all. A single ordinary request naming a
  *     full slot overfilled it. No race required; scenario C is that one, and it
  *     is the more serious of the two.
+ *
+ *   - the per-identity cap, with `allowMultiUserSignups` off, read
+ *     `countVolunteers` and then committed with nothing holding the gap, so
+ *     several simultaneous signups from one address all counted zero. Scenario
+ *     H; 2 to 8 of 16 used to get through.
+ *
+ * All three are now one transaction per signup, locking the event row (when
+ * the identity cap applies) and then activity rows in id order.
  *
  * The oracle throughout is the event's own `rsvpCount`, read back through
  * `GET /v1/events/:id`. That is the number the organiser sees and the number
@@ -328,26 +335,21 @@ for (let round = 0; round < ROUNDS; round++) {
   noneCrashed(results, `H${round}: no request crashed`);
   const created = results.filter((r) => r.status === 201).length;
 
-  // KNOWN GAP, pinned rather than asserted away.
-  //
-  // `AddVolunteerEndpoint` reads `countVolunteers` and then commits with
-  // nothing holding the gap, so this is structurally the same race as A --
-  // several simultaneous requests from one address all read zero and all
-  // proceed. It is not fixed here: unlike the slot cap, closing it needs the
-  // volunteer's own 155-line `commit()` to join a transaction, which is the
-  // core write path for every signup in the product. See docs/remaining-work.md.
-  //
-  // What is asserted is that it neither crashes nor locks everyone out. If the
-  // count ever does drop to one, this check starts failing and the gap can be
-  // closed in the docs.
-  if (created > 1) {
-    console.log(`  ! H${round}: ${created} of ${N} anonymous signups were accepted, cap is 1`
-      + ' (known race, see docs/remaining-work.md)');
-  }
+  // Structurally the same race as A, and closed the same way: the identity
+  // count and the volunteer insert now share one transaction, with the event
+  // row locked before the count is taken. Before that, 2 to 8 of 16 got
+  // through.
   check(
-    created >= 1,
-    `H${round}: the per-identity cap does not reject everyone`,
-    `${created} succeeded; a cap that admits nobody would be the worse failure`,
+    created === 1,
+    `H${round}: exactly one anonymous signup is accepted`,
+    `${created} of ${N} succeeded, cap is 1`,
+  );
+
+  const after = await readEvent(api, event.id, auth);
+  check(
+    after.volunteers.length === 1,
+    `H${round}: exactly one volunteer row exists`,
+    `${after.volunteers.length} volunteers exist, expected 1`,
   );
 }
 

@@ -138,13 +138,18 @@ test.describe('cross-engine', { tag: '@compat' }, () => {
   });
 
   /**
-   * Touch targets are deliberately *not* asserted here.
-   *
-   * The grid's slot buttons measure 18px tall, well under the 44px WCAG 2.5.5
-   * asks for. That is a real finding, but it follows from the grid being a
-   * matrix that holds five columns at any width — raising the tiles to 44px is
-   * a layout decision about the product's central screen, not a test fix. A
-   * test asserting the current 18px would pin the defect and one asserting 44px
-   * would simply fail, so it is recorded in docs/remaining-work.md instead.
+   * Effectively mobile-only, and cheap on the others. `isMobile` makes clicks
+   * dispatch as touch events, and a target smaller than 44px square is one a
+   * finger cannot reliably hit — WCAG 2.5.5, which axe does not check at the
+   * severity this suite fails on. These measured 18px until the tiles were
+   * given a minimum height.
    */
+  test('grid tiles are big enough to touch', async ({ page, request }) => {
+    const { eventId } = await seed(request, { event: { activities: 3, windows: 2 } });
+    await page.goto(`/?event=${eventId}`);
+    await waitForApp(page);
+
+    const box = await page.locator('.event-cell button').first().boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  });
 });

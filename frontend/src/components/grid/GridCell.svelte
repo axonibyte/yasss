@@ -51,9 +51,20 @@
   .tile-action {
     all: unset;
     cursor: pointer;
-    display: block;
     width: 100%;
     height: 100%;
+    /*
+     * 44px is WCAG 2.5.5's target size, and these tiles measured 18. The grid is
+     * a matrix that has to hold five columns at any width, so the tiles cannot
+     * get wider — but they can get taller, and height is the axis that was
+     * failing. Flex rather than block so a one-line label still sits in the
+     * middle of the taller tile instead of at the top of it.
+     */
+    min-height: 2.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
   .tile-action:focus-visible {
     outline: 2px solid var(--bulma-primary);

@@ -123,43 +123,73 @@ public class RSVP {
   /** The claim itself, once the caller's arguments are in one shape. */
   private static void claimAll(List<RSVP> wanted) throws SQLException {
     if(wanted.isEmpty()) return;
+    YasssCore.getDB().transaction(con -> {
+      con.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+      claimWithin(con, wanted);
+      return null;
+    });
+  }
+
+  /**
+   * Claims seats inside a transaction the caller is already running.
+   *
+   * <p>For the signup path, which has to count a volunteer's existing signups,
+   * insert the volunteer and claim their seats without anything slipping in
+   * between — so all of it shares one connection rather than each step opening
+   * its own.
+   *
+   * <p>The caller is responsible for the isolation level and for taking any
+   * lock that has to precede these. Locks here are acquired on activity rows in
+   * id order; anything the caller locks first (the event row, in the signup
+   * case) has to stay first everywhere, or the two orders form a cycle.
+   *
+   * @param con the {@link Connection} running the transaction
+   * @param slots the {@link Slot}s to claim a seat in
+   * @param volunteer the {@link UUID} of the {@link Volunteer}
+   * @throws CapacityException if any slot or activity is full
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static void claimWithin(Connection con, Collection<Slot> slots, UUID volunteer)
+      throws SQLException {
+    final List<RSVP> wanted = new ArrayList<>();
+    for(var slot : slots)
+      wanted.add(new RSVP(slot.getActivity(), slot.getWindow(), volunteer));
+    claimWithin(con, wanted);
+  }
+
+  private static void claimWithin(Connection con, List<RSVP> wanted) throws SQLException {
+    if(wanted.isEmpty()) return;
 
     final String prefix = YasssCore.getDB().getPrefix();
 
-    YasssCore.getDB().transaction(con -> {
-      con.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+    List<UUID> activities = wanted.stream()
+        .map(RSVP::getActivity)
+        .distinct()
+        .sorted(Comparator.comparing(UUID::toString))
+        .toList();
 
-      List<UUID> activities = wanted.stream()
-          .map(RSVP::getActivity)
-          .distinct()
-          .sorted(Comparator.comparing(UUID::toString))
-          .toList();
+    Map<UUID, Integer> activityCaps = new LinkedHashMap<>();
+    for(var activity : activities)
+      activityCaps.put(activity, lockActivity(con, prefix, activity));
 
-      Map<UUID, Integer> activityCaps = new LinkedHashMap<>();
-      for(var activity : activities)
-        activityCaps.put(activity, lockActivity(con, prefix, activity));
+    for(var rsvp : wanted) {
+      // Read rather than trusted from the caller's in-memory Slot: a concurrent
+      // SetSlotEndpoint could otherwise be raced, and a cap read before the lock
+      // was taken is a cap that may already be stale.
+      int slotCap = slotCap(con, prefix, rsvp.getActivity(), rsvp.getWindow());
+      if(0 != slotCap && slotCap <= countSlot(con, prefix, rsvp.getActivity(), rsvp.getWindow()))
+        throw new CapacityException(rsvp.getActivity(), rsvp.getWindow());
 
-      for(var rsvp : wanted) {
-        // Read rather than trusted from the caller's in-memory Slot: a
-        // concurrent SetSlotEndpoint could otherwise be raced, and a cap read
-        // before the lock was taken is a cap that may already be stale.
-        int slotCap = slotCap(con, prefix, rsvp.getActivity(), rsvp.getWindow());
-        if(0 != slotCap && slotCap <= countSlot(con, prefix, rsvp.getActivity(), rsvp.getWindow()))
-          throw new CapacityException(rsvp.getActivity(), rsvp.getWindow());
+      int activityCap = activityCaps.get(rsvp.getActivity());
+      if(0 != activityCap && activityCap <= countActivity(con, prefix, rsvp.getActivity()))
+        throw new CapacityException(rsvp.getActivity(), rsvp.getWindow());
 
-        int activityCap = activityCaps.get(rsvp.getActivity());
-        if(0 != activityCap && activityCap <= countActivity(con, prefix, rsvp.getActivity()))
-          throw new CapacityException(rsvp.getActivity(), rsvp.getWindow());
-
-        // Counted again on the next iteration, deliberately: a transaction sees
-        // its own uncommitted inserts, so a request claiming two windows of a
-        // two-seat activity is counted correctly rather than twice against the
-        // same starting number.
-        insert(con, prefix, rsvp);
-      }
-
-      return null;
-    });
+      // Counted again on the next iteration, deliberately: a transaction sees
+      // its own uncommitted inserts, so a request claiming two windows of a
+      // two-seat activity is counted correctly rather than twice against the
+      // same starting number.
+      insert(con, prefix, rsvp);
+    }
   }
 
   /**

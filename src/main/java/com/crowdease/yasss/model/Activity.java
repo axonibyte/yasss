@@ -452,9 +452,27 @@ public class Activity implements Comparable<Activity> {
   @Override public int compareTo(Activity activity) {
     Objects.requireNonNull(activity);
     int c;
-    return 0 == (c = Integer.compare(priority, activity.priority))
-        ? shortDescription.compareToIgnoreCase(activity.shortDescription)
-        : c;
+    if(0 != (c = Integer.compare(priority, activity.priority))) return c;
+    if(0 != (c = shortDescription.compareToIgnoreCase(activity.shortDescription))) return c;
+    // The id breaks the remaining tie, and has to: `getActivities` collects
+    // into a TreeSet, so any two activities this call reports equal become one.
+    // An event created with both "Setup" and "setup" silently came back with a
+    // single activity -- accepted on the way in, unreachable ever after, and
+    // invisible to the organiser until they went looking. Ordering is unchanged
+    // for everything that was already distinct.
+    return compareIDs(getID(), activity.getID());
+  }
+
+  /**
+   * Orders two ids, either of which may be null.
+   *
+   * <p>Null before non-null, and two nulls equal: an entity that has not been
+   * committed has no id yet, and `CreateEventEndpoint` sorts a whole list of
+   * them before any of it reaches the database.
+   */
+  static int compareIDs(UUID a, UUID b) {
+    if(null == a) return null == b ? 0 : -1;
+    return null == b ? 1 : a.compareTo(b);
   }
   
 }

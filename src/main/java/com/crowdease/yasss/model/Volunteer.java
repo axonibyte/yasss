@@ -354,11 +354,33 @@ public class Volunteer {
    */
   public void commit() throws SQLException {
     Connection con = null;
-    PreparedStatement stmt = null;
-    
     try {
       con = YasssCore.getDB().connect();
+      commit(con);
+    } finally {
+      YasssCore.getDB().close(con, null, null);
+    }
+  }
 
+  /**
+   * Saves the {@link Volunteer} on a caller-supplied connection.
+   *
+   * <p>Exists so that a signup can be one transaction rather than several
+   * independent ones. `AddVolunteerEndpoint` has to count existing volunteers,
+   * insert this one, and claim its seats without anything slipping in between;
+   * doing that means the count, the insert and the claims all sharing a
+   * connection with a lock held across them.
+   *
+   * <p>The connection is the caller's and is deliberately not closed here — it
+   * is theirs to commit, roll back and return to the pool.
+   *
+   * @param con the {@link Connection} to use
+   * @throws SQLException if a database malfunction occurs
+   */
+  public void commit(Connection con) throws SQLException {
+    PreparedStatement stmt = null;
+
+    try {
       if(null == id) {
         ResultSet res = null;
         stmt = con.prepareStatement(
@@ -504,7 +526,8 @@ public class Volunteer {
     } catch(SQLException e) {
       throw e;
     } finally {
-      YasssCore.getDB().close(con, stmt, null);
+      // The statement, not the connection: that belongs to the caller.
+      YasssCore.getDB().close(null, stmt, null);
     }
   }
 

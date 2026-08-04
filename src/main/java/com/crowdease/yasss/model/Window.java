@@ -326,9 +326,17 @@ public class Window implements Comparable<Window> {
   @Override public int compareTo(Window window) {
     Objects.requireNonNull(window);
     int c;
-    return 0 == (c = compareTimes(begin, window.end))
-        ? compareTimes(end, window.end)
-        : c;
+    // `begin` against the other window's *begin*. This compared it against the
+    // other's `end`, which is not a comparator at all: for two overlapping
+    // windows A and B it could report A < B and B < A simultaneously, and a
+    // TreeSet given an inconsistent comparator misplaces or drops elements
+    // rather than complaining. The SQL already orders by begin_time, so the
+    // damage was masked for the ordinary case of windows that do not overlap.
+    if(0 != (c = compareTimes(begin, window.begin))) return c;
+    if(0 != (c = compareTimes(end, window.end))) return c;
+    // And a total order, so two windows spanning exactly the same range are two
+    // windows rather than one. Same reason as Activity.
+    return Activity.compareIDs(getID(), window.getID());
   }
   
   private int compareTimes(Timestamp a, Timestamp b) {

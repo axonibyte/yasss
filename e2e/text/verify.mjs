@@ -89,11 +89,10 @@ for (const c of UNICODE_ROUNDTRIP) {
   );
 }
 
-// Two activities that differ only in case are one activity by the time they
-// come back: `getActivities` collects into a TreeSet whose comparator is
-// (priority, shortDescription case-insensitive). Recorded rather than fixed --
-// the ordering is what the grid renders from -- but pinned so the day it
-// changes is a decision rather than a surprise.
+// `getActivities` collects into a TreeSet, so two activities the comparator
+// called equal used to become one: accepted on the way in, gone on the way out,
+// with nothing logged. The comparator now falls through to the id, so labels
+// that differ only in case -- or not at all -- are still two activities.
 {
   const collided = await createEvent(api, {
     auth,
@@ -101,10 +100,36 @@ for (const c of UNICODE_ROUNDTRIP) {
     activities: [{ label: 'Setup' }, { label: 'setup' }, { label: 'Teardown' }],
   });
   check(
-    collided.activities.length === 2,
-    'activities whose labels differ only in case are deduplicated on read',
-    `got ${collided.activities.length}: ${JSON.stringify(collided.activities.map((a) => a.label))}`
-      + ' -- if this is now 3, the TreeSet was replaced and remaining-work.md needs updating',
+    collided.activities.length === 3,
+    'activities whose labels differ only in case both survive the round trip',
+    `got ${collided.activities.length}: ${JSON.stringify(collided.activities.map((a) => a.label))}`,
+  );
+}
+
+// The same defect, and the same fix, for custom fields and for windows: asking
+// the same question twice, or running two activities over an identical span, is
+// unusual but perfectly legal.
+{
+  const dupes = await createEvent(api, {
+    auth,
+    title: 'Duplicate Fields',
+    windowCount: 2,
+    hoursAhead: 24,
+    details: [
+      { type: 'STRING', label: 'Notes', required: false },
+      { type: 'STRING', label: 'Notes', required: false },
+    ],
+  });
+  const read = await api('GET', `/v1/events/${dupes.id}`, { auth });
+  check(
+    read.payload?.event?.details?.length === 2,
+    'two custom fields sharing a label both survive the round trip',
+    `got ${read.payload?.event?.details?.length}`,
+  );
+  check(
+    dupes.windows.length === 2,
+    'two windows both survive the round trip',
+    `got ${dupes.windows.length}`,
   );
 }
 

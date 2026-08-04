@@ -1041,6 +1041,65 @@ public class Event {
    */
   public int countVolunteers(UUID user, String ipAddr) throws SQLException {
     Connection con = null;
+    try {
+      con = YasssCore.getDB().connect();
+      return countVolunteers(con, user, ipAddr);
+    } finally {
+      YasssCore.getDB().close(con, null, null);
+    }
+  }
+
+  /**
+   * Signals that an identity has already signed up as many times as this event
+   * permits.
+   *
+   * <p>Unchecked so that it can leave a
+   * {@link com.axonibyte.lib.db.Database.TransactionalWork} lambda, which may
+   * only declare {@link SQLException}.
+   */
+  public static final class IdentityCapException extends RuntimeException {
+    public IdentityCapException() {
+      super("this identity has already signed up for this event");
+    }
+  }
+
+  /**
+   * Takes this event's row lock.
+   *
+   * <p>The per-identity signup cap is a count followed by an insert, and
+   * nothing used to hold the gap between them — so simultaneous signups from
+   * one address all counted zero and all proceeded. This is what closes it, and
+   * it has to be the <em>first</em> lock any signup takes: `RSVP.claimWithin`
+   * then locks activity rows, and a lock order of event-then-activity in one
+   * request and the reverse in another is a deadlock.
+   *
+   * <p>Only taken when the cap actually applies. Locking here unconditionally
+   * would serialise every signup on an event that permits several, which is the
+   * ordinary case and the one that most wants to be parallel.
+   *
+   * @param con the {@link Connection} running the transaction
+   * @throws SQLException if a database malfunction occurs
+   */
+  public void lock(Connection con) throws SQLException {
+    try(PreparedStatement stmt = con.prepareStatement(
+        "SELECT id FROM " + YasssCore.getDB().getPrefix() + "event WHERE id = ? FOR UPDATE")) {
+      stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
+      stmt.executeQuery().close();
+    }
+  }
+
+  /**
+   * Counts this event's volunteers on a caller-supplied connection.
+   *
+   * <p>The connection is the caller's and is deliberately not closed here.
+   *
+   * @param con the {@link Connection} to use
+   * @param user the {@link UUID} of the account to scope to, or {@code null}
+   * @param ipAddr the address to scope to, or {@code null}
+   * @return the number of matching volunteers
+   * @throws SQLException if a database malfunction occurs
+   */
+  public int countVolunteers(Connection con, UUID user, String ipAddr) throws SQLException {
     PreparedStatement stmt = null;
     ResultSet res = null;
 
@@ -1061,7 +1120,6 @@ public class Event {
       query.where("user");
 
     try {
-      con = YasssCore.getDB().connect();
       stmt = con.prepareStatement(query.toString());
       int idx = 0;
       // Bind in the same order the WHERE clauses were added above: event,
@@ -1082,7 +1140,8 @@ public class Event {
     } catch(SQLException e) {
       throw e;
     } finally {
-      YasssCore.getDB().close(con, stmt, res);
+      // The statement and result set, not the connection: that is the caller's.
+      YasssCore.getDB().close(null, stmt, res);
     }
   }
 

@@ -527,10 +527,17 @@ public class User extends Credentialed implements Comparable<User> {
    * {@inheritDoc}
    */
   @Override public int compareTo(User user) {
-    return null == email && null == user.email ? 0
+    int c = null == email && null == user.email ? 0
         : null == email ? -1
         : null == user.email ? 1
         : email.compareTo(user.email);
+    if(0 != c) return c;
+    // `ListUsersEndpoint` collects into a TreeSet, so without this every
+    // account that has not yet set an address compared equal to every other and
+    // the whole lot came back as a single row. The same applied to any two
+    // accounts sharing an address -- which the create and modify endpoints
+    // refuse, but a direct database edit does not.
+    return Activity.compareIDs(getID(), user.getID());
   }
   
 }

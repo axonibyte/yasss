@@ -379,9 +379,13 @@ a   */
   @Override public int compareTo(Detail detail) {
     Objects.requireNonNull(detail);
     int c;
-    return 0 == (c = Integer.compare(priority, detail.priority))
-        ? label.compareToIgnoreCase(detail.label)
-        : c;
+    if(0 != (c = Integer.compare(priority, detail.priority))) return c;
+    if(0 != (c = label.compareToIgnoreCase(detail.label))) return c;
+    // As in Activity: `getDetails` collects into a TreeSet, so two custom
+    // fields sharing a label collapsed into one on read. Asking a volunteer the
+    // same question twice is unusual but perfectly legal, and losing the second
+    // one silently is not.
+    return Activity.compareIDs(getID(), detail.getID());
   }
   
 }

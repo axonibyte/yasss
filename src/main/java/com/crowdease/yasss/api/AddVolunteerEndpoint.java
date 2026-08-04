@@ -7,6 +7,7 @@
  */
 package com.crowdease.yasss.api;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
@@ -111,14 +112,13 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
       // actor and yielding a 500 instead of a signup. And the comparison was
       // reversed: `1 >= count` treats a count of zero as "cap reached", so the
       // very first signup was rejected. Guest RSVP could not have worked.
-      if(!event.allowMultiUserSignups() && !auth.atLeast(event)) {
-        UUID actorID = null == auth.getActor() ? null : auth.getActor().getID();
-        int existing = null != actorID
-            ? event.countVolunteers(actorID, null)
-            : event.countVolunteers(null, req.ip());
-        if(1 <= existing)
-          throw new EndpointException(req, "volunteer cap reached", 412);
-      }
+      // Checked inside the transaction below rather than here: reading the
+      // count and then committing with nothing holding the gap is the same race
+      // the slot cap had, and simultaneous signups from one address all counted
+      // zero and all proceeded.
+      final boolean identityCapped = !event.allowMultiUserSignups() && !auth.atLeast(event);
+      final UUID actorID = null == auth.getActor() ? null : auth.getActor().getID();
+      final String actorIP = req.ip();
 
       String name = bounded(req, deserializer.getString("name").strip(), "name");
       if(name.isBlank())
@@ -225,28 +225,46 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
             .setReminderToken(UUID.randomUUID());
       }
 
-      volunteer.commit();
-
-      // This endpoint is the one the signup form uses, and until now it never
-      // checked capacity at all -- a single ordinary request naming a full slot
-      // simply overfilled it.
+      // The whole signup is one transaction: the identity cap, the volunteer
+      // row and every seat it claims. Each of those used to be its own
+      // connection, which left two races and one endpoint that never checked
+      // capacity at all -- a single ordinary request naming a full slot simply
+      // overfilled it.
       //
-      // The claim cannot precede the volunteer's own commit, because rsvp is
-      // foreign-keyed to volunteer. So a refusal is compensated rather than
-      // rolled back. All of the seats are claimed in one transaction, so a
-      // partial claim unwinds itself and only the volunteer row is left to
-      // clean up; nothing external has happened yet, since the organiser alert
-      // and the opt-in prompt are both sent below. Worst case, if the
-      // compensating delete itself fails, what remains is a volunteer with no
-      // RSVPs -- an ordinary state in this schema rather than a corrupt one.
+      // Lock order is event, then activities in id order. Both halves have to
+      // agree on that or two requests naming the same rows in opposite orders
+      // deadlock, and InnoDB resolves a deadlock by killing one of them with an
+      // error the volunteer sees as a 500.
+      // `event` is assigned inside a try above, so it is not effectively final
+      // and a lambda cannot close over it directly.
+      final Event target = event;
       try {
-        RSVP.claim(slots, volunteer.getID());
+        YasssCore.getDB().transaction(con -> {
+          con.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+
+          if(identityCapped) {
+            // The lock has to come before the count, not after: InnoDB
+            // establishes a read view at the first *consistent* read, and a
+            // locking read establishes none -- so a count taken after the lock
+            // sees whatever a competitor committed before releasing it.
+            target.lock(con);
+            int existing = null != actorID
+                ? target.countVolunteers(con, actorID, null)
+                : target.countVolunteers(con, null, actorIP);
+            if(1 <= existing) throw new Event.IdentityCapException();
+          }
+
+          // Before the claims, because rsvp is foreign-keyed to volunteer. A
+          // rollback now unwinds the row rather than leaving it behind, which
+          // is what the compensating delete here used to be for.
+          volunteer.commit(con);
+          RSVP.claimWithin(con, slots, volunteer.getID());
+          return null;
+        });
+      } catch(Event.IdentityCapException e) {
+        throw new EndpointException(req, "volunteer cap reached", 412);
       } catch(RSVP.CapacityException e) {
-        volunteer.delete();
         throw new EndpointException(req, "volunteer cap exceeded", 409);
-      } catch(SQLException e) {
-        volunteer.delete();
-        throw e;
       }
 
       User admin = User.getUser(event.getAdmin());
