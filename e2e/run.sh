@@ -50,7 +50,7 @@ readonly MAILPIT=http://127.0.0.1:8025
 
 KEEP=0
 SKIP_BUILD=0
-STAGES="fuzz,accounts,reminders,text,concurrency,regressions,browser"
+STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,browser"
 
 usage() {
   cat <<'USAGE'
@@ -59,8 +59,12 @@ usage: e2e/run.sh [options]
   --keep           leave the stack running after the suite finishes
   --skip-build     reuse the existing jar and image
   --only STAGES    comma-separated subset of:
-                   fuzz,accounts,reminders,text,concurrency,regressions,browser
+                   fuzz,accounts,sessions,reminders,text,concurrency,regressions,
+                   browser
                    (default: all)
+                   Note that `sessions` restarts the application mid-stage; that
+                   is the point of it, and nothing else depends on the process
+                   staying up.
   -h, --help       this text
 
 Environment:
@@ -482,6 +486,38 @@ if has_stage regressions; then
   if ! drive "${DRIVER_IMAGE}" /repo/e2e node regressions/verify.mjs; then
     failures=$((failures + 1))
     warn "regressions stage failed"
+  fi
+fi
+
+if has_stage sessions; then
+  log "verifying session lifetime and revocation"
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node sessions/verify.mjs; then
+    failures=$((failures + 1))
+    warn "sessions stage failed"
+  else
+    # Backdating the deadline is the only way to reach the 410 branch without
+    # waiting out token.resetTTL, which is configured in minutes. Blanket rather
+    # than scoped to one account so that nothing here has to convert a UUID to
+    # the BINARY(16) the column holds: every outstanding reset in this throwaway
+    # database is fair game.
+    pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
+      -e "UPDATE ${DB_NAME}.yasss_user SET reset_token_expires = 1
+          WHERE reset_token IS NOT NULL;" >/dev/null 2>&1 \
+      || warn "could not backdate the reset tokens"
+
+    # The headline claim of the whole tier: the signing keys are durable, so a
+    # deploy no longer signs out every user on the platform. Nothing observable
+    # from inside one process can tell you that.
+    log "restarting the app to prove sessions survive a deploy"
+    pm restart "${APP_CTR}" >/dev/null
+    if ! drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 120 '"status":"ok"'; then
+      pm logs "${APP_CTR}" 2>&1 | tail -40 >&2
+      failures=$((failures + 1))
+      warn "app did not come back up for the sessions stage"
+    elif ! drive "${DRIVER_IMAGE}" /repo/e2e node sessions/after-restart.mjs; then
+      failures=$((failures + 1))
+      warn "sessions stage failed after the restart"
+    fi
   fi
 fi
 

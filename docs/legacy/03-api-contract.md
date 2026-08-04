@@ -66,6 +66,8 @@ Auth legend: **none**; **HUMAN** = `Authorization.IS_HUMAN` (CAPTCHA); **owner(x
 | `RemoveUserEndpoint` | DELETE | `/v1/users` ← **route lacks `:user`** | owner(user) | **Always 404s** (bug B-6) |
 | `ResetUserEndpoint` | POST | `/v1/users/:user` | `is(IS_HUMAN)` or `is(ADMIN)` | Empty body → email link (202); `{token,pubkey}` → apply |
 | `VerifyUserEndpoint` | PUT | `/v1/users/:user` | `is(IS_HUMAN)` or `is(ADMIN)` | No `token` → resend (202); with `token` → verify |
+| `RevokeSessionsEndpoint` | DELETE | `/v1/users/:user/sessions` | owner(user) | *Added by the rewrite.* Sign out everywhere; the caller's own device gets a replacement ticket |
+| `RevokeSessionsEndpoint` | DELETE | `/v1/sessions` | **ADMIN** | *Added by the rewrite.* Every session on the platform, plus a signing-key wipe |
 | `PublicTextEndpoint` | GET | `/v1/texts/:text` | none | `text/markdown`. `:text` ∈ `coa`, `terms`, `privacy` |
 
 ---
@@ -284,7 +286,18 @@ nominally optional but `new User(...)` throws on null, so it is **effectively re
 `welcome` email with `?action=verify-user&user=<id>&token=<sig>` is sent.
 
 `POST /v1/users/:user` (Reset): `:user` may be a UUID **or an email address**. Empty body → 202
-+ `reset-user` mail with `?action=reset-user&user=<id>&token=<sig>`. Body `{token, pubkey}` → 200.
++ `reset-user` mail with `?action=reset-user&user=<id>&token=<uuid>`. Body `{token, pubkey}` → 200.
+
+*Changed by the rewrite the same way verification was, and for the same reason.* The token was a
+`TicketEngine` signature and is now a stored, single-use `reset_token` with its own deadline
+(`token.resetTTL`, default one hour) — signed links died with the signer that made them, so a
+reset email stopped working within about fifteen minutes and immediately on any deploy. Applying
+a reset also **bumps `session_epoch`**, which ends every session established under the old
+credential; previously the new password locked nobody out.
+
+A token that matches but has lapsed answers **410**, not 403. The distinction is only ever
+reachable on a match, so it cannot be used to ask whether a given account has a reset
+outstanding. The same applies to the verification link (`token.verifyTTL`, default a day).
 
 `PUT /v1/users/:user` (Verify): `{}` → 202 resend; `{token}` → 200 verified / already verified.
 
@@ -313,7 +326,8 @@ Endpoint-level highlights:
 | bad email regex / blank | 400 | `malformed argument (email)` |
 | email already taken | 409 | `conflicting email address found` |
 | bad `accessLevel` (**case-sensitive**) | 400 | `malformed argument (accessLevel)` |
-| bad reset/verify ticket | 403 | `access denied` |
+| bad reset/verify token | 403 | `access denied` |
+| lapsed reset/verify token (matching) | **410** | `reset link has expired` / `verification link has expired` |
 | `limit`/`page` < 1 | 400 | `malformed argument (limit)` / `(page)` |
 | earliest window in the past (most event writes, skipped for ADMIN) | 412 | `event expired` |
 | DB / Stripe failure | 500 | `database malfunction` / `stripe malfunction` |
@@ -363,16 +377,43 @@ Every successful auth mints a fresh token and returns three headers:
 | `AXB-SESSION` | the next session token |
 
 ```
-session = base64({"creds": base64({"account":"<uuid>"}), "sig": ticketEngine.sign(creds)})
+creds   = base64({"account":"<uuid>", "sat":<epoch ms>, "iat":<epoch ms>})
+session = base64({"creds": creds, "sig": <signature>, "kid": "<signer uuid>"})
 ```
 
 **It rotates on every request** — the client must read `axb-session` from each response and
-replace its stored token. Lookup is case-insensitive in browsers.
+replace its stored token. Lookup is case-insensitive in browsers. The token is opaque to the
+client; nothing outside `AuthToken` and `SessionTicket` reads its claims.
 
-Lifetime: `TicketEngine` generates a new Ed25519 keypair every `ticket.refreshInterval` minutes
-(default 1) keeping `ticket.maxHistory` keys (default 15) → **≈15 minutes of inactivity**, and
-all sessions die on server restart. There is no logout endpoint; the client drops the token.
-There is no CSRF protection (`AuthToken.java:112` has a TODO).
+`kid` names the signer, so verification is a lookup and one Ed25519 check rather than a scan of
+the whole key history. It sits in the envelope rather than in `creds` because `creds` is what
+gets signed — the signer would otherwise have to be chosen before the thing naming it exists.
+It needs no integrity protection: a wrong value simply fails to verify.
+
+*Changed substantially by the rewrite.* Previously: `creds` was `{"account":"<uuid>"}` and
+nothing else, the `TicketEngine` kept its Ed25519 keypairs **in memory only**, and with the
+shipped `ticket.refreshInterval: 1` × `ticket.maxHistory: 15` a session died after **≈15 minutes
+of inactivity** and every restart signed out the entire user base. There was no way to end a
+session from the server at all, so a password change left whoever had the old credential signed
+in and a ban left the banned party's session working.
+
+Now:
+
+- Signers are persisted (`ticket_signer`, migration 021), encrypted under `ticket.globalSecret`.
+  **Without a real secret the engine refuses to persist them** and says so loudly — the crypto
+  helper is the identity function when the secret is unset, so writing them would put raw signing
+  keys in a table. `ticket.refreshInterval` now defaults to 1440.
+- `sat` is the session start, copied forward unchanged; `iat` is restamped on every response.
+  A session ends after `session.idleTimeout` untouched (default 7 days) or `session.absoluteTimeout`
+  outright (default 30 days). Key retention is *derived* to cover the latter, not configured.
+- `session_epoch` on `user` (migration 022) is a revocation watermark: a session that began at or
+  before it is refused, in force on the very next request. Bumped by a credential reset, a ban,
+  `DELETE /v1/users/:user/sessions`, and `DELETE /v1/sessions`. Deliberately **not** applied to
+  the password branch, or a platform-wide revoke would be an outage rather than a forced re-login.
+- A ticket carrying no `sat`/`iat` is treated as expired — a **one-time logout on upgrade**.
+
+There is still no CSRF protection (the TODO in `AuthToken` remains). There is still no logout
+endpoint in the "end my one session" sense; the client drops the token, which is the only copy.
 
 ### Login flow
 

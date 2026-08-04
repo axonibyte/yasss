@@ -75,50 +75,104 @@ public class User extends Credentialed implements Comparable<User> {
     Connection con = null;
     PreparedStatement stmt = null;
     ResultSet res = null;
-    
+
     SQLBuilder query = new SQLBuilder()
         .select(
             YasssCore.getDB().getPrefix() + "user",
-            "id",
-            "pubkey",
-            "mfakey",
-            "email",
-            "pending_email",
-            "access_level",
-            "verify_token");
-    
+            (Object[])COLUMNS);
+
     if(null != level)
       query.where("access_level");
     if(null != page)
       query.limit(limit, limit * (page - 1));
     else if(null != limit)
       query.limit(limit);
-    
+
     try {
       con = YasssCore.getDB().connect();
       stmt = con.prepareStatement(query.toString());
       if(null != level)
         stmt.setInt(1, level.ordinal());
       res = stmt.executeQuery();
-      
+
       Set<User> users = new TreeSet<>();
       while(res.next())
         users.add(
-            new User(
-                SQLBuilder.bytesToUUID(res.getBytes("id")),
-                res.getBytes("pubkey"),
-                res.getBytes("mfakey"),
-                res.getString("email"),
-                res.getString("pending_email"),
-                accessLevelOf(res.getInt("access_level")))
-                .setVerifyToken(
-                    SQLBuilder.bytesToUUID(res.getBytes("verify_token"))));
-      
+            fromRow(
+                res,
+                SQLBuilder.bytesToUUID(res.getBytes("id"))));
+
       return users;
-      
+
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
+  }
+
+  /**
+   * Every column a {@link User} is built from.
+   *
+   * <p>Named once because there are three queries that select them and one
+   * method that reads them, and a column added to some of those and not the rest
+   * is a field that is silently null depending on how the user was fetched.
+   */
+  private static final String[] COLUMNS = {
+    "id",
+    "pubkey",
+    "mfakey",
+    "email",
+    "pending_email",
+    "access_level",
+    "verify_token",
+    "verify_token_expires",
+    "session_epoch",
+    "reset_token",
+    "reset_token_expires"
+  };
+
+  /**
+   * Builds a {@link User} from a row of {@link #COLUMNS}.
+   *
+   * @param res the {@link ResultSet}, positioned on the row
+   * @param id the user's {@link UUID}
+   * @return the {@link User}
+   * @throws SQLException if a database malfunction occurs
+   */
+  private static User fromRow(ResultSet res, UUID id) throws SQLException {
+    return new User(
+        id,
+        res.getBytes("pubkey"),
+        res.getBytes("mfakey"),
+        res.getString("email"),
+        res.getString("pending_email"),
+        accessLevelOf(res.getInt("access_level")))
+        .setVerifyToken(
+            SQLBuilder.bytesToUUID(res.getBytes("verify_token")))
+        .setVerifyTokenExpires(
+            nullableLong(res, "verify_token_expires"))
+        .setSessionEpoch(res.getLong("session_epoch"))
+        .setResetToken(
+            SQLBuilder.bytesToUUID(res.getBytes("reset_token")))
+        .setResetTokenExpires(
+            nullableLong(res, "reset_token_expires"));
+  }
+
+  /**
+   * Reads a nullable {@code BIGINT}.
+   *
+   * <p>{@code getLong} answers 0 for SQL NULL, and 0 is a perfectly good epoch
+   * millisecond -- the first of January 1970 -- so a token with no deadline
+   * would read as one that lapsed decades ago and every emailed link predating
+   * migration 022 would come back 410.
+   *
+   * @param res the {@link ResultSet}
+   * @param column the column name
+   * @return the value, or {@code null} if the column is NULL
+   * @throws SQLException if a database malfunction occurs
+   */
+  private static Long nullableLong(ResultSet res, String column) throws SQLException {
+    long value = res.getLong(column);
+    return res.wasNull() ? null : value;
   }
 
   /**
@@ -177,29 +231,16 @@ public class User extends Credentialed implements Comparable<User> {
           new SQLBuilder()
               .select(
                   YasssCore.getDB().getPrefix() + "user",
-                  "pubkey",
-                  "mfakey",
-                  "email",
-                  "pending_email",
-                  "access_level",
-                  "verify_token")
+                  (Object[])COLUMNS)
               .where("id")
               .limit(1)
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(userID));
       res = stmt.executeQuery();
-      
+
       if(res.next())
-        return new User(
-            userID,
-            res.getBytes("pubkey"),
-            res.getBytes("mfakey"),
-            res.getString("email"),
-            res.getString("pending_email"),
-            accessLevelOf(res.getInt("access_level")))
-            .setVerifyToken(
-                SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
-      
+        return fromRow(res, userID);
+
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -227,13 +268,7 @@ public class User extends Credentialed implements Comparable<User> {
           new SQLBuilder()
               .select(
                   YasssCore.getDB().getPrefix() + "user",
-                  "id",
-                  "pubkey",
-                  "mfakey",
-                  "email",
-                  "pending_email",
-                  "access_level",
-                  "verify_token")
+                  (Object[])COLUMNS)
               // EQUAL_TO, not LIKE. The argument arrives unvalidated -- for
               // ResetUserEndpoint it is a raw path segment -- so `%` matched
               // every account with an address and, ordered by last_update DESC
@@ -248,27 +283,60 @@ public class User extends Credentialed implements Comparable<User> {
       res = stmt.executeQuery();
       
       if(res.next())
-        return new User(
-            SQLBuilder.bytesToUUID(res.getBytes("id")),
-            res.getBytes("pubkey"),
-            res.getBytes("mfakey"),
-            res.getString("email"),
-            res.getString("pending_email"),
-            accessLevelOf(res.getInt("access_level")))
-            .setVerifyToken(
-                SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
-      
+        return fromRow(
+            res,
+            SQLBuilder.bytesToUUID(res.getBytes("id")));
+
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
-    
+
     return null;
   }
-  
+
+  /**
+   * Invalidates every session on the platform, for every account.
+   *
+   * <p>One statement with no {@code WHERE}, which is what makes it immediate:
+   * the epoch is read on every authenticated request as part of a query that
+   * already happens, so there is nothing to propagate and no cache to wait on.
+   *
+   * <p>Half of the platform-wide revocation. The other half is wiping the stored
+   * signers, which this deliberately does not do -- see
+   * {@code RevokeSessionsEndpoint} for why the two go together.
+   *
+   * @param epoch the watermark, normally the current epoch millisecond
+   * @return the number of accounts affected
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static int revokeAllSessions(long epoch) throws SQLException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(
+          new SQLBuilder()
+              .update(
+                  YasssCore.getDB().getPrefix() + "user",
+                  "session_epoch")
+              .toString());
+      stmt.setLong(1, epoch);
+      return stmt.executeUpdate();
+
+    } finally {
+      YasssCore.getDB().close(con, stmt, null);
+    }
+  }
+
   private String email = null;
   private String pendingEmail = null;
   private AccessLevel accessLevel = AccessLevel.UNVERIFIED;
   private UUID verifyToken = null;
+  private Long verifyTokenExpires = null;
+  private UUID resetToken = null;
+  private Long resetTokenExpires = null;
+  private long sessionEpoch = 0L;
 
   /**
    * Instantiates a user. This method is designed to be invoked when retrieving
@@ -358,6 +426,100 @@ public class User extends Credentialed implements Comparable<User> {
     return this;
   }
 
+  /**
+   * Retrieves the moment this user's verification link lapses.
+   *
+   * @return the epoch millisecond, or {@code null} for a link that does not
+   *         expire -- which is every link minted before migration 022
+   */
+  public Long getVerifyTokenExpires() {
+    return verifyTokenExpires;
+  }
+
+  /**
+   * Sets the moment this user's verification link lapses.
+   *
+   * @param verifyTokenExpires the epoch millisecond, or {@code null}
+   * @return this {@link User}, for chaining
+   */
+  public User setVerifyTokenExpires(Long verifyTokenExpires) {
+    this.verifyTokenExpires = verifyTokenExpires;
+    return this;
+  }
+
+  /**
+   * Retrieves the token carried by this user's credential-reset link.
+   *
+   * <p>Its own token rather than a share of the verification one: an address
+   * change and a password reset can be outstanding at the same time, and their
+   * lifetimes differ by an order of magnitude because a stale verification link
+   * confirms an address while a stale reset link takes over the account.
+   *
+   * @return the token, or {@code null} if no reset is outstanding
+   */
+  public UUID getResetToken() {
+    return resetToken;
+  }
+
+  /**
+   * Sets the token carried by this user's credential-reset link.
+   *
+   * @param resetToken the token, or {@code null} to clear it
+   * @return this {@link User}, for chaining
+   */
+  public User setResetToken(UUID resetToken) {
+    this.resetToken = resetToken;
+    return this;
+  }
+
+  /**
+   * Retrieves the moment this user's reset link lapses.
+   *
+   * @return the epoch millisecond, or {@code null} for a link that does not
+   *         expire
+   */
+  public Long getResetTokenExpires() {
+    return resetTokenExpires;
+  }
+
+  /**
+   * Sets the moment this user's reset link lapses.
+   *
+   * @param resetTokenExpires the epoch millisecond, or {@code null}
+   * @return this {@link User}, for chaining
+   */
+  public User setResetTokenExpires(Long resetTokenExpires) {
+    this.resetTokenExpires = resetTokenExpires;
+    return this;
+  }
+
+  /**
+   * Retrieves this account's session revocation watermark.
+   *
+   * <p>Any session that began at or before this moment is refused, whatever its
+   * timeouts say. Zero means nothing has ever been revoked.
+   *
+   * @return the epoch millisecond
+   */
+  public long getSessionEpoch() {
+    return sessionEpoch;
+  }
+
+  /**
+   * Sets this account's session revocation watermark.
+   *
+   * <p>Takes effect on the next request the account makes: {@code AuthToken}
+   * loads the user row before it does anything else, so there is no window and
+   * nothing to invalidate.
+   *
+   * @param sessionEpoch the epoch millisecond
+   * @return this {@link User}, for chaining
+   */
+  public User setSessionEpoch(long sessionEpoch) {
+    this.sessionEpoch = sessionEpoch;
+    return this;
+  }
+
   public User setPendingEmail(String pendingEmail) {
     this.pendingEmail = pendingEmail;
     return this;
@@ -410,7 +572,11 @@ public class User extends Credentialed implements Comparable<User> {
                   "email",
                   "pending_email",
                   "access_level",
-                  "verify_token")
+                  "verify_token",
+                  "verify_token_expires",
+                  "session_epoch",
+                  "reset_token",
+                  "reset_token_expires")
               .where("id")
               .toString());
       stmt.setBytes(1, getPubkey());
@@ -419,8 +585,12 @@ public class User extends Credentialed implements Comparable<User> {
       stmt.setString(4, pendingEmail);
       stmt.setInt(5, accessLevel.ordinal());
       stmt.setBytes(6, SQLBuilder.uuidToBytes(verifyToken));
-      stmt.setBytes(7, SQLBuilder.uuidToBytes(getID()));
-      
+      setNullableLong(stmt, 7, verifyTokenExpires);
+      stmt.setLong(8, sessionEpoch);
+      stmt.setBytes(9, SQLBuilder.uuidToBytes(resetToken));
+      setNullableLong(stmt, 10, resetTokenExpires);
+      stmt.setBytes(11, SQLBuilder.uuidToBytes(getID()));
+
       if(0 == stmt.executeUpdate()) {
         YasssCore.getDB().close(null, stmt, null);
         stmt = con.prepareStatement(
@@ -433,7 +603,11 @@ public class User extends Credentialed implements Comparable<User> {
                     "email",
                     "pending_email",
                     "access_level",
-                    "verify_token")
+                    "verify_token",
+                    "verify_token_expires",
+                    "session_epoch",
+                    "reset_token",
+                    "reset_token_expires")
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(getID()));
         stmt.setBytes(2, getPubkey());
@@ -442,6 +616,10 @@ public class User extends Credentialed implements Comparable<User> {
         stmt.setString(5, pendingEmail);
         stmt.setInt(6, accessLevel.ordinal());
         stmt.setBytes(7, SQLBuilder.uuidToBytes(verifyToken));
+        setNullableLong(stmt, 8, verifyTokenExpires);
+        stmt.setLong(9, sessionEpoch);
+        stmt.setBytes(10, SQLBuilder.uuidToBytes(resetToken));
+        setNullableLong(stmt, 11, resetTokenExpires);
         stmt.executeUpdate();
       }
 
@@ -545,6 +723,20 @@ public class User extends Credentialed implements Comparable<User> {
    * @param ordinal the stored ordinal
    * @return the {@link AccessLevel}
    */
+  /**
+   * Binds a nullable {@code BIGINT}.
+   *
+   * @param stmt the {@link PreparedStatement}
+   * @param index the parameter index
+   * @param value the value, or {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
+  private static void setNullableLong(PreparedStatement stmt, int index, Long value)
+      throws SQLException {
+    if(null == value) stmt.setNull(index, Types.BIGINT);
+    else stmt.setLong(index, value);
+  }
+
   static AccessLevel accessLevelOf(int ordinal) {
     AccessLevel[] values = AccessLevel.values();
     return 0 <= ordinal && ordinal < values.length ? values[ordinal] : AccessLevel.BANNED;

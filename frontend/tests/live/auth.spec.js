@@ -41,7 +41,25 @@ test('real credentials authenticate and return the three headers', async ({ page
   const outer = decode(headers['axb-session']);
   expect(typeof outer.creds).toBe('string');
   expect(typeof outer.sig).toBe('string');
-  expect(decode(outer.creds)).toEqual({ account: ACCOUNT });
+
+  // `kid` names the signer that produced `sig`. It rides in the envelope rather
+  // than in `creds` because `creds` is what gets signed, so the signer would
+  // have to be chosen before the object naming it exists. Its absence would not
+  // fail loudly — verification would simply stop finding a key and every caller
+  // would quietly become anonymous — so it is worth asserting.
+  expect(outer.kid).toMatch(/^[0-9a-f-]{36}$/i);
+
+  const creds = decode(outer.creds);
+  expect(creds.account).toBe(ACCOUNT);
+
+  // `sat` is the session start, carried forward unchanged; `iat` is restamped
+  // on every response. Both are what `SessionTicket.evaluate` reads to decide
+  // the idle timeout, the absolute lifetime and revocation, and a ticket
+  // missing either is treated as legacy and refused outright.
+  expect(typeof creds.sat).toBe('number');
+  expect(typeof creds.iat).toBe('number');
+  expect(creds.iat).toBeGreaterThan(Date.now() - 60_000);
+  expect(creds.sat).toBeLessThanOrEqual(creds.iat + 1);
 });
 
 test('a wrong password is refused without erroring', async ({ page }) => {

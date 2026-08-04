@@ -17,6 +17,7 @@ import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.YasssCore;
+import com.crowdease.yasss.model.ExpiringToken;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.User;
@@ -80,12 +81,27 @@ public class ResetUserEndpoint extends APIEndpoint {
 
         // The reset token is an account-takeover credential; never log it.
 
-        if(!YasssCore.getTicketEngine().verify(
-            user.getID().toString(),
-            deserializer.getString("token"))) {
+        // A stored token rather than a TicketEngine signature. The signers
+        // rotate and used to be lost on restart, so a reset link was dead within
+        // fifteen minutes of being sent and immediately on any deploy -- the
+        // same defect migration 011 fixed for verification links and did not
+        // fix here. Now it lives exactly as long as token.resetTTL says.
+        switch(ExpiringToken.check(
+            user.getResetToken(),
+            user.getResetTokenExpires(),
+            deserializer.getString("token"),
+            System.currentTimeMillis())) {
+
+        case NO_MATCH:
           throw new EndpointException(req, "access denied", 403);
+
+        case EXPIRED:
+          throw new EndpointException(req, "reset link has expired", 410);
+
+        default:
+          break;
         }
-        
+
         try {
           // validPubkey, as on create and modify. setPubkey rejects malformed
           // base64 but not well-formed base64 of the wrong length, which
@@ -98,18 +114,39 @@ public class ResetUserEndpoint extends APIEndpoint {
           throw new EndpointException(req, "malformed argument (pubkey)", 400, e);
         }
 
+        // Single-use, like the verification link.
+        user.setResetToken(null);
+        user.setResetTokenExpires(null);
+
+        // A password change kills every session on the account. Whoever forced
+        // the reset may be exactly who is sitting in one of them, and until now
+        // resetting the credential left their sessions untouched -- the new
+        // password locked nobody out.
+        //
+        // No reissue: this endpoint is reached without authentication, by
+        // definition. The caller signs in with the credential they just set.
+        user.setSessionEpoch(System.currentTimeMillis());
+
         user.commit();
-        
+
         res.status(200);
         return new JSONObject()
             .put("status", "ok")
             .put("info", "credentials successfully reset");
-        
+
       } catch(EmptyBodyException e) {
-        
+
         if(null == user.getEmail())
           throw new EndpointException(req, "user has no verified email", 409);
-        
+
+        // A fresh token per request, which also invalidates any earlier one: two
+        // reset emails in an inbox and only the newer works.
+        user.setResetToken(UUID.randomUUID());
+        user.setResetTokenExpires(System.currentTimeMillis() + YasssCore.getResetTokenTTL());
+        // Committed before the mail goes out, so a mailer failure cannot leave a
+        // token in somebody's inbox that the database never stored.
+        user.commit();
+
         Map<String, String> args = new HashMap<>();
         args.put(
             "RESET_LINK",
@@ -117,15 +154,14 @@ public class ResetUserEndpoint extends APIEndpoint {
                 "%1$s?action=reset-user&user=%2$s&token=%3$s",
                 YasssCore.getAPIHost(),
                 user.getID().toString(),
-                YasssCore.getTicketEngine().sign(
-                    user.getID().toString())));
-        
+                user.getResetToken().toString()));
+
         Mail mail = new Mail(
             user.getEmail(),
             "reset-user",
             args);
         mail.send();
-        
+
         res.status(202);
         return new JSONObject()
             .put("status", "ok")
@@ -134,8 +170,6 @@ public class ResetUserEndpoint extends APIEndpoint {
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
-    } catch(CryptoException e) {
-      throw new EndpointException(req, "cryptographic malfunction", 500, e);
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }

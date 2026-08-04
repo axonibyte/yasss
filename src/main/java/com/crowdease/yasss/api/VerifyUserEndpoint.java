@@ -16,6 +16,7 @@ import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.YasssCore;
+import com.crowdease.yasss.model.ExpiringToken;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.User;
@@ -71,7 +72,7 @@ public class VerifyUserEndpoint extends APIEndpoint {
 
         // A fresh token per send, so an older email cannot verify an address
         // the user has since corrected.
-        user.setVerifyToken(UUID.randomUUID());
+        mintVerifyToken(user);
         user.commit();
 
         sendVerificationMail(user);
@@ -80,11 +81,30 @@ public class VerifyUserEndpoint extends APIEndpoint {
         return new JSONObject()
           .put("status", "ok")
           .put("info", "resent verification request");
-        
-      } else if(!tokenMatches(user, deserializer.getString("token"))) {
-        throw new EndpointException(req, "access denied", 403);
+
+      } else {
+        switch(ExpiringToken.check(
+            user.getVerifyToken(),
+            user.getVerifyTokenExpires(),
+            deserializer.getString("token"),
+            System.currentTimeMillis())) {
+
+        case NO_MATCH:
+          throw new EndpointException(req, "access denied", 403);
+
+        case EXPIRED:
+          // 410 rather than 403, and reachable only on a token that matches --
+          // so it cannot be used to ask whether a given account has one
+          // outstanding. The distinction is worth drawing because the remedy
+          // differs: a 403 means the link is not yours, a 410 means it was and
+          // you need another.
+          throw new EndpointException(req, "verification link has expired", 410);
+
+        default:
+          break;
+        }
       }
-      
+
       switch(user.getAccessLevel()) {
       
       case BANNED:
@@ -94,7 +114,7 @@ public class VerifyUserEndpoint extends APIEndpoint {
         user.setEmail(user.getPendingEmail());
         user.setPendingEmail(null);
         // Single-use: the link cannot be replayed to re-verify a later address.
-        user.setVerifyToken(null);
+        clearVerifyToken(user);
         // Promotion is the entire point of verifying, and it was missing.
         // Confirming the address populated `email` -- which is what
         // authentication resolves against, so the user could suddenly log in --
@@ -118,7 +138,7 @@ public class VerifyUserEndpoint extends APIEndpoint {
         if(null != user.getPendingEmail()) {
           user.setEmail(user.getPendingEmail());
           user.setPendingEmail(null);
-          user.setVerifyToken(null);
+          clearVerifyToken(user);
           user.commit();
 
           res.status(200);
@@ -142,23 +162,27 @@ public class VerifyUserEndpoint extends APIEndpoint {
   }
 
   /**
-   * Compares a supplied token against the one stored for a user.
+   * Puts a fresh verification token, and its deadline, on a user.
    *
-   * <p>A user with no outstanding verification matches nothing, which is what
-   * stops a cleared token from being replayed.
+   * <p>Shared with {@code ModifyUserEndpoint}, which mints one when an address
+   * change needs confirming. Kept in one place because a token minted without
+   * its expiry never expires -- a silent omission that nothing would report.
    *
-   * @param user the {@link User}
-   * @param supplied the token from the request
-   * @return {@code true} if they match
+   * @param user the {@link User}, not yet committed
    */
-  static boolean tokenMatches(User user, String supplied) {
-    if(null == user.getVerifyToken() || null == supplied) return false;
-    try {
-      return user.getVerifyToken().equals(UUID.fromString(supplied));
-    } catch(IllegalArgumentException e) {
-      // Indistinguishable from a wrong token, on purpose.
-      return false;
-    }
+  static void mintVerifyToken(User user) {
+    user.setVerifyToken(UUID.randomUUID());
+    user.setVerifyTokenExpires(System.currentTimeMillis() + YasssCore.getVerifyTokenTTL());
+  }
+
+  /**
+   * Clears a user's verification token and its deadline.
+   *
+   * @param user the {@link User}, not yet committed
+   */
+  static void clearVerifyToken(User user) {
+    user.setVerifyToken(null);
+    user.setVerifyTokenExpires(null);
   }
 
   /**

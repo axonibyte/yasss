@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import com.axonibyte.lib.auth.CryptoException;
 import com.crowdease.yasss.YasssCore;
+import com.crowdease.yasss.daemon.TicketEngine;
 import com.crowdease.yasss.model.User;
 
 import org.bouncycastle.util.encoders.Base64;
@@ -69,6 +70,20 @@ public class AuthToken {
 
       String sig = payload.getString("sig");
       String creds = payload.getString("creds");
+      // Which signer produced `sig`, when this server produced it. Carried in
+      // the envelope rather than inside `creds` because `creds` is what gets
+      // signed, so the signer would have to be chosen before it exists. It needs
+      // no integrity protection of its own: a wrong or absent value simply fails
+      // to verify.
+      UUID signerID = null;
+      if(payload.has("kid")) {
+        try {
+          signerID = UUID.fromString(payload.getString("kid"));
+        } catch(IllegalArgumentException e) {
+          // Indistinguishable from a signature that does not verify.
+        }
+      }
+
       JSONObject credsJSO;
 
       try {
@@ -91,6 +106,18 @@ public class AuthToken {
       if(null == user)
         throw new AuthException("user does not exist");
 
+      final long now = System.currentTimeMillis();
+
+      // Carried forward unchanged from the presented ticket, so that refreshing
+      // a session cannot extend it past session.absoluteTimeout. A fresh sign-in
+      // starts the clock here -- but strictly after any revocation already on
+      // the account, because SessionTicket treats a session beginning *at* the
+      // epoch as revoked. Signing in again in the same millisecond as a reset or
+      // a sign-out-everywhere is not far-fetched: those endpoints stamp the
+      // epoch with the same clock, and the client's next request follows
+      // immediately.
+      long sessionStart = Math.max(now, user.getSessionEpoch() + 1);
+
       // Note the `else`: without it this fell straight through into signature
       // verification, so disabling the signin requirement did not actually
       // bypass authentication the way the log message claims it does.
@@ -102,10 +129,27 @@ public class AuthToken {
           && (null == user.getEncMFASecret()
               || user.verifyTOTP(
                   credsJSO.getString("mfa")))) {
+        // Real credentials. Deliberately not subject to the session epoch: a
+        // revocation must invalidate outstanding tickets, not lock an account
+        // out of signing in again -- otherwise a platform-wide revoke is a
+        // permanent outage rather than a forced re-login.
         logger.info(
             "user {} successfully authenticated (new session)",
             user.getID().toString());
-      } else if(YasssCore.getTicketEngine().verify(creds, sig)) {
+      } else if(YasssCore.getTicketEngine().verify(creds, sig, signerID)) {
+        var verdict = SessionTicket.evaluate(
+            credsJSO,
+            user.getSessionEpoch(),
+            now,
+            YasssCore.getSessionIdleTimeout(),
+            YasssCore.getSessionAbsoluteTimeout());
+        if(SessionTicket.Verdict.VALID != verdict)
+          throw new AuthException(
+              "user %1$s presented a %2$s session",
+              user.getID().toString(),
+              verdict.name());
+
+        sessionStart = SessionTicket.sessionStart(credsJSO, now);
         logger.info(
             "user {} successfully authenticated via ticket engine",
             user.getID().toString());
@@ -114,26 +158,9 @@ public class AuthToken {
       }
 
       // TODO probably need to rework this a bit so that it also serves as a CSRF token
-      
-      String sessionCreds = Base64.toBase64String(
-          new JSONObject()
-              .put("account", user.getID().toString())
-              .toString()
-              .getBytes());
-      String sessionSig = null;
-      try {
-        sessionSig = YasssCore.getTicketEngine().sign(sessionCreds);
-      } catch(CryptoException e) {
-        throw new AuthException("failed to sign session token");
-      }
 
-      return Base64.toBase64String(
-          new JSONObject()
-              .put("creds", sessionCreds)
-              .put("sig", sessionSig)
-              .toString()
-              .getBytes());
-      
+      return issue(user.getID(), sessionStart, now);
+
     } catch(DecoderException | IllegalArgumentException | JSONException e) {
       // A malformed Authorization header is an ordinary client error -- the
       // request simply proceeds anonymously -- so it does not warrant a stack
@@ -145,7 +172,43 @@ public class AuthToken {
           e.getMessage());
       throw new AuthException("failed to decode %1$s payload", authHeader);
     }
-    
+
+  }
+
+  /**
+   * Mints a session ticket.
+   *
+   * <p>Shared with the endpoints that revoke sessions: an account signing every
+   * other device out has to be handed a ticket that survives its own
+   * revocation, or the one useful thing it just did also signs it out.
+   *
+   * @param account the account the ticket speaks for
+   * @param sessionStart when the session began, carried forward from the
+   *        presented ticket
+   * @param now the current epoch millisecond
+   * @return the base64 ticket, ready for the {@code AXB-SESSION} header
+   * @throws AuthException if the ticket could not be signed
+   */
+  static String issue(UUID account, long sessionStart, long now) throws AuthException {
+    String sessionCreds = Base64.toBase64String(
+        SessionTicket.issue(account, sessionStart, now)
+            .toString()
+            .getBytes());
+
+    TicketEngine.Signature signature;
+    try {
+      signature = YasssCore.getTicketEngine().sign(sessionCreds);
+    } catch(CryptoException e) {
+      throw new AuthException("failed to sign session token");
+    }
+
+    return Base64.toBase64String(
+        new JSONObject()
+            .put("creds", sessionCreds)
+            .put("sig", signature.value())
+            .put("kid", signature.signerID().toString())
+            .toString()
+            .getBytes());
   }
 
   /**

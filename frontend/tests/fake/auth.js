@@ -10,8 +10,15 @@
  * recoverable from the payload itself. `genCreds` emits
  * `base64(JSON({creds, sig}))` where `creds` is the literal
  * `JSON.stringify({email, mfa})`; the session tokens minted here wrap
- * `base64(JSON({account}))`. The real server decodes exactly this way — try
- * base64 on `creds`, fall back to raw JSON (`AuthToken.java:71-77`).
+ * `base64(JSON({account, sat, iat}))`. The real server decodes exactly this way
+ * — try base64 on `creds`, fall back to raw JSON (`AuthToken.java`).
+ *
+ * The timing claims and the envelope's `kid` are minted but never read here. The
+ * fake enforces no session policy at all: expiry, the absolute lifetime and
+ * `session_epoch` revocation are decided by `SessionTicket.evaluate`, which is
+ * pure and exhaustively covered by `SessionTicketTest`, and the wiring is
+ * covered by the live `sessions` stage. What the fake owes is the *shape*, since
+ * the client round-trips this through a cookie.
  *
  * The point is that this is **per request**. What it replaces was a single
  * global `pendingLogin`, armed by a test-control endpoint and consumed
@@ -68,7 +75,15 @@ export function identityOf(token) {
  * mangled a base64 token on the way through.
  */
 export function sessionToken(store, userId) {
-  const creds = Buffer.from(JSON.stringify({ account: userId })).toString('base64');
+  // `sat` and `iat` are fixed rather than `Date.now()`, which is what keeps the
+  // token stable for a given user and signer epoch — the property the spec that
+  // observes a rotation depends on. A real ticket restamps `iat` per response;
+  // nothing here reads either, so faking the stamp buys nothing and costs
+  // determinism.
+  const creds = Buffer.from(
+    JSON.stringify({ account: userId, sat: 1, iat: 1 }),
+  ).toString('base64');
   const sig = `fake-signature-${store.signerEpoch}`;
-  return Buffer.from(JSON.stringify({ creds, sig })).toString('base64');
+  const kid = `fake-signer-${store.signerEpoch}`;
+  return Buffer.from(JSON.stringify({ creds, sig, kid })).toString('base64');
 }

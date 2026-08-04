@@ -12,12 +12,16 @@
 
 /** Binds a base URL and returns the request helper. */
 export function makeApi(base = process.env.YASSS_API ?? 'http://127.0.0.1:7455') {
-  return async function api(method, path, { body, auth, query = '', headers = {} } = {}) {
+  return async function api(method, path, { body, auth, session, query = '', headers = {} } = {}) {
     const hdrs = { ...headers };
     if (body !== undefined) hdrs['Content-Type'] = 'application/json';
     // The signed credential blob is static once derived, so the same value
     // authenticates every request for the life of the process.
     if (auth) hdrs.Authorization = `AXB-SIG-REQ ${auth}`;
+    // A session ticket goes in the same header; the server tells the two apart
+    // by which one verifies. Passed separately so a driver cannot accidentally
+    // send both and not know which one it is actually testing.
+    else if (session) hdrs.Authorization = `AXB-SIG-REQ ${session}`;
 
     const res = await fetch(`${base}${path}${query}`, {
       method,
@@ -41,6 +45,10 @@ export function makeApi(base = process.env.YASSS_API ?? 'http://127.0.0.1:7455')
       contentType: res.headers.get('content-type'),
       accessLevel: res.headers.get('axb-access-level'),
       account: res.headers.get('axb-account'),
+      // The rotated ticket. Present on every authenticated response and null on
+      // anonymous ones, which is what makes it the signal for "this credential
+      // was accepted".
+      session: res.headers.get('axb-session'),
     };
   };
 }

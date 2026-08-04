@@ -87,6 +87,42 @@ public abstract class APIEndpoint extends JSONEndpoint {
   }
 
   /**
+   * Replaces the session ticket on a response after revoking the caller's
+   * sessions.
+   *
+   * <p>{@link #authenticate} mints a ticket before {@code onCall} runs, so an
+   * endpoint that then bumps its own actor's {@code session_epoch} would hand
+   * back a ticket its next request refuses. Changing your own password, or
+   * signing your other devices out, would sign out the device you did it from --
+   * which reads as the feature being broken.
+   *
+   * <p>Uses {@code setHeader} rather than Spark's {@code Response.header}, which
+   * appends: two {@code AXB-SESSION} headers is not a fix.
+   *
+   * <p>Only ever call this for the account that initiated the revocation. Doing
+   * it for a third party -- an administrator resetting somebody else -- would
+   * hand the administrator a ticket for an account that is not theirs.
+   *
+   * @param res the HTTP {@link Response}
+   * @param actor the authenticated caller, whose sessions were just revoked
+   * @param revokedAt the watermark that was just written. The replacement has to
+   *        start strictly after it -- {@code SessionTicket} treats a session
+   *        beginning at the epoch as revoked, so a reissue landing in the same
+   *        millisecond as the revocation would be dead on arrival, which on a
+   *        coarse clock is most of the time
+   */
+  protected static void reissueSession(Response res, User actor, long revokedAt) {
+    if(null == actor) return;
+    try {
+      long now = Math.max(System.currentTimeMillis(), revokedAt + 1);
+      res.raw().setHeader(SESSION_HEADER, AuthToken.issue(actor.getID(), now, now));
+    } catch(AuthException e) {
+      // The revocation itself stands; the caller simply has to sign in again.
+      logger.error("could not reissue a session for {}: {}", actor.getID(), e.getMessage());
+    }
+  }
+
+  /**
    * Determines whether the caller should be treated as human.
    *
    * <p>The CAPTCHA validator is only constructed when {@code auth.captcha.required}

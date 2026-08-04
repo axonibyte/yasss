@@ -16,7 +16,20 @@ import { genCreds } from '../lib/crypto/creds.js';
 
 const COOKIE = 'user';
 
-/** Sessions die after roughly refreshInterval x maxHistory of inactivity. */
+/**
+ * How often a signed-in tab re-checks that its session is still good.
+ *
+ * It is no longer a keepalive. Sessions used to die after roughly
+ * `ticket.refreshInterval x ticket.maxHistory` of inactivity — a quarter of an
+ * hour with the shipped configuration — and on every restart, because the
+ * signing keys lived only in memory. They are durable now and last
+ * `session.idleTimeout`, which is days.
+ *
+ * What the timer is for instead is revocation. A password reset, a ban, or a
+ * "sign out everywhere" ends a session server-side and takes effect on the very
+ * next request; without this poll an idle tab would keep showing a signed-in
+ * chrome until the user clicked something.
+ */
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 function readCookie() {
@@ -135,7 +148,10 @@ class Session {
   }
 
   logout() {
-    // There is no server-side logout; the client simply drops the token.
+    // Local, deliberately. `DELETE /v1/users/:id/sessions` exists and ends every
+    // session on the account, but that is "sign out everywhere" — logging out on
+    // a laptop should not sign out a phone. Dropping the ticket is the logout;
+    // it is the only copy, and the cookie goes with it.
     this.clear();
   }
 

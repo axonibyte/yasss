@@ -69,10 +69,17 @@ public final class ModifyUserEndpoint extends APIEndpoint {
       if(!auth.atLeast(user))
         throw new EndpointException(req, "access denied", 403);
 
+      // Tracked because a credential change and a ban both end the account's
+      // existing sessions, and the response has to be adjusted afterwards rather
+      // than before -- authenticate() has already minted a ticket by the time
+      // this runs.
+      boolean revoke = false;
+      final AccessLevel priorLevel = user.getAccessLevel();
+
       if(deserializer.has("accessLevel")) {
         if(!auth.atLeast(AccessLevel.ADMIN))
           throw new EndpointException(req, "access denied", 403);
-        
+
         try {
           user.setAccessLevel(
               AccessLevel.valueOf(
@@ -80,8 +87,16 @@ public final class ModifyUserEndpoint extends APIEndpoint {
         } catch(IllegalArgumentException e) {
           throw new EndpointException(req, "malformed argument (accessLevel)", 400, e);
         }
+
+        // A ban that leaves the banned party's session working is not a ban.
+        // Their access level is re-read on every request, so most endpoints
+        // would refuse them -- but the session itself survived, which is not
+        // what the word means. Only on the transition, so that an unrelated
+        // edit to an already-banned account does not keep bumping the epoch.
+        if(AccessLevel.BANNED == user.getAccessLevel() && AccessLevel.BANNED != priorLevel)
+          revoke = true;
       }
-      
+
       boolean emailChanged = false;
       if(deserializer.has("email")) {
         // Lowercased before validating. `Detail.Type.EMAIL`'s pattern is
@@ -115,7 +130,13 @@ public final class ModifyUserEndpoint extends APIEndpoint {
         } catch(CryptoException e) {
           throw new EndpointException(req, "malformed argument (pubkey)", 400, e);
         }
+        // A credential change ends every session established under the old one.
+        // Without this, someone who changed their password because they thought
+        // it had leaked left whoever had it signed in indefinitely.
+        revoke = true;
       }
+
+      if(revoke) user.setSessionEpoch(System.currentTimeMillis());
 
       JSONObject userJSO = new JSONObject()
           .put("id", user.getID())
@@ -136,9 +157,18 @@ public final class ModifyUserEndpoint extends APIEndpoint {
       // verification onto a durable token and this call site was not moved with
       // it.
       final boolean sendChangeMail = AccessLevel.ADMIN != user.getAccessLevel() && emailChanged;
-      if(sendChangeMail) user.setVerifyToken(UUID.randomUUID());
+      if(sendChangeMail) VerifyUserEndpoint.mintVerifyToken(user);
 
       user.commit();
+
+      // After the commit, so a failed save cannot hand out a ticket for a
+      // revocation that did not happen. Only for the account that asked: an
+      // administrator resetting somebody else keeps their own session, and
+      // must not be handed one belonging to the account they just edited.
+      if(revoke
+          && null != auth.getActor()
+          && auth.getActor().getID().equals(user.getID()))
+        reissueSession(res, user, user.getSessionEpoch());
 
       // Committed before the mail is sent, not after: a mailer failure must not
       // leave a token in an inbox that the database never stored. The same rule

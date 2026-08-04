@@ -48,7 +48,20 @@ Activities and details reorder; windows deliberately do not, because they have n
 column and are ordered by `begin_time`. Reordering them means editing their times, which is
 already possible. Listed only so the asymmetry is not mistaken for an oversight.
 
-### 2.3 Smaller items
+### 2.3 "Sign out everywhere" has no button
+
+`DELETE /v1/users/:user/sessions` exists, is authorised for the account itself and for an
+administrator, and hands the device that asked a replacement ticket so it stays signed in. The
+frontend does not call it. Nothing is broken by its absence — a password reset already revokes
+every session automatically, which is the case that matters — but it is the natural home for a
+profile-screen control and is deliberately left for the accessibility and QoL pass rather than
+bolted on here.
+
+Same for `DELETE /v1/sessions`, the platform-wide form. That one is arguably better left to
+`curl`: it is a break-glass lever for a suspected key compromise, and putting it one misclick
+away in an admin screen is its own hazard.
+
+### 2.4 Smaller items
 
 - **Aesthetic verification is one layer of the four planned.** Class-string conformance
   exists; the structural diff against `main` and the human side-by-side do not.

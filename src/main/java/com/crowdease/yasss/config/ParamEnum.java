@@ -233,20 +233,71 @@ public enum ParamEnum {
   TEXTS_PRIVACY_POLICY(new Param("texts.privacyPolicy")),
   
   /**
+   * How long a session may go untouched before it must be re-established, in
+   * minutes. Default: seven days.
+   *
+   * <p>Measured from the last authenticated request, since every one of them
+   * restamps the ticket.
+   */
+  SESSION_IDLE_TIMEOUT(new Param("session.idleTimeout", 10080)),
+
+  /**
+   * How long a session may live at all, however active, in minutes. Default:
+   * thirty days.
+   *
+   * <p>Also the floor on how long the ticket engine must retain a signing key:
+   * a session cannot outlive the key that signs it, so
+   * {@code ticket.refreshInterval} and {@code ticket.maxHistory} are stretched
+   * to cover this if they do not already. See {@code TicketEngine.signerCount}.
+   */
+  SESSION_ABSOLUTE_TIMEOUT(new Param("session.absoluteTimeout", 43200)),
+
+  /**
+   * How long an emailed account-verification link stays good, in minutes.
+   * Default: twenty-four hours.
+   */
+  TOKEN_VERIFY_TTL(new Param("token.verifyTTL", 1440)),
+
+  /**
+   * How long an emailed credential-reset link stays good, in minutes. Default:
+   * one hour.
+   *
+   * <p>Much shorter than the verification link on purpose. Following a stale
+   * verification link confirms an address; following a stale reset link takes
+   * over the account.
+   */
+  TOKEN_RESET_TTL(new Param("token.resetTTL", 60)),
+
+  /**
    * The global secret for the ticket engine and, ultimately, all users.
+   *
+   * <p>Load-bearing beyond its name. Without it {@code Credentialed}'s crypto
+   * helper is the identity function, so the ticket engine refuses to persist its
+   * signing keys rather than write them to the database in the clear -- which
+   * means every restart signs out every user. The shipped placeholder counts as
+   * unset; see {@code TicketSigner.persistenceAllowed}.
    */
   TICKET_GLOBAL_SECRET(new Param("ticket.globalSecret", null)),
-  
+
   /**
-   * Maximum number of signing keys (current and historical) that will render a
-   * verified message is valid.
+   * The floor on how many signing keys (current and historical) are retained.
+   *
+   * <p>A floor rather than a cap: {@code session.absoluteTimeout} raises it when
+   * it has to, because a session cannot outlive the key that signed it. It is no
+   * longer a cost multiplier on failed authentication -- a ticket names the
+   * signer that signed it, so verification is one lookup and one signature check
+   * however much history is held.
    */
   TICKET_MAX_HISTORY(new Param("ticket.maxHistory", 15)),
-  
+
   /**
    * Number of minutes between each regeneration of the system signing key.
+   *
+   * <p>Was one minute, which wrote 1,440 keys a day once they became durable and
+   * bought nothing: rotation limits the blast radius of a leaked signing key, and
+   * a day is a reasonable granularity for that.
    */
-  TICKET_REFRESH_INTERVAL(new Param("ticket.refreshInterval", 1));
+  TICKET_REFRESH_INTERVAL(new Param("ticket.refreshInterval", 1440));
 
   private final Param param;
 

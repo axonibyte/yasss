@@ -47,6 +47,7 @@ import com.crowdease.yasss.api.RemoveVolunteerEndpoint;
 import com.crowdease.yasss.api.ReminderSubscriptionEndpoint;
 import com.crowdease.yasss.api.RemoveWindowEndpoint;
 import com.crowdease.yasss.api.ResetUserEndpoint;
+import com.crowdease.yasss.api.RevokeSessionsEndpoint;
 import com.crowdease.yasss.api.RetrieveEventEndpoint;
 import com.crowdease.yasss.api.RetrieveUserEndpoint;
 import com.crowdease.yasss.api.SetRSVPEndpoint;
@@ -60,6 +61,7 @@ import com.crowdease.yasss.daemon.ReminderEngine;
 import com.crowdease.yasss.daemon.TicketEngine;
 import com.crowdease.yasss.model.CAPTCHAValidator;
 import com.crowdease.yasss.model.Mail;
+import com.crowdease.yasss.model.TicketSigner;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +87,25 @@ public class YasssCore {
   private static boolean authRequired = true;
   private static boolean debugEnabled = false;
   private static int passwordMinLength = 8;
+  private static long sessionIdleTimeout = 0L;
+  private static long sessionAbsoluteTimeout = 0L;
+  private static long verifyTokenTTL = 0L;
+  private static long resetTokenTTL = 0L;
+
+  /**
+   * Converts a configured duration in minutes to milliseconds.
+   *
+   * <p>Every one of these is configured in minutes to match {@code reminders.*},
+   * and compared against {@link System#currentTimeMillis()}. The multiplication
+   * is done as a {@code long} because thirty days of minutes times sixty
+   * thousand overflows an {@code int} several times over.
+   *
+   * @param minutes the configured value
+   * @return the equivalent in milliseconds
+   */
+  private static long minutesToMillis(int minutes) {
+    return minutes * 60L * 1000L;
+  }
 
   /**
    * How long shutdown waits for each daemon to finish what it is doing.
@@ -134,9 +155,18 @@ public class YasssCore {
           config.getBoolean(ParamEnum.DB_SECURE));
       database.setup(YasssCore.class, "db");
 
-      Credentialed.setGlobalSecret(
-          config.getString(
-              ParamEnum.TICKET_GLOBAL_SECRET));
+      String globalSecret = config.getString(ParamEnum.TICKET_GLOBAL_SECRET);
+      Credentialed.setGlobalSecret(globalSecret);
+      // Decided once, here, rather than each time a signer is written: whether
+      // signing keys may go to disk at all is a property of the deployment, and
+      // the answer must not vary between one call and the next.
+      boolean persistSigners = TicketSigner.persistenceAllowed(globalSecret);
+
+      sessionIdleTimeout = minutesToMillis(config.getInteger(ParamEnum.SESSION_IDLE_TIMEOUT));
+      sessionAbsoluteTimeout =
+          minutesToMillis(config.getInteger(ParamEnum.SESSION_ABSOLUTE_TIMEOUT));
+      verifyTokenTTL = minutesToMillis(config.getInteger(ParamEnum.TOKEN_VERIFY_TTL));
+      resetTokenTTL = minutesToMillis(config.getInteger(ParamEnum.TOKEN_RESET_TTL));
 
       if(config.getBoolean(ParamEnum.PAYMENTS_ENABLED))
         stripe = new StripeDriver(
@@ -168,7 +198,9 @@ public class YasssCore {
 
       ticketEngine = new TicketEngine(
           config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL),
-          config.getInteger(ParamEnum.TICKET_MAX_HISTORY));
+          config.getInteger(ParamEnum.TICKET_MAX_HISTORY),
+          config.getInteger(ParamEnum.SESSION_ABSOLUTE_TIMEOUT),
+          persistSigners);
       ticketEngine.start();
 
       // Only started when there is somewhere for the mail to go. Running it
@@ -240,6 +272,8 @@ public class YasssCore {
               new ReminderSubscriptionEndpoint(ReminderSubscriptionEndpoint.Mode.UNSUBSCRIBE),
               new RemoveWindowEndpoint(),
               new ResetUserEndpoint(),
+              new RevokeSessionsEndpoint(RevokeSessionsEndpoint.Mode.ACCOUNT),
+              new RevokeSessionsEndpoint(RevokeSessionsEndpoint.Mode.PLATFORM),
               new RetrieveEventEndpoint(),
               new RetrieveUserEndpoint(),
               new SetRSVPEndpoint(),
@@ -429,6 +463,42 @@ public class YasssCore {
    */
   public static int getPasswordMinLength() {
     return passwordMinLength;
+  }
+
+  /**
+   * How long a session may go untouched before it must be re-established.
+   *
+   * @return {@code session.idleTimeout}, in milliseconds
+   */
+  public static long getSessionIdleTimeout() {
+    return sessionIdleTimeout;
+  }
+
+  /**
+   * How long a session may live at all, however active.
+   *
+   * @return {@code session.absoluteTimeout}, in milliseconds
+   */
+  public static long getSessionAbsoluteTimeout() {
+    return sessionAbsoluteTimeout;
+  }
+
+  /**
+   * How long an emailed account-verification link stays good.
+   *
+   * @return {@code token.verifyTTL}, in milliseconds
+   */
+  public static long getVerifyTokenTTL() {
+    return verifyTokenTTL;
+  }
+
+  /**
+   * How long an emailed credential-reset link stays good.
+   *
+   * @return {@code token.resetTTL}, in milliseconds
+   */
+  public static long getResetTokenTTL() {
+    return resetTokenTTL;
   }
 
 }
