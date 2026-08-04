@@ -46,9 +46,7 @@ public final class RemoveDetailEndpoint extends APIEndpoint {
       Detail detail = null;
 
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
 
         if(null != event) {
           // Omitting the code makes EndpointException default to 500, so this

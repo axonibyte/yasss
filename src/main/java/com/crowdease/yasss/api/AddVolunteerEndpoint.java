@@ -67,9 +67,7 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
       Event event = null;
 
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
       } catch(IllegalArgumentException e) { }
 
       if(null == event)

@@ -86,6 +86,8 @@ export function seedEvent(store, {
   windowTimes = null,
   /** Minutes of notice for reminders; null uses the platform default. */
   reminderLeadTime = null,
+  /** Short, human-copyable identifier; the real server assigns one on save. */
+  code = null,
   title = 'Bake Sale',
   description = 'Cakes and things',
   allowMultiUserSignups = false,
@@ -135,6 +137,7 @@ export function seedEvent(store, {
   const event = {
     id,
     admin,
+    code,
     timezone,
     reminderLeadTime,
     shortDescription: title,
@@ -196,6 +199,7 @@ export function serializeEventRead(event, { actor = null } = {}) {
     id: event.id,
     admin: event.admin,
     timezone: event.timezone ?? null,
+    code: event.code ?? null,
     reminderLeadTime: event.reminderLeadTime ?? null,
     shortDescription: event.shortDescription,
     longDescription: event.longDescription,

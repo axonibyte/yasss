@@ -267,6 +267,34 @@ public abstract class APIEndpoint extends JSONEndpoint {
     return value;
   }
 
+  /**
+   * Resolves the {@code :event} path parameter, by UUID or by short code.
+   *
+   * <p>Tries the UUID first, since that is what every existing link carries,
+   * and falls back to the code. There is no ambiguity between the two: a
+   * normalised code is eight characters and a UUID is thirty-six, so a string
+   * cannot be both.
+   *
+   * <p>Every endpoint taking {@code :event} goes through this, which is what
+   * makes a code usable everywhere a UUID is rather than only on the one
+   * endpoint someone remembered to update.
+   *
+   * @param raw the path parameter
+   * @return the {@link Event}, or {@code null} if nothing matches
+   * @throws SQLException if a database malfunction occurs
+   */
+  // Public rather than protected: EventReportEndpoint extends Endpoint rather
+  // than APIEndpoint, because it answers HTML instead of JSON, and it takes the
+  // same :event parameter as everything else.
+  public static Event resolveEvent(String raw) throws SQLException {
+    if(null == raw) return null;
+    try {
+      return Event.getEvent(java.util.UUID.fromString(raw));
+    } catch(IllegalArgumentException e) {
+      return Event.getEventByCode(raw);
+    }
+  }
+
   /** The largest page size any listing endpoint will serve. */
   public static final int MAX_PAGE_SIZE = 200;
 

@@ -55,9 +55,16 @@ describe('event summary', () => {
     expect(s).toEqual({
       id: 'e1', admin: 'u1', title: 'Title', description: 'Desc',
       notifyOnSignup: true, allowMultiuserSignups: false, isPublished: true,
-      timezone: null, reminderLeadTime: null,
+      timezone: null, code: null, reminderLeadTime: null,
       volunteersMaxed: false, expired: false,
     });
+  });
+
+  it('carries the short code through', () => {
+    // Null for an event that predates the column, which the startup backfill
+    // will fill in; a real code otherwise.
+    expect(eventSummaryFromApi({ id: 'e1', code: 'ABCDEFGH' }).code).toBe('ABCDEFGH');
+    expect(eventSummaryFromApi({ id: 'e1' }).code).toBeNull();
   });
 
   it('sends the long description as longDescription, not shortDescription', () => {

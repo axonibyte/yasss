@@ -54,9 +54,7 @@ public final class SetRSVPEndpoint extends APIEndpoint {
       Volunteer volunteer = null;
       
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
 
         if(null != event) {
           activity = event.getActivity(

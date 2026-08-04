@@ -34,6 +34,8 @@ export class EventModel {
   isPublished = $state(false);
   /** IANA zone the event happens in; null means render in the viewer's own. */
   timezone = $state(null);
+  /** Short, human-copyable identifier. Assigned by the server on first save. */
+  code = $state(null);
   /** Minutes of notice for reminders; null means use the platform default. */
   reminderLeadTime = $state(null);
   volunteersMaxed = $state(false);
@@ -109,6 +111,7 @@ export class EventModel {
     // overwrites this from the payload, so an event that recorded no zone stays
     // null and keeps rendering in each viewer's own.
     this.timezone = localZone();
+    this.code = null;
     this.reminderLeadTime = null;
     this.volunteersMaxed = false;
     this.expired = false;

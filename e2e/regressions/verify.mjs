@@ -274,4 +274,89 @@ console.log('\nan anonymous viewer sees how full a slot is, but not who is in it
   );
 }
 
+// --- short codes ------------------------------------------------------------
+
+console.log('\nan event resolves by its short code as well as by its UUID');
+
+{
+  const event = await createEvent(api, { auth, title: 'Code Me' });
+
+  const byUuid = await api('GET', `/v1/events/${event.id}`, { auth });
+  const code = byUuid.payload?.event?.code;
+  check(
+    typeof code === 'string' && code.length === 8,
+    'a new event is given an eight-character code',
+    `got ${JSON.stringify(code)}`,
+  );
+
+  // Every spelling a human might produce has to reach the same event. The
+  // ambiguity folding is only exercised when the generated code happens to
+  // contain a 0 or a 1, so the spellings that are always exercised are the ones
+  // that matter most: case, hyphen, spaces, punctuation.
+  const spellings = [
+    code,
+    code.toLowerCase(),
+    `${code.slice(0, 4)}-${code.slice(4)}`,
+    `${code.slice(0, 4).toLowerCase()}-${code.slice(4).toLowerCase()}`,
+    `${code.slice(0, 4)} ${code.slice(4)}`,
+    code.split('').join('.'),
+    // And the foldings, applied to whichever characters this code happens to
+    // have. `0`->`O` and `1`->`I` are the reverse of what a reader does.
+    code.replace(/0/g, 'O').replace(/1/g, 'I'),
+    code.toLowerCase().replace(/0/g, 'o').replace(/1/g, 'l'),
+  ];
+
+  for (const spelling of spellings) {
+    const res = await api('GET', `/v1/events/${encodeURIComponent(spelling)}`, { auth });
+    sane(res, `resolving by ${JSON.stringify(spelling)}`);
+    check(
+      res.payload?.event?.id === event.id,
+      `the code resolves when spelled ${JSON.stringify(spelling)}`,
+      `got ${res.status}: ${res.payload?.event?.id}`,
+    );
+  }
+
+  // A code nobody holds is a clean 404, not a 500 and not somebody else's event.
+  const unknown = await api('GET', '/v1/events/ZZZZ-ZZZZ', { auth });
+  sane(unknown, 'resolving an unknown code');
+  check(unknown.status === 404, 'an unknown code is a 404', `got ${unknown.status}`);
+
+  // A stray U leaves seven symbols, so it is not a code at all.
+  const strayU = await api('GET', '/v1/events/ABCDEFGU', { auth });
+  sane(strayU, 'resolving a code with a stray U');
+  check(strayU.status === 404, 'a code containing U is a 404', `got ${strayU.status}`);
+
+  // The code works on more than the read endpoint -- resolveEvent is shared, so
+  // this is really checking that every :event endpoint went through it.
+  const patched = await api('PATCH', `/v1/events/${code.toLowerCase()}`, {
+    auth,
+    body: { shortDescription: 'Renamed By Code' },
+  });
+  check(
+    patched.status === 200,
+    'an event can be edited by its code, not only read',
+    `got ${patched.status}: ${patched.payload?.info}`,
+  );
+}
+
+console.log('\ncodes are unique and stable');
+
+{
+  const codes = new Set();
+  for (let i = 0; i < 12; i++) {
+    const event = await createEvent(api, { auth, title: `Unique ${i}` });
+    const read = await api('GET', `/v1/events/${event.id}`, { auth });
+    codes.add(read.payload?.event?.code);
+  }
+  check(codes.size === 12, 'twelve events get twelve distinct codes', `got ${codes.size}`);
+
+  // A code is what people have written down, so editing an event must not
+  // reissue it.
+  const event = await createEvent(api, { auth, title: 'Stable' });
+  const before = (await api('GET', `/v1/events/${event.id}`, { auth })).payload.event.code;
+  await api('PATCH', `/v1/events/${event.id}`, { auth, body: { shortDescription: 'Stable II' } });
+  const after = (await api('GET', `/v1/events/${event.id}`, { auth })).payload.event.code;
+  check(before === after, 'the code survives an edit', `${before} -> ${after}`);
+}
+
 finish('regressions');

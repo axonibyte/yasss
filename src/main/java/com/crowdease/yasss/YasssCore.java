@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.SQLException;
 
 import com.axonibyte.lib.auth.Credentialed;
 import com.axonibyte.lib.cfg.CLConfig;
@@ -260,6 +261,16 @@ public class YasssCore {
               textFile.toString(),
               e.getMessage());
         }
+      }
+
+      // Events created before short codes existed get one now. No-ops on every
+      // boot after the first, and a failure here is logged rather than fatal --
+      // an event without a code is still perfectly usable by UUID.
+      try {
+        int coded = com.crowdease.yasss.model.Event.backfillCodes();
+        if(0 < coded) logger.info("assigned short codes to {} existing event(s)", coded);
+      } catch(SQLException e) {
+        logger.error("could not backfill event codes: {}", e.getMessage());
       }
 
       Runtime.getRuntime().addShutdownHook(new Thread() {

@@ -55,9 +55,7 @@ public final class SetSlotEndpoint extends APIEndpoint {
       Window window = null;
       
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
 
         if(null != event) {
           if(!auth.atLeast(event))

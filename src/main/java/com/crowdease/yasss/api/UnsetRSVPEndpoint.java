@@ -55,9 +55,7 @@ public final class UnsetRSVPEndpoint extends APIEndpoint {
       Slot slot = null;
       Entry<RSVP, Volunteer> rsvp = null;
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
 
         if(null != event)
           activity = event.getActivity(

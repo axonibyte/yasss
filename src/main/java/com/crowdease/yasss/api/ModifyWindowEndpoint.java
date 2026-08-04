@@ -47,9 +47,7 @@ public final class ModifyWindowEndpoint extends APIEndpoint {
       Event event = null;
       Window window = null;
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
 
         if(null != event) {
           if(!auth.atLeast(event))

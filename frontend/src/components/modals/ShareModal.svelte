@@ -7,25 +7,57 @@
    */
   import Modal from './Modal.svelte';
   import { toastSuccess, toastDanger } from '../../state/toast.js';
+  import { formatCode } from '../../lib/eventCode.js';
 
-  let { url, onClose } = $props();
+  let { url, code = null, onClose } = $props();
 
   let input = $state(null);
+  let codeInput = $state(null);
 
-  async function copy() {
+  /** `XXXX-XXXX`. The hyphen is display only; the server stores neither it nor case. */
+  const pretty = $derived(formatCode(code));
+
+  async function copyText(text, el) {
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(text);
       toastSuccess('Copied!');
     } catch {
       // Clipboard access can be denied; selecting the text is the fallback.
-      input?.select();
-      toastDanger("Couldn't copy automatically — the link is selected for you.");
+      el?.select();
+      toastDanger("Couldn't copy automatically — it's selected for you.");
     }
   }
+
+  const copy = () => copyText(url, input);
+  const copyCode = () => copyText(pretty, codeInput);
 </script>
 
 <Modal title="Share this event!" {onClose}>
-  <p class="mb-4">You can visit this event by visiting the URL below:</p>
+  {#if pretty}
+    <!--
+      The code first, deliberately. It is the half anyone can read down a
+      telephone, write on a whiteboard or print on a flyer; the URL is for
+      pasting.
+    -->
+    <p class="mb-2">Anyone can find this event with its code:</p>
+    <div class="field">
+      <div class="control">
+        <input
+          bind:this={codeInput}
+          class="input is-primary is-large has-text-centered has-text-weight-bold"
+          type="text"
+          readonly
+          value={pretty}
+          aria-label="Event code"
+          data-testid="event-code"
+        />
+      </div>
+      <p class="help">Case and punctuation do not matter — {pretty.toLowerCase()} works too.</p>
+    </div>
+    <button class="button is-small is-light mb-4" onclick={copyCode}>Copy the code</button>
+  {/if}
+
+  <p class="mb-4">Or by visiting the URL below:</p>
   <div class="field">
     <div class="control">
       <input

@@ -343,6 +343,7 @@ public final class CreateEventEndpoint extends APIEndpoint {
               .put("emailOnSubmission", event.emailOnSubmissionEnabled())
               .put("allowMultiUserSignups", event.allowMultiUserSignups())
               .put("timezone", event.getTimezone())
+              .put("code", event.getCode())
               .put("reminderLeadTime", event.getReminderLeadTime())
               .put("isPublished", event.isPublished())
               .put(

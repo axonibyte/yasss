@@ -46,9 +46,7 @@ public final class ModifyEventEndpoint extends APIEndpoint {
       Event event = null;
       
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
       } catch(IllegalArgumentException e) { }
 
       if(null == event)
@@ -130,6 +128,7 @@ public final class ModifyEventEndpoint extends APIEndpoint {
               .put("emailOnSubmission", event.emailOnSubmissionEnabled())
               .put("allowMultiUserSignups", event.allowMultiUserSignups())
               .put("timezone", event.getTimezone())
+              .put("code", event.getCode())
               .put("reminderLeadTime", event.getReminderLeadTime()));
       
     } catch(DeserializationException e) {

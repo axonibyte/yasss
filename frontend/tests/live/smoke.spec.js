@@ -86,8 +86,27 @@ test('an anonymous visitor can create and publish an event', async ({ page }) =>
   const eventId = await publishEvent(page, 'Live Charity Drive');
   expect(eventId).toBeTruthy();
 
-  // The share URL is the shape the server's own emails link to.
-  await expect(page.getByLabel('Event URL')).toHaveValue(new RegExp(`\\?event=${eventId}$`));
+  // The share URL carries the short code rather than the UUID: eight characters
+  // somebody can copy off a screen, against thirty-six of hex. The query-string
+  // shape is unchanged, which is what the server's own emails link to.
+  const shown = page.locator('[data-testid="event-code"]');
+  await expect(shown).toBeVisible();
+  const pretty = await shown.inputValue();
+  expect(pretty).toMatch(/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
+
+  const canonical = pretty.replace('-', '');
+  await expect(page.getByLabel('Event URL')).toHaveValue(new RegExp(`\\?event=${canonical}$`));
+
+  // And the UUID form still resolves, so every link already in the world keeps
+  // working. This is an alias, not a replacement.
+  await page.goto(`/?event=${eventId}`);
+  await ready(page);
+  await expect(page.getByRole('heading', { name: 'Live Charity Drive' })).toBeVisible();
+
+  // As does the code, spelled the way somebody would after reading it aloud.
+  await page.goto(`/?event=${pretty.toLowerCase()}`);
+  await ready(page);
+  await expect(page.getByRole('heading', { name: 'Live Charity Drive' })).toBeVisible();
 });
 
 test('a published event reloads from the database with its slots intact', async ({ page }) => {

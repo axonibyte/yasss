@@ -10,6 +10,7 @@
   import Footer from './components/Footer.svelte';
   import PageLoader from './components/PageLoader.svelte';
   import IntroSection from './components/IntroSection.svelte';
+  import EventCodeEntry from './components/EventCodeEntry.svelte';
   import CoaSection from './components/sections/CoaSection.svelte';
   import DashboardSection from './components/sections/DashboardSection.svelte';
   import EventSection from './components/sections/EventSection.svelte';
@@ -414,6 +415,7 @@
   />
 {:else}
   <IntroSection />
+  <EventCodeEntry onGo={openEvent} />
   {#if session.loggedIn}
     <DashboardSection onSelect={openEvent} />
   {:else}
@@ -450,7 +452,16 @@
 {:else if modal?.kind === 'captcha'}
   <CaptchaModal onToken={onCaptchaToken} onCancel={closeCaptcha} />
 {:else if modal?.kind === 'share'}
-  <ShareModal url={route.eventUrl(event.id)} onClose={() => { modal = null; }} />
+  <!--
+    The shared link carries the code when there is one: eight characters someone
+    can copy off a screen, rather than thirty-six of hex. The UUID form keeps
+    working, so every link already in the world is unaffected.
+  -->
+  <ShareModal
+    url={route.eventUrl(event.code ?? event.id)}
+    code={event.code}
+    onClose={() => { modal = null; }}
+  />
 {:else if modal?.kind === 'guest'}
   <GuestPromptModal
     context={modal.context}

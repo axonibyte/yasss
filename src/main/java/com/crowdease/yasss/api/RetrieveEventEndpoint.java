@@ -50,9 +50,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       Event event = null;
 
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
       } catch(IllegalArgumentException e) { }
 
       if(null == event)
@@ -184,6 +182,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
               .put("emailOnSubmission", event.emailOnSubmissionEnabled())
               .put("allowMultiUserSignups", event.allowMultiUserSignups())
               .put("timezone", event.getTimezone())
+              .put("code", event.getCode())
               .put("reminderLeadTime", event.getReminderLeadTime())
               .put("isPublished", event.isPublished())
               .put("activities", activityArr)

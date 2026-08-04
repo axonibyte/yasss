@@ -51,9 +51,7 @@ public final class UnsetSlotEndpoint extends APIEndpoint {
       Activity activity = null;
       Slot slot = null;
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = resolveEvent(req.params("event"));
 
         if(null != event) {
           if(!auth.atLeast(event))

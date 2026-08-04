@@ -21,6 +21,25 @@ import {
 } from './store.js';
 import { identityOf, sessionToken } from './auth.js';
 
+import { normalizeCode } from '../../src/lib/eventCode.js';
+
+/**
+ * Resolve an `:event` path parameter by id or by short code.
+ *
+ * Mirrors `APIEndpoint.resolveEvent`: the id first, since that is what every
+ * existing link carries, then the code. The normaliser is imported from the app
+ * rather than reimplemented, so the fake cannot drift from what the real server
+ * will accept.
+ */
+function resolveEvent(store, raw) {
+  const direct = store.events.get(raw);
+  if (direct) return direct;
+  const code = normalizeCode(raw);
+  if (!code) return undefined;
+  return [...store.events.values()].find((e) => normalizeCode(e.code) === code);
+}
+
+
 const ok = (info, payload = {}) => ({ status: 'ok', info, ...payload });
 const err = (info) => ({ status: 'error', info });
 
@@ -256,7 +275,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.get('/v1/events/:id', (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
 
     const actor = c.get('actor');
@@ -347,7 +366,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.patch('/v1/events/:id', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     const body = await c.req.json();
     if ('shortDescription' in body) event.shortDescription = body.shortDescription;
@@ -368,7 +387,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.get('/v1/events/:id/report', (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     return c.html(`<html><body><h1>${event.shortDescription}</h1></body></html>`);
   });
@@ -376,7 +395,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   // --- structure ----------------------------------------------------------
 
   app.post('/v1/events/:id/activities', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     const body = await c.req.json();
 
@@ -401,7 +420,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.patch('/v1/events/:id/activities/:activity', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const activity = findActivity(event ?? { activities: [] }, c.req.param('activity'));
     if (!activity) return c.json(err('activity not found'), 404);
     Object.assign(activity, await c.req.json());
@@ -409,14 +428,14 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.delete('/v1/events/:id/activities/:activity', (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     event.activities = event.activities.filter((a) => a.id !== c.req.param('activity'));
     return c.json(ok('successfully deleted activity'));
   });
 
   app.post('/v1/events/:id/windows', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     const body = await c.req.json();
     const win = {
@@ -432,7 +451,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.patch('/v1/events/:id/windows/:window', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const win = findWindow(event ?? { windows: [] }, c.req.param('window'));
     if (!win) return c.json(err('window not found'), 404);
     const body = await c.req.json();
@@ -444,7 +463,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.delete('/v1/events/:id/windows/:window', (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     const windowId = c.req.param('window');
     event.windows = event.windows.filter((w) => w.id !== windowId);
@@ -453,7 +472,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.post('/v1/events/:id/details', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     const body = await c.req.json();
     const detail = {
@@ -469,7 +488,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.patch('/v1/events/:id/details/:detail', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const detail = event?.details.find((d) => d.id === c.req.param('detail'));
     if (!detail) return c.json(err('detail not found'), 404);
     Object.assign(detail, await c.req.json());
@@ -477,7 +496,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.delete('/v1/events/:id/details/:detail', (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     event.details = event.details.filter((d) => d.id !== c.req.param('detail'));
     return c.json(ok('successfully deleted detail'));
@@ -486,7 +505,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   // --- slots --------------------------------------------------------------
 
   app.put('/v1/events/:id/activities/:activity/windows/:window', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const activity = findActivity(event ?? { activities: [] }, c.req.param('activity'));
     if (!activity) return c.json(err('activity not found'), 404);
 
@@ -504,7 +523,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.delete('/v1/events/:id/activities/:activity/windows/:window', (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const activity = findActivity(event ?? { activities: [] }, c.req.param('activity'));
     if (!activity) return c.json(err('activity not found'), 404);
     activity.slots = activity.slots.filter((s) => s.window !== c.req.param('window'));
@@ -514,7 +533,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   // --- volunteers ---------------------------------------------------------
 
   app.post('/v1/events/:id/volunteers', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
 
     const body = await c.req.json();
@@ -590,7 +609,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.patch('/v1/events/:id/volunteers/:volunteer', async (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const volunteer = event?.volunteers.find((v) => v.id === c.req.param('volunteer'));
     if (!volunteer) return c.json(err('volunteer not found'), 404);
     const body = await c.req.json();
@@ -605,7 +624,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.delete('/v1/events/:id/volunteers/:volunteer', (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     if (!event) return c.json(err('event not found'), 404);
     const volunteerId = c.req.param('volunteer');
     event.volunteers = event.volunteers.filter((v) => v.id !== volunteerId);
@@ -623,7 +642,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   const rsvpRoute = '/v1/events/:id/activities/:activity/windows/:window/volunteers/:volunteer';
 
   app.put(rsvpRoute, (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const activity = findActivity(event ?? { activities: [] }, c.req.param('activity'));
     const slot = findSlot(activity, c.req.param('window'));
     if (!slot) return c.json(err('slot not found'), 404);
@@ -640,7 +659,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   });
 
   app.delete(rsvpRoute, (c) => {
-    const event = store.events.get(c.req.param('id'));
+    const event = resolveEvent(store, c.req.param('id'));
     const activity = findActivity(event ?? { activities: [] }, c.req.param('activity'));
     const slot = findSlot(activity, c.req.param('window'));
     if (!slot) return c.json(err('rsvp not found'), 404);

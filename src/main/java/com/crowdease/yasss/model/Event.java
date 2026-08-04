@@ -38,6 +38,8 @@ import com.crowdease.yasss.YasssCore;
  */
 public class Event {
 
+  private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(Event.class);
+
   /**
    * Retrieves an ordered set of events that conform to provided criteria.
    *
@@ -68,6 +70,7 @@ public class Event {
             "e.allow_multiuser_signups",
             "e.published",
             "e.timezone",
+            "e.code",
             "w.begin_time")
         .tableAlias("e")
         .join(
@@ -131,7 +134,8 @@ public class Event {
                 res.getBoolean("e.email_on_submission"),
                 res.getBoolean("e.allow_multiuser_signups"),
                 res.getBoolean("e.published"))
-                .setTimezone(res.getString("e.timezone")));
+                .setTimezone(res.getString("e.timezone"))
+                .setCode(res.getString("e.code")));
       
       return events;
       
@@ -174,6 +178,7 @@ public class Event {
             "e.allow_multiuser_signups",
             "e.published",
             "e.timezone",
+            "e.code",
             "w.begin_time")
         .tableAlias("e")
         .join(
@@ -237,7 +242,8 @@ public class Event {
                 res.getBoolean("e.email_on_submission"),
                 res.getBoolean("e.allow_multiuser_signups"),
                 res.getBoolean("e.published"))
-                .setTimezone(res.getString("e.timezone")));
+                .setTimezone(res.getString("e.timezone"))
+                .setCode(res.getString("e.code")));
       
       return events;
       
@@ -351,7 +357,8 @@ public class Event {
                   "allow_multiuser_signups",
                   "published",
                   "timezone",
-                  "reminder_lead_time")
+                  "reminder_lead_time",
+                  "code")
               .where("id")
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(eventID));
@@ -369,6 +376,7 @@ public class Event {
             res.getBoolean("allow_multiuser_signups"),
             res.getBoolean("published"))
             .setTimezone(res.getString("timezone"))
+            .setCode(res.getString("code"))
             .setReminderLeadTime(
                 null == res.getObject("reminder_lead_time")
                     ? null
@@ -399,6 +407,7 @@ public class Event {
   private boolean allowMultiUserSignups = false;
   private boolean isPublished = false;
   private String timezone = null;
+  private String code = null;
   private Integer reminderLeadTime = null;
 
   /**
@@ -1252,6 +1261,38 @@ public class Event {
    * @throws SQLException if a database malfunction occurs
    */
   public void commit() throws SQLException {
+    // Retried rather than checked-then-inserted: the unique index on `code` is
+    // the authority, so a collision is a duplicate-key violation to catch, not
+    // a race to lose. Forty bits makes this astronomically rare; the loop is
+    // here so that "astronomically" does not have to mean "never".
+    for(int attempt = 0; ; attempt++) {
+      try {
+        commitOnce();
+        return;
+      } catch(SQLException e) {
+        if(CODE_ATTEMPTS <= attempt || !isCodeCollision(e)) throw e;
+        code = null;
+      }
+    }
+  }
+
+  /** How many fresh codes to try before giving up and surfacing the error. */
+  private static final int CODE_ATTEMPTS = 5;
+
+  /**
+   * Whether a failure was this event's code colliding with an existing one.
+   *
+   * <p>Matched on the index name so that a duplicate on any other constraint --
+   * there are none on this table today, but that is not a promise -- is not
+   * silently retried into a different failure.
+   */
+  private static boolean isCodeCollision(SQLException e) {
+    return 1062 == e.getErrorCode()
+        && null != e.getMessage()
+        && e.getMessage().contains("idx_event_code");
+  }
+
+  private void commitOnce() throws SQLException {
     Connection con = null;
     PreparedStatement stmt = null;
     
@@ -1260,6 +1301,11 @@ public class Event {
         id = UUID.randomUUID();
       } while(null != getEvent(id));
     }
+
+    // Assigned on first write and never reissued: a code is what people have
+    // written down and shared, so changing it would break links that are out in
+    // the world on paper.
+    if(null == code) code = EventCode.generate();
     
     try {
       con = YasssCore.getDB().connect();
@@ -1275,7 +1321,8 @@ public class Event {
                   "allow_multiuser_signups",
                   "published",
                   "timezone",
-                  "reminder_lead_time")
+                  "reminder_lead_time",
+                  "code")
               .where("id")
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(admin));
@@ -1287,7 +1334,8 @@ public class Event {
       stmt.setBoolean(7, isPublished);
       stmt.setString(8, timezone);
       setNullableInt(stmt, 9, reminderLeadTime);
-      stmt.setBytes(10, SQLBuilder.uuidToBytes(id));
+      stmt.setString(10, code);
+      stmt.setBytes(11, SQLBuilder.uuidToBytes(id));
       
       if(0 == stmt.executeUpdate()) {
         YasssCore.getDB().close(null, stmt, null);
@@ -1304,7 +1352,8 @@ public class Event {
                     "allow_multiuser_signups",
                     "published",
                     "timezone",
-                    "reminder_lead_time")
+                    "reminder_lead_time",
+                    "code")
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
         stmt.setBytes(2, SQLBuilder.uuidToBytes(admin));
@@ -1316,6 +1365,7 @@ public class Event {
         stmt.setBoolean(8, isPublished);
         stmt.setString(9, timezone);
         setNullableInt(stmt, 10, reminderLeadTime);
+        stmt.setString(11, code);
         stmt.executeUpdate();
       }
       
@@ -1324,6 +1374,119 @@ public class Event {
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
+  }
+
+  /**
+   * Retrieves this event's short, human-copyable code.
+   *
+   * @return the canonical code, or {@code null} if one has not been assigned
+   */
+  public String getCode() {
+    return code;
+  }
+
+  /**
+   * Sets this event's short code.
+   *
+   * <p>Normalised on the way in so that a value read back from an older row, or
+   * supplied by a caller, is stored in exactly one form.
+   *
+   * @param code the code, in any spelling
+   * @return this {@link Event} instance
+   */
+  public Event setCode(String code) {
+    this.code = EventCode.normalize(code);
+    return this;
+  }
+
+  /**
+   * Retrieves an event by its short code.
+   *
+   * <p>The argument is normalised first, so any spelling a user might produce
+   * resolves: lowercase, hyphenated, spaced, or with stray punctuation.
+   *
+   * @param rawCode the code, in any spelling
+   * @return the {@link Event}, if one has that code; otherwise {@code null}
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static Event getEventByCode(String rawCode) throws SQLException {
+    String canonical = EventCode.normalize(rawCode);
+    if(null == canonical) return null;
+
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(
+          new SQLBuilder()
+              .select(
+                  YasssCore.getDB().getPrefix() + "event",
+                  "id")
+              .where("code")
+              .limit(1)
+              .toString());
+      stmt.setString(1, canonical);
+      res = stmt.executeQuery();
+
+      // Resolved to an id and then loaded the ordinary way, rather than
+      // duplicating the twelve-column projection getEvent already maintains.
+      return res.next()
+          ? getEvent(SQLBuilder.bytesToUUID(res.getBytes("id")))
+          : null;
+
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+  }
+
+  /**
+   * Gives a code to every event that predates the column.
+   *
+   * <p>Done in Java rather than in the migration because MariaDB's
+   * {@code CONV(..., 32)} uses {@code 0-9A-V}, which includes {@code I},
+   * {@code O} and {@code U} — reintroducing precisely the ambiguity the format
+   * exists to remove. Generating them here means one implementation of the
+   * alphabet rather than two that have to agree.
+   *
+   * <p>Idempotent and self-limiting: it selects only rows with no code, so on
+   * every boot after the first it does one indexed query returning nothing.
+   * Collisions are handled by {@code commit}'s retry, and a row that cannot be
+   * given a code after that is logged and skipped rather than blocking startup —
+   * an event without a short code still works perfectly well by UUID.
+   *
+   * @return the number of events given a code
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static int backfillCodes() throws SQLException {
+    Connection con = null;
+    PreparedStatement stmt = null;
+    ResultSet res = null;
+
+    java.util.List<UUID> pending = new java.util.ArrayList<>();
+    try {
+      con = YasssCore.getDB().connect();
+      stmt = con.prepareStatement(
+          "SELECT id FROM " + YasssCore.getDB().getPrefix() + "event WHERE code IS NULL");
+      res = stmt.executeQuery();
+      while(res.next()) pending.add(SQLBuilder.bytesToUUID(res.getBytes("id")));
+    } finally {
+      YasssCore.getDB().close(con, stmt, res);
+    }
+
+    int done = 0;
+    for(UUID eventID : pending) {
+      Event event = getEvent(eventID);
+      if(null == event) continue;
+      try {
+        event.commit();
+        done++;
+      } catch(SQLException e) {
+        LOG.error("could not assign a code to event {}: {}", eventID, e.getMessage());
+      }
+    }
+    return done;
   }
 
   /**

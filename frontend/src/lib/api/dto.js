@@ -64,6 +64,7 @@ export function eventSummaryFromApi(e) {
     // Null is meaningful: an event with no recorded zone renders in the
     // viewer's own, which is what every event predating the column does.
     timezone: e.timezone ?? null,
+    code: e.code ?? null,
     reminderLeadTime: e.reminderLeadTime ?? null,
     volunteersMaxed: Boolean(e.volunteersMaxed),
     expired: Boolean(e.expired),

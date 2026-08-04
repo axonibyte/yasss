@@ -54,9 +54,7 @@ public final class EventReportEndpoint extends Endpoint {
       Event event = null;
 
       try {
-        event = Event.getEvent(
-            UUID.fromString(
-                req.params("event")));
+        event = APIEndpoint.resolveEvent(req.params("event"));
       } catch(IllegalArgumentException e) { }
 
       if(null == event)
