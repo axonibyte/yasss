@@ -24,6 +24,8 @@
     onPublish, onEnterEdit, onExitEdit, onSubmitRsvps,
     onDetailClick,
     onDetailMove = null,
+    /** True while a publish or RSVP submission is in flight. */
+    busy = false,
   } = $props();
 
   const editingLayout = $derived(event.mode === Mode.CREATE || event.mode === Mode.EDIT);
@@ -172,7 +174,13 @@
           {/if}
 
           {#if event.mode === Mode.CREATE}
-            <button class="button is-primary" onclick={onPublish}>Publish Event</button>
+            <!--
+              Disabled while in flight. Publishing an event graph is the slowest
+              request in the app and had no feedback at all, so a second click
+              POSTed a second event.
+            -->
+            <button class="button is-primary" class:is-loading={busy} disabled={busy}
+              onclick={onPublish}>Publish Event</button>
           {/if}
 
           {#if event.mode === Mode.EDIT}
@@ -187,7 +195,13 @@
             {#if event.expired && !session.isAdmin}
               <button class="button" disabled>This event has expired.</button>
             {:else}
-              <button class="button is-primary" onclick={onSubmitRsvps}>Submit RSVPs</button>
+              <!--
+                Same guard. Worse here than for publish: pendingVolunteers()
+                filters on !persisted and ids only arrive with the responses, so
+                a second click re-submitted the very same volunteers.
+              -->
+              <button class="button is-primary" class:is-loading={busy} disabled={busy}
+                onclick={onSubmitRsvps}>Submit RSVPs</button>
             {/if}
           {/if}
         </div>

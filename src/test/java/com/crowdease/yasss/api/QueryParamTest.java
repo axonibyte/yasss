@@ -50,7 +50,12 @@ public class QueryParamTest {
     }
 
     int readInt(spark.Request req, JSONDeserializer d, String token) throws EndpointException {
-      return queryInt(req, d, token);
+      return queryInt(req, d, token, Integer.MAX_VALUE);
+    }
+
+    int readInt(spark.Request req, JSONDeserializer d, String token, int max)
+        throws EndpointException {
+      return queryInt(req, d, token, max);
     }
   }
 
@@ -205,5 +210,40 @@ public class QueryParamTest {
       expectThrows(
           EndpointException.class,
           () -> APIEndpoint.validLeadTime(new FakeRequest(), m));
+  }
+
+  /**
+   * The ceiling, which did not exist.
+   *
+   * Listing endpoints compute `limit * (page - 1)` as a SQL offset and
+   * `page * limit` for the next-page link. Unbounded, `?limit=2000000000`
+   * overflows int into a *negative* offset, the query fails, and a plain client
+   * mistake comes back as a 500. A cap also stops one request asking MariaDB to
+   * materialise an entire table into a Set.
+   */
+  @Test
+  public void queryIntRejectsAnythingAboveTheCeiling() throws Exception {
+    FakeRequest req = new FakeRequest().query("limit", "201");
+    JSONDeserializer d = deserialized(req, "limit");
+    EndpointException e = expectThrows(
+        EndpointException.class,
+        () -> PROBE.readInt(req, d, "limit", APIEndpoint.MAX_PAGE_SIZE));
+    assertEquals(e.getErrorCode(), 400);
+  }
+
+  @Test
+  public void queryIntAcceptsTheCeilingItself() throws Exception {
+    FakeRequest req = new FakeRequest().query("limit", "200");
+    JSONDeserializer d = deserialized(req, "limit");
+    assertEquals(PROBE.readInt(req, d, "limit", APIEndpoint.MAX_PAGE_SIZE), 200);
+  }
+
+  /** The pair the four listing call sites actually multiply together. */
+  @Test
+  public void theShippedBoundsCannotOverflowWhenMultiplied() {
+    long product = (long)APIEndpoint.MAX_PAGE * (long)APIEndpoint.MAX_PAGE_SIZE;
+    assertTrue(
+        product <= Integer.MAX_VALUE,
+        "MAX_PAGE * MAX_PAGE_SIZE must fit an int: " + product);
   }
 }

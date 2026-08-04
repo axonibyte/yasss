@@ -84,10 +84,22 @@ public final class ModifyUserEndpoint extends APIEndpoint {
       
       boolean emailChanged = false;
       if(deserializer.has("email")) {
-        final String email = bounded(req, deserializer.getString("email").strip(), "email");
+        // Lowercased before validating. `Detail.Type.EMAIL`'s pattern is
+        // deliberately lowercase-only -- it mirrors a Java pattern compiled
+        // without CASE_INSENSITIVE -- so validating the raw input rejected
+        // every address anyone actually types. `ReminderConsent.resolve`
+        // already had this right; the account paths did not.
+        final String email = bounded(
+            req,
+            deserializer.getString("email").strip().toLowerCase(),
+            "email");
         if(email.isBlank() || !Detail.Type.EMAIL.isValid(email))
           throw new EndpointException(req, "malformed argument (email)", 400);
-        if((emailChanged = !user.getEmail().equalsIgnoreCase(email))
+        // `getEmail()` is null for anyone who has not verified yet --
+        // CreateUserEndpoint leaves it null and populates pendingEmail -- so
+        // an ADMIN editing an unverified account, which is the documented
+        // recovery path, dereferenced null and got a 500.
+        if((emailChanged = !email.equalsIgnoreCase(user.getEmail()))
             && null != User.getUser(email))
           throw new EndpointException(req, "conflicting email address found", 409);
 
@@ -118,7 +130,20 @@ public final class ModifyUserEndpoint extends APIEndpoint {
         }
       }
       
-      if(AccessLevel.ADMIN != user.getAccessLevel() && emailChanged) {
+      // The link used to carry a TicketEngine signature while VerifyUserEndpoint
+      // compared against the stored `verify_token` UUID -- so it could never
+      // match and email changes were simply impossible. Migration 011 moved
+      // verification onto a durable token and this call site was not moved with
+      // it.
+      final boolean sendChangeMail = AccessLevel.ADMIN != user.getAccessLevel() && emailChanged;
+      if(sendChangeMail) user.setVerifyToken(UUID.randomUUID());
+
+      user.commit();
+
+      // Committed before the mail is sent, not after: a mailer failure must not
+      // leave a token in an inbox that the database never stored. The same rule
+      // is documented on sendVerificationMail.
+      if(sendChangeMail) {
         Map<String, String> args = new HashMap<>();
         args.put(
             "VERIFY_LINK",
@@ -126,8 +151,7 @@ public final class ModifyUserEndpoint extends APIEndpoint {
                 "%1$s?action=verify-user&user=%2$s&token=%3$s",
                 YasssCore.getAPIHost(),
                 user.getID().toString(),
-                YasssCore.getTicketEngine().sign(
-                    user.getID().toString())));
+                user.getVerifyToken().toString()));
 
         Mail mail = new Mail(
             user.getPendingEmail(),
@@ -135,8 +159,6 @@ public final class ModifyUserEndpoint extends APIEndpoint {
             args);
         mail.send();
       }
-
-      user.commit();
 
       res.status(200);
       return new JSONObject()
@@ -146,8 +168,6 @@ public final class ModifyUserEndpoint extends APIEndpoint {
       
     } catch(DeserializationException e) {
       throw new EndpointException(req, e.getMessage(), 400, e);
-    } catch(CryptoException e) {
-      throw new EndpointException(req, "cryptographic malfunction", 500, e);
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);
     }

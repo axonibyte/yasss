@@ -50,7 +50,7 @@ readonly MAILPIT=http://127.0.0.1:8025
 
 KEEP=0
 SKIP_BUILD=0
-STAGES="fuzz,accounts,reminders,text,concurrency,browser"
+STAGES="fuzz,accounts,reminders,text,concurrency,regressions,browser"
 
 usage() {
   cat <<'USAGE'
@@ -59,7 +59,8 @@ usage: e2e/run.sh [options]
   --keep           leave the stack running after the suite finishes
   --skip-build     reuse the existing jar and image
   --only STAGES    comma-separated subset of:
-                   fuzz,accounts,reminders,text,concurrency,browser  (default: all)
+                   fuzz,accounts,reminders,text,concurrency,regressions,browser
+                   (default: all)
   -h, --help       this text
 
 Environment:
@@ -461,6 +462,14 @@ if has_stage concurrency; then
   if ! drive "${DRIVER_IMAGE}" /repo/e2e node concurrency/verify.mjs; then
     failures=$((failures + 1))
     warn "concurrency stage failed"
+  fi
+fi
+
+if has_stage regressions; then
+  log "verifying specific defects stay fixed"
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node regressions/verify.mjs; then
+    failures=$((failures + 1))
+    warn "regressions stage failed"
   fi
 fi
 

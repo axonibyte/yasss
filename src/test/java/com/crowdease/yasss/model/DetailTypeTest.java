@@ -9,6 +9,7 @@ package com.crowdease.yasss.model;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.crowdease.yasss.model.Detail.Type;
@@ -166,5 +167,35 @@ public class DetailTypeTest {
         valid,
         String.format("%s.isValid(\"%s\") -- keep this row in step with "
             + "frontend/tests/unit/validation.test.js", type, value));
+  }
+
+  // --- normalisation ---------------------------------------------------------
+
+  /**
+   * The EMAIL pattern is lowercase-only, mirroring a Java pattern compiled
+   * without CASE_INSENSITIVE. Validating a raw answer therefore rejected every
+   * address with a capital letter in it — which is most of the ones people
+   * type. `normalize` is what the four call sites now run first.
+   */
+  @Test
+  public void emailNormalisesToLowercase() {
+    assertEquals(Type.EMAIL.normalize("John.Smith@Example.COM"), "john.smith@example.com");
+    assertTrue(Type.EMAIL.isValid(Type.EMAIL.normalize("John.Smith@Example.COM")));
+    // The case that used to be a 400.
+    assertFalse(Type.EMAIL.isValid("John.Smith@Example.COM"));
+  }
+
+  /** Every other type is left exactly alone; case can be meaningful in them. */
+  @Test
+  public void otherTypesAreNotTouched() {
+    assertEquals(Type.STRING.normalize("MiXeD Case"), "MiXeD Case");
+    assertEquals(Type.INTEGER.normalize("42"), "42");
+    assertEquals(Type.BOOLEAN.normalize("true"), "true");
+    assertEquals(Type.PHONE.normalize("555-0100"), "555-0100");
+  }
+
+  @Test
+  public void normaliseToleratesNull() {
+    for(Type type : Type.values()) assertNull(type.normalize(null));
   }
 }

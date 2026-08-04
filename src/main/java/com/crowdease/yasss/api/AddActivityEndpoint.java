@@ -73,7 +73,13 @@ public final class AddActivityEndpoint extends APIEndpoint {
           event.getID(),
           bounded(req, deserializer.getString("shortDescription").strip(), "shortDescription"),
           deserializer.has("longDescription")
-              ? deserializer.getString("longDescription")
+              // Bounded and stripped, matching ModifyActivityEndpoint. Without
+              // it a 256-character note reached the VARCHAR(255) column and came
+              // back a 500, while the same value on PATCH was a clean 400.
+              ? bounded(
+                  req,
+                  deserializer.getString("longDescription").strip(),
+                  "longDescription")
               : "",
           deserializer.has("maxActivityVolunteers")
               ? deserializer.getInt("maxActivityVolunteers")

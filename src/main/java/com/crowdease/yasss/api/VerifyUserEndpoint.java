@@ -111,11 +111,27 @@ public class VerifyUserEndpoint extends APIEndpoint {
             .put("info", "user successfully verified");
       
       default:
+        // An already-verified user following a link is confirming a *change* of
+        // address, not an initial verification. This branch used to answer
+        // "already verified" and drop `pending_email` on the floor, so changing
+        // your address was impossible even once the link itself worked.
+        if(null != user.getPendingEmail()) {
+          user.setEmail(user.getPendingEmail());
+          user.setPendingEmail(null);
+          user.setVerifyToken(null);
+          user.commit();
+
+          res.status(200);
+          return new JSONObject()
+              .put("status", "ok")
+              .put("info", "email address successfully changed");
+        }
+
         res.status(200);
         return new JSONObject()
             .put("status", "ok")
             .put("info", "user already verified");
-      
+
       }
       
     } catch(DeserializationException e) {

@@ -243,10 +243,13 @@ public abstract class APIEndpoint extends JSONEndpoint {
    * @param req the HTTP {@link Request}
    * @param deserializer the {@link JSONDeserializer} holding the query params
    * @param token the parameter name
+   * @param max the largest value accepted
    * @return the parsed value
-   * @throws EndpointException with a 400 if the value is absent, unparseable, or below 1
+   * @throws EndpointException with a 400 if the value is absent, unparseable,
+   *         below 1, or above {@code max}
    */
-  protected static int queryInt(Request req, JSONDeserializer deserializer, String token)
+  protected static int queryInt(
+      Request req, JSONDeserializer deserializer, String token, int max)
       throws EndpointException {
     int value;
     try {
@@ -254,10 +257,26 @@ public abstract class APIEndpoint extends JSONEndpoint {
     } catch(NumberFormatException | DeserializationException e) {
       throw new EndpointException(req, String.format("malformed argument (%1$s)", token), 400);
     }
-    if(1 > value)
+    // The ceiling is not cosmetic. Listing endpoints compute `limit * (page - 1)`
+    // as a SQL offset and `page * limit` for the next-page link, so an unbounded
+    // value overflows int into a negative offset and comes back as a 500 for
+    // what is plainly a client mistake. A cap also stops one request asking the
+    // database to materialise an entire table.
+    if(1 > value || max < value)
       throw new EndpointException(req, String.format("malformed argument (%1$s)", token), 400);
     return value;
   }
+
+  /** The largest page size any listing endpoint will serve. */
+  public static final int MAX_PAGE_SIZE = 200;
+
+  /**
+   * The largest page number any listing endpoint will serve.
+   *
+   * <p>Chosen so that {@code MAX_PAGE * MAX_PAGE_SIZE} cannot overflow an
+   * {@code int}, which is the arithmetic every caller performs.
+   */
+  public static final int MAX_PAGE = 1_000_000;
 
 
   /**

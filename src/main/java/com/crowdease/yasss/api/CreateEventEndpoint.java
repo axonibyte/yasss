@@ -133,7 +133,14 @@ public final class CreateEventEndpoint extends APIEndpoint {
             null,
             bounded(req, activityDeserializer.getString("shortDescription").strip(), "activities[].shortDescription"),
             activityDeserializer.has("longDescription")
-                ? activityDeserializer.getString("longDescription")
+                // Bounded and stripped, as the event's own longDescription two
+                // blocks up already was. Without it a 256-character note reached
+                // the VARCHAR(255) column and came back a 500, while the same
+                // value on PATCH was a clean 400.
+                ? bounded(
+                    req,
+                    activityDeserializer.getString("longDescription").strip(),
+                    "activities[].longDescription")
                 : "",
             activityDeserializer.has("maxActivityVolunteers")
                 ? activityDeserializer.getInt("maxActivityVolunteers")
@@ -260,6 +267,13 @@ public final class CreateEventEndpoint extends APIEndpoint {
             .tokenize("maxSlotVolunteers", false)
             .check();
           int wIdx = slotDeserializer.getInt("window");
+          // Bounds-checked before it is used as an array index. Out of range
+          // threw ArrayIndexOutOfBoundsException, which none of this method's
+          // handlers catch, so a mistyped index came back as a framework 500
+          // rather than a 400 naming the field.
+          if(0 > wIdx || wIdx >= windows.size())
+            throw new EndpointException(
+                req, "malformed argument (activities[].slots[].window)", 400);
           TempSlot tempSlot = new TempSlot();
           tempSlot.setEnabled(
               slotDeserializer.getBool("enabled"));

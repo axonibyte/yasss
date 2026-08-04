@@ -130,7 +130,10 @@ public final class ModifyVolunteerEndpoint extends APIEndpoint {
           // frontend input fuzzer.
           String value = bounded(
               req,
-              detailDeserializer.getString("value").strip(),
+              // Normalised before validating: an EMAIL custom field's pattern is
+              // lowercase-only, so a capitalised answer was refused outright.
+              detail.getType().normalize(
+                  detailDeserializer.getString("value").strip()),
               "details[].value");
           if(!detail.isValid(value))
             throw new EndpointException(req, "malformed argument (details[].value)", 400);

@@ -16,6 +16,7 @@ import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.JSONDeserializer;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
+import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.User.AccessLevel;
 
 import org.json.JSONObject;
@@ -69,9 +70,20 @@ public final class ModifyEventEndpoint extends APIEndpoint {
           .tokenize("reminderLeadTime", false)
           .check();
 
-      if(deserializer.has("admin"))
-        event.setAdmin(
-            deserializer.getUUID("admin"));
+      if(deserializer.has("admin")) {
+        // Neither of these checks existed. Reassignment took any UUID at all:
+        // one that named no account violated the admin_user foreign key and
+        // came back a 500, and one that named a real account handed the event
+        // over to someone who never asked for it -- while the previous owner
+        // lost their own access on the way out. CreateEventEndpoint has
+        // required both of these since it was written.
+        final User newAdmin = User.getUser(deserializer.getUUID("admin"));
+        if(null == newAdmin)
+          throw new EndpointException(req, "user not found", 404);
+        if(!auth.atLeast(newAdmin))
+          throw new EndpointException(req, "access denied", 403);
+        event.setAdmin(newAdmin.getID());
+      }
 
       if(deserializer.has("shortDescription")) {
         String shortDescription = deserializer.getString("shortDescription");

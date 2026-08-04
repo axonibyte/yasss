@@ -75,7 +75,14 @@ public final class CreateUserEndpoint extends APIEndpoint {
       if(null == accessLevel)
         throw new EndpointException(req, "malformed argument (accessLevel)", 400);
 
-      final String email = bounded(req, deserializer.getString("email").strip(), "email");
+      // Lowercased before validating: Detail.Type.EMAIL's pattern is
+      // lowercase-only by design, mirroring a Java pattern compiled without
+      // CASE_INSENSITIVE, so validating raw input rejected every address with a
+      // capital letter in it -- which is most of the ones people type.
+      final String email = bounded(
+          req,
+          deserializer.getString("email").strip().toLowerCase(),
+          "email");
       if(email.isBlank() || !Detail.Type.EMAIL.isValid(email))
         throw new EndpointException(req, "malformed argument (email)", 400);
       if(null != User.getUser(email))

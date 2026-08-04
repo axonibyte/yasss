@@ -87,8 +87,13 @@ public class ResetUserEndpoint extends APIEndpoint {
         }
         
         try {
+          // validPubkey, as on create and modify. setPubkey rejects malformed
+          // base64 but not well-formed base64 of the wrong length, which
+          // overflows BINARY(32) and comes back as a 500 -- exactly the case
+          // validPubkey's javadoc says it exists for. This was the one
+          // credential path still missing it.
           user.setPubkey(
-              deserializer.getString("pubkey"));
+              validPubkey(req, deserializer.getString("pubkey").strip()));
         } catch(CryptoException e) {
           throw new EndpointException(req, "malformed argument (pubkey)", 400, e);
         }

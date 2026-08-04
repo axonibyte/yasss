@@ -1341,15 +1341,19 @@ public class Event {
       con = YasssCore.getDB().connect();
       stmt = con.prepareStatement(
           new SQLBuilder()
+              // `event`, not `user`. This named the wrong table -- a copy of
+              // User.delete that was never retargeted -- and was bound with the
+              // event's id, so it matched nothing and deleted nothing.
+              // RemoveEventEndpoint ran its 403 and 412 checks and then answered
+              // "successfully deleted event" every time. Event deletion has
+              // never worked.
               .delete(
-                  YasssCore.getDB().getPrefix() + "user")
+                  YasssCore.getDB().getPrefix() + "event")
               .where("id")
               .toString());
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       stmt.executeUpdate();
-      
-    } catch(SQLException e) {
-      throw e;
+
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }

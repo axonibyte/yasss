@@ -71,12 +71,12 @@ public final class ListEventsEndpoint extends APIEndpoint {
 
       Integer limit = 10; // skipped if `latest` is specified
       if(deserializer.has("limit")) {
-        limit = queryInt(req, deserializer, "limit");
+        limit = queryInt(req, deserializer, "limit", MAX_PAGE_SIZE);
       }
 
       Integer page = 1; // skipped if `latest` is specified
       if(deserializer.has("page")) {
-        page = queryInt(req, deserializer, "page");
+        page = queryInt(req, deserializer, "page", MAX_PAGE);
       }
 
       int eventCount = Event.countEvents(adminID, volunteerID, labelSubstr, earliest);

@@ -46,6 +46,8 @@
   let loading = $state(true);
   let modal = $state(null);
   let eventLoaded = $state(false);
+  /** True while a publish or RSVP submission is in flight; disables both buttons. */
+  let eventBusy = $state(false);
 
   const event = currentEvent;
 
@@ -244,11 +246,18 @@
   }
 
   async function submitRsvps() {
+    // Guarded like publish. `pendingVolunteers` filters on `!persisted` and ids
+    // only arrive with the responses, so a second click while the first was in
+    // flight submitted the very same volunteers again.
+    if (eventBusy) return;
+    eventBusy = true;
     try {
       const captcha = await requestCaptcha();
       await submitVolunteers(event, { account: session.account, captcha });
     } catch (e) {
       toastError(e, "Couldn't submit your RSVP, sorry.");
+    } finally {
+      eventBusy = false;
     }
   }
 
@@ -268,7 +277,14 @@
   }
 
   async function saveSummaryModal(values) {
-    if (event.persisted) {
+    // `modal.isNew` is what the caller asked for; `event.persisted` is whatever
+    // happened to be on screen. Branching on the latter meant "Create Event" —
+    // a navbar link that is live on every screen, including an event you are
+    // looking at — sent the new title out as a PATCH against *that* event, and
+    // the empty description box wiped its description on the way past.
+    const creating = modal?.isNew === true;
+
+    if (!creating && event.persisted) {
       // Editing a published event: send only what changed.
       const previous = {
         title: event.title,
@@ -284,8 +300,11 @@
       };
       const ok = await saveSummary(event, values, previous);
       if (!ok) return;
-    } else if (!eventLoaded) {
-      // First step of the wizard: reset and start building locally.
+    } else if (creating || !eventLoaded) {
+      // First step of the wizard: reset and start building locally. The URL is
+      // cleared too, so a reload does not resurrect the event that was on
+      // screen when the wizard was opened.
+      if (route.eventId) route.goHome();
       event.reset();
       eventLoaded = true;
     }
@@ -294,6 +313,7 @@
   }
 
   async function publish() {
+    if (eventBusy) return;
     const run = async () => {
       const captcha = await requestCaptcha();
       const result = await publishEvent(event, { account: session.account, captcha });
@@ -311,11 +331,26 @@
       else modal = null;
     };
 
+    // Wrapped, because `requestCaptcha` *rejects* when the visitor dismisses the
+    // challenge. This was the only CAPTCHA caller without a catch: the rejection
+    // escaped an unawaited promise, nothing was toasted, nothing happened, and
+    // the user clicked Publish again.
+    const guarded = async () => {
+      eventBusy = true;
+      try {
+        await run();
+      } catch (e) {
+        toastError(e, "Couldn't publish your event... sorry.");
+      } finally {
+        eventBusy = false;
+      }
+    };
+
     if (session.loggedIn) {
-      await run();
+      await guarded();
     } else {
       // Publishing anonymously means never being able to edit it again.
-      modal = { kind: 'guest', context: 'publish', proceed: run };
+      modal = { kind: 'guest', context: 'publish', proceed: guarded };
     }
   }
 
@@ -354,6 +389,7 @@
 {#if eventLoaded}
   <EventSection
     {event}
+    busy={eventBusy}
     onEditSummary={() => { modal = { kind: 'summary', summary: event, isNew: false }; }}
     onShare={() => { modal = { kind: 'share' }; }}
     onViewReport={() => openReport(event.id)}

@@ -80,6 +80,24 @@ public class Detail implements Comparable<Detail> {
     public boolean isValid(String candidate) {
       return pattern.matcher(candidate).matches();
     }
+
+    /**
+     * Puts a candidate into the form this type stores and validates.
+     *
+     * <p>Only {@link #EMAIL} does anything: its pattern is lowercase-only,
+     * mirroring a Java pattern compiled without {@code CASE_INSENSITIVE}, so
+     * validating a raw answer rejected every address with a capital letter in
+     * it. Normalising here rather than at each call site keeps the two
+     * volunteer endpoints from drifting apart, and means the stored value is
+     * the one that was checked.
+     *
+     * @param candidate the raw answer
+     * @return the normalised answer, or {@code candidate} unchanged
+     */
+    public String normalize(String candidate) {
+      if(null == candidate) return null;
+      return EMAIL == this ? candidate.toLowerCase() : candidate;
+    }
   }
   
   private UUID id;
