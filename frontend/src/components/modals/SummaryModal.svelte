@@ -2,7 +2,7 @@
   /** Event title, description and the two policy switches. §2.3. */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import { fieldAria, focusFirstError } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { validateSummary } from '../../lib/validation/forms.js';
   import { localZone } from '../../lib/format/dates.js';
@@ -67,7 +67,10 @@
       title, description, notifyOnSignup, allowMultiuserSignups, reminderLeadTime, timezone,
     });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
 
     busy = true;
     try {
@@ -78,7 +81,7 @@
   }
 </script>
 
-<Modal title={isNew ? 'Create an Event' : 'Update an Event'} {onClose}>
+<Modal title={isNew ? 'Create an Event' : 'Update an Event'} {onClose} onSubmit={save}>
   <Field label="Event Title" error={errors.title} id="event-title">
     <input
       id="event-title"
@@ -168,6 +171,6 @@
   </Field>
 
   {#snippet footer()}
-    <LoadingButton variant="is-success" loading={busy} onclick={save}>Save</LoadingButton>
+    <LoadingButton type="submit" variant="is-success" loading={busy}>Save</LoadingButton>
   {/snippet}
 </Modal>

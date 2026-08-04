@@ -7,7 +7,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import { fieldAria, focusFirstError } from '../../lib/a11y.js';
   import CapField from '../inputs/CapField.svelte';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { validateActivity } from '../../lib/validation/forms.js';
@@ -38,7 +38,10 @@
   async function save() {
     const verdict = validateActivity({ label, description, volunteerCap, slotCapDefault });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
     busy = true;
     try { await onSave?.(verdict.values); } finally { busy = false; }
   }
@@ -54,7 +57,7 @@
   }
 </script>
 
-<Modal title={isNew ? 'Add an Activity' : 'Update an Activity'} {onClose}>
+<Modal title={isNew ? 'Add an Activity' : 'Update an Activity'} {onClose} onSubmit={save}>
   <Field label="Activity" error={errors.label} id="activity-label">
     <input
       id="activity-label"
@@ -103,7 +106,7 @@
 
   {#snippet footer()}
     <div class="buttons">
-      <LoadingButton variant="is-success" loading={busy} onclick={save}>Save Activity</LoadingButton>
+      <LoadingButton type="submit" variant="is-success" loading={busy}>Save Activity</LoadingButton>
       {#if !isNew && canMoveLeft}
         <LoadingButton variant="is-info" loading={busy} onclick={() => move(-1)}>
           Move Left

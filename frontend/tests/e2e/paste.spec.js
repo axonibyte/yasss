@@ -129,16 +129,16 @@ test.describe('the reminder lead time', () => {
 
 test.describe('the slot cap', () => {
   /**
-   * Verified rather than changed. `SlotModal` has the same `type="number"` plus
-   * binding shape as the lead time did, so it looked like a second instance of
-   * the same defect. It is not: Svelte delivers `undefined` for an unparseable
-   * number binding, `Number(undefined)` is NaN, and `validateSlot`'s integer
-   * check rejects it — whereas the lead time treated the same blank as a
-   * deliberate "use the default". Pinned so that distinction is not lost.
+   * Rewritten, because the field changed rather than the expectation.
+   *
+   * `SlotModal` used to hand-roll its own switch and number box, and so lost
+   * both of the things `CapField` exists for: the paste guard that stops a
+   * pasted word becoming a silent 1, and the blur snap-back that stops the box
+   * showing a number different from the one that will be saved. It reuses the
+   * component now, so an unparseable paste never reaches validation at all --
+   * there is no error to report because there is no bad value.
    */
-  test('reports unparseable text rather than accepting it', async ({ page }) => {
-    // Built plainly rather than via `openActivityModal`, which switches the
-    // activity's cap off "unlimited" and so leaves it unsaveable.
+  async function openSlotModal(page) {
     await page.goto('/');
     await waitForApp(page);
     await page.getByRole('link', { name: 'Create Event' }).click();
@@ -154,14 +154,41 @@ test.describe('the slot cap', () => {
     // different editor entirely.
     await page.locator('#view-event-table .grid > *').last().locator('button').click();
     await expect(page.locator('.modal-card-title')).toContainText('Slot');
+    // The cap only renders once the slot is limited.
+    await page.locator('label[for="slot-cap-unlimited"]').click();
+  }
 
-    // The cap only renders once the slot is limited; the switch is `slot-unlimited`.
-    await page.locator('label[for="slot-unlimited"]').click();
+  test('keeps the last good value rather than accepting a pasted word',
+    async ({ page }) => {
+      await openSlotModal(page);
+      const cap = page.locator('#slot-cap');
 
-    await pasteInto(page, page.locator('#slot-cap'), 'abc');
+      await cap.fill('4');
+      await pasteInto(page, cap, 'abc');
+      await cap.blur();
+
+      // Not 1, which is what `Number('') -> 0 -> clamp` used to produce, and
+      // not a validation error either: the value never went bad.
+      await expect(cap).toHaveValue('4');
+    });
+
+  test('clamps an over-large paste the way every other cap does',
+    async ({ page }) => {
+      await openSlotModal(page);
+      const cap = page.locator('#slot-cap');
+
+      await pasteInto(page, cap, '1000');
+      await expect(cap).toHaveValue('255');
+    });
+
+  test('saves the number the box is showing', async ({ page }) => {
+    await openSlotModal(page);
+    const cap = page.locator('#slot-cap');
+
+    await cap.fill('3');
     await page.getByRole('button', { name: 'Update Slot' }).click();
 
-    await expect(page.locator('#slot-cap-error')).toBeVisible();
+    await expect(page.locator('.modal-card')).toHaveCount(0);
   });
 });
 

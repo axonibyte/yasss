@@ -22,6 +22,7 @@
   import VolunteerModal from './components/modals/VolunteerModal.svelte';
   import ShareModal from './components/modals/ShareModal.svelte';
   import GuestPromptModal from './components/modals/GuestPromptModal.svelte';
+  import ConfirmModal from './components/modals/ConfirmModal.svelte';
   import SummaryModal from './components/modals/SummaryModal.svelte';
   import ActivityModal from './components/modals/ActivityModal.svelte';
   import WindowModal from './components/modals/WindowModal.svelte';
@@ -423,6 +424,48 @@
   const minimumSplash = new Promise((r) => setTimeout(r, 1000));
   Promise.allSettled([boot(), minimumSplash]).then(() => { loading = false; });
 
+  /**
+   * Back to the dashboard, in-app.
+   *
+   * The brand was a plain `href="/"`, so the only route back was a full reload,
+   * which discards every unsaved volunteer and any half-built event. The unload
+   * guard still fires for genuine navigation away; this path asks the same
+   * question itself, because in-app navigation does not trigger it.
+   */
+  function goHome() {
+    if (hasUnsavedWork(event)
+        && !window.confirm('You have unsaved work on this event. Leave it behind?')) {
+      return;
+    }
+    modal = null;
+    eventLoaded = false;
+    event.reset();
+    route.goHome();
+  }
+
+  /**
+   * Interpose a confirmation before something irreversible.
+   *
+   * Swaps the current modal for the question and puts the original back on
+   * cancel, so the editor the user was in is exactly where they land if they
+   * change their mind — rather than stacking a second dialog over the first,
+   * which would need a second focus trap and give Escape two meanings.
+   *
+   * The subject is captured here rather than read off `modal` inside `proceed`,
+   * because by then `modal` is the confirmation.
+   */
+  function confirmDestructive({ title, detail, confirmLabel, proceed }) {
+    const previous = modal;
+    modal = {
+      kind: 'confirm',
+      title,
+      detail,
+      confirmLabel,
+      proceed,
+      cancel: () => { modal = previous; },
+    };
+  }
+
   function logout() {
     session.logout();
     // Logging out is something the user asked for and got. It was reported with
@@ -438,6 +481,7 @@
 <NavBar
   loggedIn={session.loggedIn}
   onCreateEvent={startWizard}
+  onHome={goHome}
   onLogin={() => { modal = { kind: 'auth' }; }}
   onAccount={() => { modal = { kind: 'profile' }; }}
   onLogout={logout}
@@ -538,9 +582,18 @@
     onSave={(data) => (modal.volunteer
       ? saveExistingVolunteer(modal.volunteer, data)
       : saveNewVolunteer(data))}
-    onDelete={async () => {
-      await deleteVolunteer(event, modal.volunteer);
-      modal = null;
+    onDelete={() => {
+      const volunteer = modal.volunteer;
+      confirmDestructive({
+        title: 'Remove this volunteer?',
+        detail: `${volunteer?.name ?? 'This volunteer'} and every slot they claimed `
+          + 'will be released. This cannot be undone.',
+        confirmLabel: 'Remove Volunteer',
+        proceed: async () => {
+          await deleteVolunteer(event, volunteer);
+          modal = null;
+        },
+      });
     }}
     onClose={() => { modal = null; }}
   />
@@ -569,8 +622,18 @@
         : await structure.addActivity(event, values);
       if (ok) modal = null;
     }}
-    onDelete={async () => {
-      if (await structure.removeActivity(event, modal.activity)) modal = null;
+    onDelete={() => {
+      const activity = modal.activity;
+      confirmDestructive({
+        title: 'Remove this activity?',
+        detail: `"${activity?.label ?? 'This activity'}" goes, along with its slots `
+          + 'and every RSVP in them. This cannot be undone.',
+        confirmLabel: 'Remove Activity',
+        proceed: async () => {
+          await structure.removeActivity(event, activity);
+          modal = null;
+        },
+      });
     }}
     onClose={() => { modal = null; }}
   />
@@ -584,8 +647,18 @@
         : await structure.addWindow(event, values);
       if (ok) modal = null;
     }}
-    onDelete={async () => {
-      if (await structure.removeWindow(event, modal.win)) modal = null;
+    onDelete={() => {
+      const win = modal.win;
+      confirmDestructive({
+        title: 'Remove this window?',
+        detail: 'Every activity loses its slot for this time, and every RSVP in '
+          + 'those slots goes with it. This cannot be undone.',
+        confirmLabel: 'Remove Window',
+        proceed: async () => {
+          await structure.removeWindow(event, win);
+          modal = null;
+        },
+      });
     }}
     onClose={() => { modal = null; }}
   />
@@ -599,10 +672,28 @@
         : await structure.addDetail(event, values);
       if (ok) modal = null;
     }}
-    onDelete={async () => {
-      if (await structure.removeDetail(event, modal.detail)) modal = null;
+    onDelete={() => {
+      const detail = modal.detail;
+      confirmDestructive({
+        title: 'Remove this custom field?',
+        detail: `Every answer volunteers have already given for `
+          + `"${detail?.label ?? 'this field'}" is deleted with it. This cannot be undone.`,
+        confirmLabel: 'Remove Field',
+        proceed: async () => {
+          await structure.removeDetail(event, detail);
+          modal = null;
+        },
+      });
     }}
     onClose={() => { modal = null; }}
+  />
+{:else if modal?.kind === 'confirm'}
+  <ConfirmModal
+    title={modal.title}
+    detail={modal.detail}
+    confirmLabel={modal.confirmLabel}
+    onConfirm={modal.proceed}
+    onCancel={modal.cancel}
   />
 {:else if modal?.kind === 'slot'}
   <SlotModal

@@ -20,7 +20,7 @@ import {
   typeInto, uniqueTitle,
 } from './helpers/harness.js';
 import {
-  CAPS, LEAD_TIMES, OPTIONAL_TEXT, REQUIRED_TEXT, REQUIRED_TEXT_SHORT, SLOT_CAPS,
+  CAPS, LEAD_TIMES, OPTIONAL_TEXT, REQUIRED_TEXT, REQUIRED_TEXT_SHORT,
 } from './helpers/corpus.js';
 
 const openSummary = (page) => page.getByRole('button', { name: 'Edit Summary' }).click();
@@ -263,23 +263,53 @@ test.describe('slots', () => {
     return page.locator('#view-event-table .grid > * button').last();
   }
 
-  test('the slot cap is bounded, and zero is not a way to mean unlimited', async ({ page }) => {
-    const cell = await oneSlot(page);
+  test('the slot cap clamps into range, and zero never means unlimited',
+    async ({ page }) => {
+      // Rewritten with the field, not around it. `SlotModal` used to hand-roll
+      // its own switch and number box and so validated where every other cap
+      // clamps; it reuses `CapField` now, which is what gives it the paste
+      // guard and the blur snap-back it was missing. So these values no longer
+      // get as far as being rejected -- they are corrected as they are typed,
+      // exactly as the activity caps above are.
+      const cell = await oneSlot(page);
 
-    for (const c of SLOT_CAPS) {
+      for (const c of CAPS) {
+        await cell.click();
+        await expect(page.locator(MODAL)).toHaveCount(1);
+        await setSwitch(page, 'slot-enabled', true);
+        await setSwitch(page, 'slot-cap-unlimited', false);
+
+        // Captured because these cases run against one slot rather than a fresh
+        // field: an unparseable entry is *rejected by the field*, which leaves
+        // whatever was there before rather than falling back to the minimum.
+        // That is the paste guard doing its job, and it is what makes the
+        // expectation order-dependent where the activity caps' is not.
+        const before = await page.locator('#slot-cap').inputValue();
+
+        await typeInto(page.locator('#slot-cap'), c.typed);
+        await page.locator('#slot-cap').blur();
+
+        // What the box shows is what will be saved -- including for '0', which
+        // becomes the minimum rather than the server's spelling of unlimited.
+        await expect(
+          page.locator('#slot-cap'),
+          `slot cap ${c.name} (typed ${JSON.stringify(c.typed)})`,
+        ).toHaveValue(c.typed === '' ? before : String(c.clamped));
+
+        const verdict = await classifySave(page, 'Update Slot');
+        expect(verdict.outcome, `slot cap ${c.name}: ${verdict.message}`).toBe('accepted');
+        await clearToasts(page);
+      }
+
+      // And the switch is still the only way to say unlimited.
       await cell.click();
-      await expect(page.locator(MODAL)).toHaveCount(1);
-      await setSwitch(page, 'slot-enabled', true);
-      await setSwitch(page, 'slot-unlimited', false);
-      await typeInto(page.locator('#slot-cap'), c.typed);
-
-      const verdict = await classifySave(page, 'Update Slot');
-      expect(verdict.outcome, `slot cap ${c.name} (${JSON.stringify(c.typed)}): ${verdict.message}`)
-        .toBe(c.expect);
-      if (verdict.outcome !== 'accepted') await closeModal(page);
+      await setSwitch(page, 'slot-cap-unlimited', true);
+      expect((await classifySave(page, 'Update Slot')).outcome).toBe('accepted');
       await clearToasts(page);
-    }
-  });
+      await cell.click();
+      await expect(page.locator('#slot-cap-unlimited')).toBeChecked();
+      await closeModal(page);
+    });
 
   test('enabling and disabling repeatedly stays consistent', async ({ page }) => {
     const cell = await oneSlot(page);

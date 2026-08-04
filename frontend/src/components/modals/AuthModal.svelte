@@ -9,7 +9,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import { fieldAria, focusFirstError } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { session } from '../../state/session.svelte.js';
   import { toastSuccess, toastInfo, toastError } from '../../state/toast.js';
@@ -33,7 +33,10 @@
   async function logIn() {
     const verdict = validateLogin({ email, password });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
 
     busy = true;
     try {
@@ -51,7 +54,10 @@
   async function register() {
     const verdict = validateRegistration({ email, password, confirmPassword });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
 
     busy = true;
     try {
@@ -91,7 +97,11 @@
   }
 </script>
 
-<Modal title={registering ? 'Register' : 'Log In'} {onClose}>
+<Modal
+  title={registering ? 'Register' : 'Log In'}
+  {onClose}
+  onSubmit={() => (registering ? register() : logIn())}
+>
   <Field label="Email Address" error={errors.email} id="auth-email">
     <input
       id="auth-email"
@@ -152,9 +162,9 @@
   {#snippet footer()}
     <div class="buttons">
       {#if registering}
-        <LoadingButton variant="is-info" loading={busy} onclick={register}>Register!</LoadingButton>
+        <LoadingButton type="submit" variant="is-info" loading={busy}>Register!</LoadingButton>
       {:else}
-        <LoadingButton variant="is-info" loading={busy} onclick={logIn}>Log In!</LoadingButton>
+        <LoadingButton type="submit" variant="is-info" loading={busy}>Log In!</LoadingButton>
         <LoadingButton variant="is-danger" loading={busy} onclick={requestReset}>
           Reset Account
         </LoadingButton>

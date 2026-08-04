@@ -103,25 +103,6 @@ export const CAPS = [
   { name: 'empty', typed: '', clamped: 1 },
 ];
 
-/**
- * The slot cap is validated rather than clamped — it is a plain number input,
- * not a `CapField` — so out-of-range values are refused with a message.
- */
-export const SLOT_CAPS = [
-  { name: 'one', typed: '1', expect: 'accepted' },
-  { name: 'mid', typed: '42', expect: 'accepted' },
-  { name: 'max', typed: '255', expect: 'accepted' },
-  { name: 'leading zeros', typed: '007', expect: 'accepted' },
-  { name: 'over max', typed: '256', expect: 'rejected' },
-  { name: 'far over max', typed: '99999', expect: 'rejected' },
-  { name: 'negative', typed: '-5', expect: 'rejected' },
-  { name: 'fractional', typed: '2.7', expect: 'rejected' },
-  { name: 'exponent', typed: '1e3', expect: 'rejected' },
-  // With "unlimited" switched off, these are an empty box rather than a policy.
-  { name: 'zero while limited', typed: '0', expect: 'rejected' },
-  { name: 'blank while limited', typed: '', expect: 'rejected' },
-];
-
 /** Reminder lead time is validated rather than clamped, so it can reject. */
 export const LEAD_TIMES = [
   { name: 'blank means default', typed: '', expect: 'accepted' },

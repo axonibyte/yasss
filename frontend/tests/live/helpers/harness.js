@@ -102,6 +102,13 @@ export async function classifySave(page, buttonName, { timeout = 15_000 } = {}) 
 
   await modalButton(page, buttonName).click();
 
+  // Destructive actions ask before they act. The confirmation replaces the
+  // editor rather than stacking on it, and its destructive button carries the
+  // same label as the one that opened it -- so pressing that label again is
+  // exactly what a user does, and what the caller means by "remove it".
+  const confirmation = page.locator('[data-testid="confirm-detail"]');
+  if (await confirmation.count() > 0) await modalButton(page, buttonName).click();
+
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     if (await modal.count() === 0) return { outcome: 'accepted', message: '' };

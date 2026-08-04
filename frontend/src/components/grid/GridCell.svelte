@@ -20,12 +20,24 @@
     tooltip = '',
     aesthetics = 'is-outlined is-primary',
     onclick = null,
+    /**
+     * What this tile is called, when the visible label does not say.
+     *
+     * Every slot in the grid renders as the word "Available", "Full" or
+     * "Unavailable" and nothing else, because the row and column carry the rest
+     * of the meaning — visually. A screen reader gets no grid, only a list of
+     * buttons all named the same thing, with no way to tell which activity or
+     * which time any of them is. The caller knows both, so it supplies the name.
+     *
+     */
+    ariaLabel = null,
   } = $props();
 
   const listClass = $derived(
     `block-list is-small is-centered${aesthetics ? ` ${aesthetics}` : ''}`,
   );
   const interactive = $derived(onclick !== null);
+
 </script>
 
 <div
@@ -36,7 +48,23 @@
   <ul class={listClass}>
     <li>
       {#if interactive}
-        <button type="button" class="tile-action" {onclick}>
+        <!--
+          `title` carries the description, not a visually-hidden span. The
+          description exists only as a CSS `:hover` tooltip, which no screen
+          reader will announce and which in view mode is the only place it
+          appears at all — but any in-DOM text lands in this tile's
+          `textContent`, and both the grid tests and the aesthetic conformance
+          suite compare that exactly. `title` on an element that already has a
+          name from its content becomes its accessible *description*, which is
+          precisely what a description should be.
+        -->
+        <button
+          type="button"
+          class="tile-action"
+          aria-label={ariaLabel}
+          title={tooltip || undefined}
+          {onclick}
+        >
           {label}{#if secondLine}<br />{secondLine}{/if}
         </button>
       {:else}
@@ -69,5 +97,19 @@
   .tile-action:focus-visible {
     outline: 2px solid var(--bulma-primary);
     outline-offset: 2px;
+  }
+
+  /*
+   * Bulma's tooltip only reveals on `:hover`, so the activity descriptions were
+   * unreachable without a pointer. `:focus-within` on the cell gives a keyboard
+   * user the same tooltip when they tab onto the tile inside it. Written with
+   * `:global` because the tooltip element is Bulma's, not this component's, and
+   * the attribute selector matches the same tiles the `has-tooltip-top` class
+   * already applies to.
+   */
+  :global(.event-cell[data-tooltip]:focus-within)::before,
+  :global(.event-cell[data-tooltip]:focus-within)::after {
+    opacity: 1;
+    visibility: visible;
   }
 </style>

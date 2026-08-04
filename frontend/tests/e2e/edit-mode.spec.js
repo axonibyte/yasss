@@ -99,6 +99,8 @@ test('deleting an activity removes it server-side', async ({ page, request }) =>
 
   await page.locator('.event-cell li').filter({ hasText: /^Activity 0$/ }).click();
   await page.getByRole('button', { name: 'Remove Activity' }).click();
+  // Destructive actions now ask first; confirm.
+  await page.locator('.modal-card').getByRole('button', { name: 'Remove Activity' }).click();
 
   await expect(page.locator('.event-cell li').filter({ hasText: /^Activity 0$/ })).toHaveCount(0);
   const event = await readEvent(page, eventId);
@@ -145,6 +147,7 @@ test('deleting a window drops its whole row', async ({ page, request }) => {
 
   await page.locator('.event-cell').nth(2).click(); // first window header
   await page.getByRole('button', { name: 'Remove Window' }).click();
+  await page.locator('.modal-card').getByRole('button', { name: 'Remove Window' }).click();
 
   await expect(page.locator('.event-cell')).toHaveCount(before - 2); // header + its slot
   expect((await readEvent(page, eventId)).windows).toHaveLength(1);
@@ -180,6 +183,7 @@ test('deleting a field removes it and its answers', async ({ page, request }) =>
 
   await page.getByRole('cell', { name: 'Notes', exact: true }).click();
   await page.getByRole('button', { name: 'Remove Detail' }).click();
+  await page.locator('.modal-card').getByRole('button', { name: 'Remove Field' }).click();
 
   await expect(page.getByText("You haven't specified any custom fields yet! :)")).toBeVisible();
   expect((await readEvent(page, eventId)).details).toHaveLength(0);

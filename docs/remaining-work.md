@@ -61,7 +61,24 @@ Same for `DELETE /v1/sessions`, the platform-wide form. That one is arguably bet
 `curl`: it is a break-glass lever for a suspected key compromise, and putting it one misclick
 away in an admin screen is its own hazard.
 
-### 2.4 Smaller items
+### 2.4 Two accessibility gaps the QoL pass narrowed but did not close
+
+**Activity descriptions on touch.** They now reach a screen reader (the tile's `title` is its
+accessible description) and a keyboard user (`:focus-within` reveals the same tooltip focus
+gives). A touch device has neither hover nor focus, so the description is still unreachable
+there. Closing it properly means an affordance in the tile — a disclosure, or making the header
+open a read-only detail view — and that changes the grid's markup, whose class strings the
+aesthetic conformance suite asserts exactly. Worth doing deliberately rather than as a side
+effect.
+
+**Non-interactive slots are still unnamed.** A slot tile is only a button when there is something
+to do with it: in edit mode, or in view mode once a volunteer is selected. Those carry a full
+name — "Setup, Saturday 9:00 AM – 12:00 PM: Available". A tile that is not interactive is plain
+text reading "Available", and which row and column it sits in is conveyed by CSS grid position
+alone. Fixing that means real table semantics or an explicit `role="grid"` with row and column
+headers, which is a larger change than the rest of this pass and wants its own look.
+
+### 2.5 Smaller items
 
 - **Aesthetic verification is one layer of the four planned.** Class-string conformance
   exists; the structural diff against `main` and the human side-by-side do not.

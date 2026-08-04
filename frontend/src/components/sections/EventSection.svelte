@@ -99,7 +99,14 @@
               and locating it by heading level or by its own text would be
               circular.
             -->
-            <h2 class="is-size-2" data-testid="event-title">{event.title}</h2>
+            <!--
+              `<h1>`, not `<h2>`. The event page is the most-navigated surface
+              in the app and its document outline started at level two, so
+              anyone jumping by heading landed nowhere and the page had no name.
+              `is-size-2` keeps the rendered size exactly as it was, which is
+              what the aesthetic conformance tests assert.
+            -->
+            <h1 class="is-size-2" data-testid="event-title">{event.title}</h1>
             <p>{event.description}</p>
             {#if zoneLabel}
               <p class="is-size-7 has-text-weight-semibold" data-testid="zone-note">

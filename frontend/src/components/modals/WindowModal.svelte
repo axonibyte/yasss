@@ -1,6 +1,7 @@
 <script>
   /** A time window. §2.5. */
   import Modal from './Modal.svelte';
+  import { focusFirstError } from '../../lib/a11y.js';
   import DateRangePicker from '../inputs/DateRangePicker.svelte';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { validateWindow } from '../../lib/validation/forms.js';
@@ -17,7 +18,10 @@
   async function save() {
     const verdict = validateWindow({ begin, end });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
     busy = true;
     try { await onSave?.(verdict.values); } finally { busy = false; }
   }
@@ -28,7 +32,7 @@
   }
 </script>
 
-<Modal title={isNew ? 'Add a Window' : 'Update a Window'} {onClose}>
+<Modal title={isNew ? 'Add a Window' : 'Update a Window'} {onClose} onSubmit={save}>
   <div class="field">
     <div class="label">Window</div>
     <!-- Only a new window is floored at tomorrow; an existing one may sit in
@@ -41,7 +45,7 @@
 
   {#snippet footer()}
     <div class="buttons">
-      <LoadingButton variant="is-success" loading={busy} onclick={save}>Save Window</LoadingButton>
+      <LoadingButton type="submit" variant="is-success" loading={busy}>Save Window</LoadingButton>
       {#if !isNew}
         <LoadingButton variant="is-warning" loading={busy} onclick={remove}>
           Remove Window

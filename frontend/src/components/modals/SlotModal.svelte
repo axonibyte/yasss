@@ -9,8 +9,8 @@
    * wrong cell or threw. These are plain callbacks with the entity in hand.
    */
   import Modal from './Modal.svelte';
-  import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import CapField from '../inputs/CapField.svelte';
+  import { focusFirstError } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { validateSlot } from '../../lib/validation/forms.js';
 
@@ -21,26 +21,30 @@
 
   // svelte-ignore state_referenced_locally
   let enabled = $state(slot?.enabled ?? false);
+  // 0 is CapField's spelling of unlimited, which is also the server's, so the
+  // switch state does not need tracking separately here.
   // svelte-ignore state_referenced_locally
   let cap = $state(slot?.cap ?? 0);
-  // svelte-ignore state_referenced_locally
-  let unlimited = $state((slot?.cap ?? 0) === 0);
   let errors = $state({});
   let busy = $state(false);
 
   async function save() {
-    // `unlimited` goes through as its own flag rather than being folded into a
-    // zero, so an empty box with the switch off is distinguishable from a
-    // deliberate "no limit".
-    const verdict = validateSlot({ enabled, unlimited, cap });
+    // Folding "unlimited" into a zero is safe here where it would not have been
+    // against a bare input: CapField never yields an empty or half-typed value,
+    // because it keeps the last good number and snaps the box back on blur. So
+    // a zero can only mean the switch, never a cleared field.
+    const verdict = validateSlot({ enabled, unlimited: cap === 0, cap });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
     busy = true;
     try { await onSave?.(verdict.values); } finally { busy = false; }
   }
 </script>
 
-<Modal title="Edit a Slot" {onClose}>
+<Modal title="Edit a Slot" {onClose} onSubmit={save}>
   <div class="field">
     <div class="label">
       Activity&ensp;<button type="button" class="tag is-warning" onclick={onEditActivity}>
@@ -72,34 +76,27 @@
   </div>
 
   {#if enabled}
-    <div class="field">
-      <div class="label">Slot Volunteer Cap</div>
-      <div class="control">
-        <input id="slot-unlimited" type="checkbox" class="switch" bind:checked={unlimited} />
-        <label class="switch" for="slot-unlimited">Unlimited volunteers for this slot?</label>
-      </div>
-    </div>
-    {#if !unlimited}
-      <!-- the heading above labels the switch, not this input -->
-      <Field label="Volunteers for this slot" error={errors.cap} id="slot-cap">
-        <input
-          id="slot-cap"
-          {...fieldAria('slot-cap', errors.cap)}
-          class="input"
-          class:is-danger={errors.cap}
-          type="number"
-          min="1"
-          max="255"
-          placeholder="How many volunteers for this slot?"
-          bind:value={cap}
-        />
-      </Field>
-    {/if}
+    <!--
+      CapField rather than a hand-rolled copy of it. This modal reimplemented
+      the switch and the number box and lost both of the things that make the
+      component worth having: the paste guard, which stops a pasted word
+      becoming a silent 1, and the blur snap-back, which stops the box showing a
+      number different from the one that will be saved.
+    -->
+    <CapField
+      id="slot-cap"
+      label="Slot Volunteer Cap"
+      switchLabel="Unlimited volunteers for this slot?"
+      numberLabel="Volunteers for this slot"
+      placeholder="How many volunteers for this slot?"
+      error={errors.cap}
+      bind:value={cap}
+    />
   {/if}
 
   {#snippet footer()}
     <div class="buttons is-right">
-      <LoadingButton variant="is-success" loading={busy} onclick={save}>Update Slot</LoadingButton>
+      <LoadingButton type="submit" variant="is-success" loading={busy}>Update Slot</LoadingButton>
     </div>
   {/snippet}
 </Modal>

@@ -10,7 +10,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import { fieldAria, focusFirstError } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { DETAIL_TYPES } from '../../lib/validation/detailTypes.js';
   import { validateVolunteer } from '../../lib/validation/forms.js';
@@ -61,9 +61,18 @@
   };
 
   function setValue(key, value) {
+    const before = values.get(key);
     values.set(key, value);
     values = new Map(values);
-    clearError(key);
+    // Only when the value actually changed. An EMAIL answer normalises to
+    // lowercase on blur, which routes through here — so simply *leaving* a
+    // field you had not corrected cleared its complaint. That was already
+    // wrong; it became visible once validation started focusing the offending
+    // field, because then the blur happened on the way to clicking something
+    // else. The error disappeared between mousedown and mouseup, the modal
+    // shrank by the height of the message, and the button moved out from under
+    // the pointer — so the click never landed and Close appeared dead.
+    if (before !== value) clearError(key);
   }
 
   async function save() {
@@ -73,7 +82,10 @@
       { accountEmail },
     );
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
 
     busy = true;
     try {
@@ -98,7 +110,7 @@
   }
 </script>
 
-<Modal title={isNew ? 'Add a Volunteer' : 'Update a Volunteer'} {onClose}>
+<Modal title={isNew ? 'Add a Volunteer' : 'Update a Volunteer'} {onClose} onSubmit={save}>
   <Field label="Name" error={errors.name} id="vol-name">
     <input
       id="vol-name"
@@ -193,7 +205,7 @@
 
   {#snippet footer()}
     <div class="buttons">
-      <LoadingButton variant="is-success" loading={busy} onclick={save}>
+      <LoadingButton type="submit" variant="is-success" loading={busy}>
         Save Volunteer
       </LoadingButton>
       {#if !isNew}

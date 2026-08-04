@@ -2,7 +2,7 @@
   /** A custom sign-up field. §2.6. */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import { fieldAria, focusFirstError } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { DETAIL_TYPE_OPTIONS } from '../../lib/validation/detailTypes.js';
   import { validateDetail } from '../../lib/validation/forms.js';
@@ -23,7 +23,10 @@
   async function save() {
     const verdict = validateDetail({ type, label, hint, required });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
     busy = true;
     try { await onSave?.(verdict.values); } finally { busy = false; }
   }
@@ -34,7 +37,7 @@
   }
 </script>
 
-<Modal title={isNew ? 'Add a Detail' : 'Update a Detail'} {onClose}>
+<Modal title={isNew ? 'Add a Detail' : 'Update a Detail'} {onClose} onSubmit={save}>
   <Field label="Type" error={errors.type} id="detail-type">
     <div class="select" class:is-danger={errors.type}>
       <select id="detail-type"
@@ -82,7 +85,7 @@
 
   {#snippet footer()}
     <div class="buttons">
-      <LoadingButton variant="is-success" loading={busy} onclick={save}>Save Detail</LoadingButton>
+      <LoadingButton type="submit" variant="is-success" loading={busy}>Save Detail</LoadingButton>
       {#if !isNew}
         <LoadingButton variant="is-warning" loading={busy} onclick={remove}>
           Remove Detail

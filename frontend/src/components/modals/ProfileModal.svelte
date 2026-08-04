@@ -9,7 +9,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import { fieldAria, focusFirstError } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { session } from '../../state/session.svelte.js';
   import { toastSuccess, toastError } from '../../state/toast.js';
@@ -39,7 +39,10 @@
   async function save() {
     const verdict = validateProfileUpdate({ email, password, confirmPassword });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
 
     const changes = {};
     if (verdict.values.email) changes.email = verdict.values.email;
@@ -69,7 +72,7 @@
   }
 </script>
 
-<Modal title="Update Your Profile" {onClose}>
+<Modal title="Update Your Profile" {onClose} onSubmit={save}>
   <Field label="Change your email address?" error={errors.email} id="profile-email">
     <input
       id="profile-email"
@@ -116,7 +119,7 @@
 
   {#snippet footer()}
     <div class="buttons">
-      <LoadingButton variant="is-info" loading={busy} onclick={save}>Update Profile</LoadingButton>
+      <LoadingButton type="submit" variant="is-info" loading={busy}>Update Profile</LoadingButton>
     </div>
   {/snippet}
 </Modal>

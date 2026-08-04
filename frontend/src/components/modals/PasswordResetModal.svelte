@@ -8,7 +8,7 @@
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
-  import { fieldAria } from '../../lib/a11y.js';
+  import { fieldAria, focusFirstError } from '../../lib/a11y.js';
   import LoadingButton from '../inputs/LoadingButton.svelte';
   import { toastSuccess, toastError } from '../../state/toast.js';
   import { validatePasswordReset } from '../../lib/validation/forms.js';
@@ -27,7 +27,10 @@
   async function save() {
     const verdict = validatePasswordReset({ password, confirmPassword });
     errors = verdict.errors;
-    if (!verdict.ok) return;
+    if (!verdict.ok) {
+      focusFirstError();
+      return;
+    }
 
     busy = true;
     try {
@@ -44,7 +47,7 @@
   }
 </script>
 
-<Modal title="Choose a New Password" onClose={onClose}>
+<Modal title="Choose a New Password" onClose={onClose} onSubmit={save}>
   <Field label="New password" error={errors.password} id="reset-password">
     <input
       id="reset-password"
@@ -71,7 +74,7 @@
 
   {#snippet footer()}
     <div class="buttons">
-      <LoadingButton variant="is-info" loading={busy} onclick={save}>Reset Password</LoadingButton>
+      <LoadingButton type="submit" variant="is-info" loading={busy}>Reset Password</LoadingButton>
     </div>
   {/snippet}
 </Modal>

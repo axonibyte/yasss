@@ -36,6 +36,26 @@
   }
 
   /**
+   * What a slot tile is called.
+   *
+   * The visible label is "Available", "Full", "Unavailable" or a count, and
+   * which activity and which time it belongs to is carried entirely by its
+   * position in the table. That works if you can see the table. To a screen
+   * reader the grid was a run of identically-named buttons — "Available,
+   * Available, Available" — with no way to tell any of them apart, which made
+   * signing up impossible rather than merely awkward.
+   *
+   * The window's two lines are joined with an en dash so the range reads as one
+   * phrase rather than two sentences.
+   */
+  function slotName(activity, win, state) {
+    const when = win.labelParts.end
+      ? `${win.labelParts.begin} – ${win.labelParts.end}`
+      : win.labelParts.begin;
+    return `${activity.label}, ${when}: ${state}`;
+  }
+
+  /**
    * Slots are clickable when an owner is editing the layout, or when a
    * volunteer is selected and there is something to toggle.
    */
@@ -86,6 +106,7 @@
             <GridCell
               label={cell.label}
               aesthetics={cell.aesthetics}
+              ariaLabel={slotName(activity, win, cell.label)}
               onclick={slotHandler(activity, win)}
             />
           {/each}

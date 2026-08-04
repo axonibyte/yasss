@@ -191,6 +191,8 @@ test('deleting an activity in the wizard sends nothing', async ({ page }) => {
 
   await page.locator('.event-cell li').filter({ hasText: /^Doomed$/ }).click();
   await page.getByRole('button', { name: 'Remove Activity' }).click();
+  // Destructive actions now ask first; confirm.
+  await page.locator('.modal-card').getByRole('button', { name: 'Remove Activity' }).click();
 
   await expect(page.locator('.event-cell li').filter({ hasText: /^Doomed$/ })).toHaveCount(0);
   // Nothing exists server-side until publish, so there is nothing to delete.
