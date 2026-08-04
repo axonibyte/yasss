@@ -72,7 +72,7 @@ public class JSONDeserializer {
       throw new DeserializationException("null object");
 
     this.data = data;
-    logger.debug(data.toString());
+    logger.debug("{}", redacted(data));
   }
 
   /**
@@ -85,10 +85,9 @@ public class JSONDeserializer {
     if(null == data)
       throw new DeserializationException("null object");
 
-    logger.debug(data);
-
     try {
       this.data = new JSONObject(data);
+      logger.debug("{}", redacted(this.data));
     } catch(JSONException e) {
       throw new DeserializationException("malformed object");
     }
@@ -383,4 +382,39 @@ public class JSONDeserializer {
     
   }
   
+
+  /**
+   * Field names whose values must never reach a log.
+   *
+   * Every one of these is a credential on its own. `token` alone is enough to
+   * take over an account through the password-reset flow -- `ResetUserEndpoint`
+   * even carries a comment saying so, one line below the deserializer that was
+   * logging it. `pubkey` and `mfaSecret` are authentication material, and
+   * `reminderEmail` is personal data that has no business in an operator's
+   * terminal.
+   *
+   * The whole body used to be logged verbatim at DEBUG in both constructors,
+   * which meant the first operator to raise the log level while chasing a signup
+   * problem collected account-takeover credentials in a file.
+   */
+  private static final Set<String> REDACTED = Set.of(
+      "token", "pubkey", "mfasecret", "password", "remindertoken", "reminderemail");
+
+  /**
+   * A copy of the payload with credential fields replaced.
+   *
+   * Matched case-insensitively, because `JSONDeserializer.check` treats keys
+   * that way and a caller spelling it `Token` should not slip past.
+   *
+   * @param data the payload
+   * @return a loggable rendering
+   */
+  private static String redacted(JSONObject data) {
+    JSONObject copy = new JSONObject();
+    for(String key : data.keySet())
+      copy.put(
+          key,
+          REDACTED.contains(key.toLowerCase()) ? "<redacted>" : data.get(key));
+    return copy.toString();
+  }
 }

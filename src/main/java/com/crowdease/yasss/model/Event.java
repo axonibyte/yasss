@@ -666,7 +666,7 @@ public class Event {
                 SQLBuilder.bytesToUUID(
                     res.getBytes("id")),
                 id,
-                Detail.Type.values()[res.getInt("detail_type")],
+                Detail.typeOf(res.getInt("detail_type")),
                 res.getString("label"),
                 res.getString("hint"),
                 res.getInt("priority"),
@@ -717,7 +717,7 @@ public class Event {
             detailID,
             SQLBuilder.bytesToUUID(
                 res.getBytes("event")),
-            Detail.Type.values()[res.getInt("detail_type")],
+            Detail.typeOf(res.getInt("detail_type")),
             res.getString("label"),
             res.getString("hint"),
             res.getInt("priority"),

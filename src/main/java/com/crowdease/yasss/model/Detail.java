@@ -406,4 +406,24 @@ a   */
     return Activity.compareIDs(getID(), detail.getID());
   }
   
+
+  /**
+   * Resolves a {@code detail_type} column into a {@link Type}.
+   *
+   * <p>The column is a {@code TINYINT UNSIGNED} and was read straight into
+   * {@code values()[...]}, so an out-of-range value threw
+   * {@link ArrayIndexOutOfBoundsException} from inside a model getter that no
+   * endpoint catches -- turning a bad row into a 500 on every read of the event
+   * that contains it.
+   *
+   * <p>Out of range resolves to {@link Type#STRING}, which accepts anything and
+   * so cannot reject an answer that was already stored.
+   *
+   * @param ordinal the stored ordinal
+   * @return the {@link Type}
+   */
+  public static Type typeOf(int ordinal) {
+    Type[] values = Type.values();
+    return 0 <= ordinal && ordinal < values.length ? values[ordinal] : Type.STRING;
+  }
 }

@@ -58,8 +58,15 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       if(null == event)
         throw new EndpointException(req, "event not found", 404);
 
+      // Fulfilment is only attempted for a caller who could plausibly have just
+      // paid -- the event's own organiser, or an admin. It used to run for any
+      // caller at all, so anyone holding an unpublished event id could drive one
+      // Stripe API round trip per outstanding checkout session, on repeat, with
+      // no authentication.
       if(!event.isPublished()
-         && (null == YasssCore.getStripe() || !YasssCore.getStripe().fulfillCheckout(event))
+         && (null == YasssCore.getStripe()
+             || !auth.atLeast(event)
+             || !YasssCore.getStripe().fulfillCheckout(event))
          && !auth.atLeast(AccessLevel.ADMIN))
         throw new EndpointException(req, "event not published", 402);
 
@@ -75,15 +82,29 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       for(var activity : event.getActivities()) {
         JSONArray slotArr = new JSONArray();
         for(var slot : activity.getSlots()) {
+          // Ids only for callers who are shown the volunteers themselves. The
+          // `volunteers` array below is authorization-filtered; this one was
+          // not, so an anonymous GET returned every volunteer id and an exact
+          // per-slot headcount for an event whose volunteer list it then
+          // withheld. `rsvpCount` stays unconditional -- how full a slot is, is
+          // what a volunteer needs in order to decide whether to sign up.
           JSONArray rsvpArr = new JSONArray();
-          for(var rsvp : slot.getRSVPs().entrySet())
-            rsvpArr.put(rsvp.getValue().getID());
+          int rsvpCount = 0;
+          for(var rsvp : slot.getRSVPs().entrySet()) {
+            // Counted before the filter, not after. `rsvpCount` used to be
+            // `rsvpArr.length()`, so filtering the ids also zeroed the count --
+            // and the count is what every viewer legitimately needs in order to
+            // see whether a slot has room.
+            rsvpCount++;
+            if(auth.atLeast(User.getUser(rsvp.getValue().getUser())) || auth.atLeast(event))
+              rsvpArr.put(rsvp.getValue().getID());
+          }
           slotArr.put(
               new JSONObject()
                   .put("window", slot.getWindow())
                   .put("maxSlotVolunteers", slot.getMaxSlotVolunteers())
                   .put("rsvps", rsvpArr)
-                  .put("rsvpCount", rsvpArr.length()));
+                  .put("rsvpCount", rsvpCount));
         }
         activityArr.put(
             new JSONObject()

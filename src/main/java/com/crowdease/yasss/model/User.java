@@ -110,7 +110,7 @@ public class User extends Credentialed implements Comparable<User> {
                 res.getBytes("mfakey"),
                 res.getString("email"),
                 res.getString("pending_email"),
-                AccessLevel.values()[res.getInt("access_level")])
+                accessLevelOf(res.getInt("access_level")))
                 .setVerifyToken(
                     SQLBuilder.bytesToUUID(res.getBytes("verify_token"))));
       
@@ -200,7 +200,7 @@ public class User extends Credentialed implements Comparable<User> {
             res.getBytes("mfakey"),
             res.getString("email"),
             res.getString("pending_email"),
-            AccessLevel.values()[res.getInt("access_level")])
+            accessLevelOf(res.getInt("access_level")))
             .setVerifyToken(
                 SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
       
@@ -240,7 +240,13 @@ public class User extends Credentialed implements Comparable<User> {
                   "pending_email",
                   "access_level",
                   "verify_token")
-              .where("email", ComparisonOp.LIKE)
+              // EQUAL_TO, not LIKE. The argument arrives unvalidated -- for
+              // ResetUserEndpoint it is a raw path segment -- so `%` matched
+              // every account with an address and, ordered by last_update DESC
+              // LIMIT 1, quietly resolved to whichever was touched most
+              // recently. `POST /v1/users/%` mailed a reset link to an account
+              // the caller could not name.
+              .where("email", ComparisonOp.EQUAL_TO)
               .order("last_update", Order.DESC)
               .limit(1)
               .toString());
@@ -254,7 +260,7 @@ public class User extends Credentialed implements Comparable<User> {
             res.getBytes("mfakey"),
             res.getString("email"),
             res.getString("pending_email"),
-            AccessLevel.values()[res.getInt("access_level")])
+            accessLevelOf(res.getInt("access_level")))
             .setVerifyToken(
                 SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
       
@@ -540,4 +546,25 @@ public class User extends Credentialed implements Comparable<User> {
     return Activity.compareIDs(getID(), user.getID());
   }
   
+
+  /**
+   * Resolves an {@code access_level} column into an {@link AccessLevel}.
+   *
+   * <p>The column is a {@code TINYINT UNSIGNED} and was read straight into
+   * {@code values()[...]}, so anything outside the enum -- a direct database
+   * edit, a restored backup from a future schema, a shrunk enum -- threw
+   * {@link ArrayIndexOutOfBoundsException} from inside a model getter, which no
+   * endpoint catches. {@code Volunteer.ReminderState.fromOrdinal} is the pattern
+   * this follows.
+   *
+   * <p>Out of range resolves to {@link AccessLevel#BANNED}: an unreadable access
+   * level should grant nothing, not everything.
+   *
+   * @param ordinal the stored ordinal
+   * @return the {@link AccessLevel}
+   */
+  static AccessLevel accessLevelOf(int ordinal) {
+    AccessLevel[] values = AccessLevel.values();
+    return 0 <= ordinal && ordinal < values.length ? values[ordinal] : AccessLevel.BANNED;
+  }
 }

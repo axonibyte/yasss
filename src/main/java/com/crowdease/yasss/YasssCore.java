@@ -86,6 +86,15 @@ public class YasssCore {
   private static int passwordMinLength = 8;
 
   /**
+   * How long shutdown waits for each daemon to finish what it is doing.
+   *
+   * Short enough not to hold up a restart, long enough for an in-flight
+   * reminder batch to drain rather than being abandoned after its claim rows
+   * were already written.
+   */
+  private static final long SHUTDOWN_GRACE_MS = 5_000L;
+
+  /**
    * Entry-point.
    *
    * @param args command-line arguments
@@ -263,6 +272,23 @@ public class YasssCore {
           // CAPTCHA validator's unconditional close.
           if(null != reminderEngine) reminderEngine.stop();
           if(null != captchaValidator) captchaValidator.close(); // null when CAPTCHAs are disabled
+
+          // Both daemons are interrupt-and-forget, and both are daemon threads,
+          // so the JVM used to exit out from under whatever they were doing. For
+          // the reminder engine that matters: it writes its claim row *before*
+          // sending, so a sweep killed mid-batch has already marked reminders as
+          // taken and they are at-most-once by design -- those people simply
+          // never get theirs. Waiting briefly lets an in-flight batch finish.
+          ticketEngine.join(SHUTDOWN_GRACE_MS);
+          if(null != reminderEngine) reminderEngine.join(SHUTDOWN_GRACE_MS);
+
+          // The connection pool is deliberately *not* closed here, because
+          // axb-lib-db 0.4.1 exposes no way to: `Database` offers only
+          // close(Connection, Statement, ResultSet), and the HikariDataSource is
+          // private. Abandoning it at exit is harmless -- the process is going
+          // away and MariaDB reaps the connections -- but it is an upstream gap
+          // rather than an oversight here, and it is recorded in
+          // docs/remaining-work.md so nobody has to rediscover it.
           logger.info("Goodbye! ^_^");
         }
       });

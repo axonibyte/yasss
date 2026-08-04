@@ -44,6 +44,16 @@ node {
   version = '22.20.0'
   download = true
   nodeProjectDir = file("${project.projectDir}/frontend")
+
+  // `npm ci` rather than `npm install`, matching what CI runs. Every frontend
+  // dependency is declared with a caret range, so `install` is free to resolve
+  // differently from the lockfile -- which meant the bundle shipped in the jar
+  // could be built from versions nothing had tested.
+  //
+  // This is the plugin's own setting. Setting `npmInstall { args = ['ci'] }`
+  // does NOT work: the task appends args to `npm install`, so it runs
+  // `npm install ci` and cheerfully installs a package named "ci".
+  npmInstallCommand = 'ci'
 }
 
 task buildFrontend(type: NpmTask) {
@@ -91,6 +101,15 @@ shadowJar {
   archiveBaseName.set(prjName)
   archiveClassifier.set('')
   archiveVersion.set('')
+
+  // Without this, colliding META-INF/services files are overwritten rather than
+  // merged and only one survives per interface. gRPC discovers its name
+  // resolvers and load balancers exactly that way, and reCAPTCHA Enterprise --
+  // the only consumer -- is reached through gRPC. The registries in the built
+  // jar had one entry each, so CAPTCHA verification would have failed in the
+  // shadow jar and nowhere else. No suite caught it because both shipped
+  // configs disable CAPTCHA.
+  mergeServiceFiles()
 }
 
 artifacts {

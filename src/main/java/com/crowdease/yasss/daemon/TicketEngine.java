@@ -113,4 +113,22 @@ public final class TicketEngine implements Runnable {
     return false;
   }
   
+
+  /**
+   * Waits briefly for the worker to finish after {@link #stop()}.
+   *
+   * <p>{@code stop()} only interrupts, and the thread is a daemon, so without
+   * this the JVM exits out from under whatever it was doing.
+   *
+   * @param millis how long to wait
+   */
+  public void join(long millis) {
+    Thread t = thread;
+    if(null == t) return;
+    try {
+      t.join(millis);
+    } catch(InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+  }
 }

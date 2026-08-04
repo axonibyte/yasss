@@ -224,4 +224,54 @@ console.log('\nan event cannot be handed to an account that does not exist');
   check(still.activities.length >= 0, 'and the event still reads back');
 }
 
+console.log('\nan anonymous viewer sees how full a slot is, but not who is in it');
+
+{
+  const event = await createEvent(api, {
+    auth,
+    title: 'Privacy And Counts',
+    activities: [{ label: 'Setup', slots: [{ window: 0 }] }],
+  });
+  const activity = event.activities[0].id;
+  const window = event.windows[0];
+
+  await addVolunteer(api, event.id, {
+    auth,
+    name: 'Ada',
+    rsvps: [{ activity, window }],
+  });
+
+  // Anonymous: no auth header at all.
+  const seen = await api('GET', `/v1/events/${event.id}`);
+  sane(seen, 'reading the event anonymously');
+  const slot = seen.payload?.event?.activities?.[0]?.slots?.[0];
+
+  // The count is what a volunteer needs to decide whether to sign up, and it
+  // was briefly broken by deriving it from the very array being filtered.
+  check(
+    slot?.rsvpCount === 1,
+    'the headcount is visible anonymously',
+    `rsvpCount is ${slot?.rsvpCount}`,
+  );
+  check(
+    (slot?.rsvps ?? []).length === 0,
+    'but the volunteer ids are not',
+    `got ${JSON.stringify(slot?.rsvps)}`,
+  );
+  check(
+    (seen.payload?.event?.volunteers ?? []).length === 0,
+    'and neither is the volunteer list, as before',
+    `got ${(seen.payload?.event?.volunteers ?? []).length} volunteers`,
+  );
+
+  // The organiser still sees everything.
+  const owned = await api('GET', `/v1/events/${event.id}`, { auth });
+  const ownedSlot = owned.payload?.event?.activities?.[0]?.slots?.[0];
+  check(
+    (ownedSlot?.rsvps ?? []).length === 1,
+    'the organiser still sees the ids',
+    `got ${JSON.stringify(ownedSlot?.rsvps)}`,
+  );
+}
+
 finish('regressions');

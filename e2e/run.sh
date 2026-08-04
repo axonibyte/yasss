@@ -251,6 +251,18 @@ if [[ ${SKIP_BUILD} -eq 0 ]]; then
   [[ -n "${jar}" ]] || die "no jar produced in build/libs"
   cp "${jar}" "${HERE}/yasss.jar"
 
+  # The shadow jar merges META-INF/services rather than letting one file win.
+  # gRPC discovers its name resolvers and load balancers there, and reCAPTCHA
+  # Enterprise is reached through gRPC -- so without the merge these registries
+  # hold one entry each and CAPTCHA verification fails in the jar and nowhere
+  # else. Both shipped configs disable CAPTCHA, so nothing else would notice.
+  for svc in io.grpc.LoadBalancerProvider io.grpc.NameResolverProvider; do
+    entries="$(unzip -p "${HERE}/yasss.jar" "META-INF/services/${svc}" 2>/dev/null | grep -c . || true)"
+    [[ "${entries:-0}" -gt 1 ]] \
+      || die "${svc} has ${entries:-0} entries in the jar; shadowJar lost mergeServiceFiles()"
+  done
+  echo "  gRPC service registries survived the shadow jar"
+
   log "building the app image"
   pm build --quiet -t "${APP_IMAGE}" "${HERE}" >/dev/null || die "image build failed"
 else
