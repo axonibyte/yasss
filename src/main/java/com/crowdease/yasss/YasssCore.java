@@ -323,9 +323,13 @@ public class YasssCore {
       }
       
     } catch(Exception e) {
-      logger.error("Failed to properly launch: {}", e.getMessage());
-      if(!(e instanceof BadParamException))
-        e.printStackTrace();
+      // The throwable goes to slf4j rather than stderr. A bad config parameter
+      // is a user error and its message says everything useful; anything else
+      // gets its trace into the same log as the rest.
+      if(e instanceof BadParamException)
+        logger.error("Failed to properly launch: {}", e.getMessage());
+      else
+        logger.error("Failed to properly launch: {}", e.getMessage(), e);
       System.exit(1);
     }
     

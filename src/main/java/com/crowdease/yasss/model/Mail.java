@@ -194,24 +194,6 @@ public class Mail {
       .replace("[[HEADER_IMAGE]]", Mail.headerImage);
   }
   
-  /**
-   * Instantiates a piece of mail.
-   * 
-   * @param recipient the individual that the mail is being sent to
-   * @param subject the subject of the letter
-   * @param body the body of the letter
-   * @param args a map of arguments to replace parameters in the body
-   */
-  public Mail(String recipient, String subject, String body, Map<String, String> args) {
-    this.recipient = recipient;
-    this.subject = subject;
-    this.body = body;
-    for(Entry<String, String> arg : args.entrySet()) {
-      String var = String.format("\\[\\[%1$s\\]\\]", arg.getKey());
-      this.subject = this.subject.replaceAll(var, arg.getValue());
-      this.body = this.body.replaceAll(var, arg.getValue());
-    }
-  }
   
   /**
    * Retrieves the address of the individual that the mail is being sent to.

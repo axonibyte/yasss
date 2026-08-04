@@ -120,10 +120,14 @@ public class Authorization implements AuthStatus {
       
       boolean check = actor.getID().equals(event.getAdmin());
       logger.info(
+          // Arguments were transposed: the admin was rendered as the user and
+          // the actor as the admin, so this line -- the one an operator reads
+          // when they are working out why something 403'd -- named the wrong
+          // party twice.
           "event {} subcheck: check that user {} is event admin {}; return {}",
           event.getID().toString(),
-          null == event.getAdmin() ? "UNSPECIFIED" : event.getAdmin().toString(),
           actor.getID().toString(),
+          null == event.getAdmin() ? "UNSPECIFIED" : event.getAdmin().toString(),
           Boolean.valueOf(check).toString().toUpperCase());
 
       AccessLevel accessLevel = check ? AccessLevel.STANDARD : AccessLevel.ADMIN;

@@ -139,8 +139,6 @@ public class Event {
       
       return events;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -247,8 +245,6 @@ public class Event {
       
       return events;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -322,8 +318,6 @@ public class Event {
       res.next();
       return res.getInt("event_count");
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -382,8 +376,6 @@ public class Event {
                     ? null
                     : res.getInt("reminder_lead_time"));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -682,8 +674,6 @@ public class Event {
                 res.getBoolean("required")));
       return details;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -732,8 +722,6 @@ public class Event {
             res.getInt("priority"),
             res.getBoolean("required"));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -785,8 +773,6 @@ public class Event {
                 res.getInt("priority")));
       return activities;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -835,8 +821,6 @@ public class Event {
             res.getInt("max_slot_volunteers_default"),
             res.getInt("priority"));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -881,8 +865,6 @@ public class Event {
                 res.getTimestamp("end_time")));
       return windows;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -926,8 +908,6 @@ public class Event {
             res.getTimestamp("begin_time"),
             res.getTimestamp("end_time"));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -1028,8 +1008,6 @@ public class Event {
       
       return volunteers;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -1146,8 +1124,6 @@ public class Event {
       res.next();
       return res.getInt("vol_count");
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       // The statement and result set, not the connection: that is the caller's.
       YasssCore.getDB().close(null, stmt, res);
@@ -1206,8 +1182,6 @@ public class Event {
                 SQLBuilder.bytesToUUID(
                     res.getBytes("reminder_token")));
 
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -1245,8 +1219,6 @@ public class Event {
       if(res.next())
         return res.getTimestamp("begin_time").before(new Date());
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -1369,8 +1341,6 @@ public class Event {
         stmt.executeUpdate();
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }

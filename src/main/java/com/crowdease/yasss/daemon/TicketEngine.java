@@ -54,8 +54,9 @@ public final class TicketEngine implements Runnable {
           signer.regenerateKeypair();
           logger.info("generated new signer");
         } catch(CryptoException e) {
-          logger.error("failed to generate signer: {}", e.getMessage());
-          e.printStackTrace();
+          // The throwable goes to slf4j rather than to stderr, so it lands in
+          // the same place as everything else an operator is reading.
+          logger.error("failed to generate signer: {}", e.getMessage(), e);
         }
         signers.add(signer);
         Thread.sleep(refreshInterval);

@@ -116,8 +116,6 @@ public class User extends Credentialed implements Comparable<User> {
       
       return users;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -154,8 +152,6 @@ public class User extends Credentialed implements Comparable<User> {
       res.next();
       return res.getInt("user_count");
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -204,8 +200,6 @@ public class User extends Credentialed implements Comparable<User> {
             .setVerifyToken(
                 SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -264,8 +258,6 @@ public class User extends Credentialed implements Comparable<User> {
             .setVerifyToken(
                 SQLBuilder.bytesToUUID(res.getBytes("verify_token")));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -341,12 +333,6 @@ public class User extends Credentialed implements Comparable<User> {
     return pendingEmail;
   }
 
-  /**
-   * Sets the user's pending email address.
-   *
-   * @param pendingEmail the user's pending email address
-   * @return the {@link User} instance
-   */
   /**
    * Retrieves the token carried by this user's verification link.
    *
@@ -492,8 +478,6 @@ public class User extends Credentialed implements Comparable<User> {
         stmt.executeUpdate();
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -522,8 +506,6 @@ public class User extends Credentialed implements Comparable<User> {
       stmt.setBytes(1, SQLBuilder.uuidToBytes(getID()));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }

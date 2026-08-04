@@ -252,8 +252,6 @@ public class Volunteer {
                     res.getBytes("event_window")),
                 id));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -261,11 +259,6 @@ public class Volunteer {
     return rsvps;
   }
 
-  /**
-   * Determines whether or not reminders are enabled for this volunteer.
-   *
-   * @return {@code true} iff reminders are enabled for this volunteer
-   */
   /**
    * Retrieves the address reminders are sent to, if any.
    *
@@ -523,8 +516,6 @@ public class Volunteer {
         }
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       // The statement, not the connection: that belongs to the caller.
       YasssCore.getDB().close(null, stmt, null);
@@ -553,8 +544,6 @@ public class Volunteer {
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -693,8 +682,6 @@ public class Volunteer {
 
       return pending;
 
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }

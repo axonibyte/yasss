@@ -244,8 +244,6 @@ public class Activity implements Comparable<Activity> {
                 res.getInt("s.max_slot_volunteers")));
       return slots;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -290,8 +288,6 @@ public class Activity implements Comparable<Activity> {
             windowID,
             res.getInt("max_slot_volunteers"));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -324,8 +320,6 @@ public class Activity implements Comparable<Activity> {
       res.next();
       return res.getInt("rsvp_count");
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -410,8 +404,6 @@ public class Activity implements Comparable<Activity> {
         stmt.executeUpdate();
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -439,8 +431,6 @@ public class Activity implements Comparable<Activity> {
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }

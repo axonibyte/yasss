@@ -194,8 +194,6 @@ public class Slot {
       
       return rsvps;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -237,8 +235,6 @@ public class Slot {
       res.next();
       return res.getInt("rsvp_count");
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -300,8 +296,6 @@ public class Slot {
                 res.getBoolean("v.reminders_enabled"),
                 res.getString("v.ip_addr_bin")));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -350,8 +344,6 @@ public class Slot {
         stmt.executeUpdate();
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -380,8 +372,6 @@ public class Slot {
       stmt.setBytes(2, SQLBuilder.uuidToBytes(window));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }

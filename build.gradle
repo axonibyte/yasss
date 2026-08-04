@@ -74,6 +74,14 @@ testFrontend.dependsOn npmInstall
 buildFrontend.dependsOn npmInstall
 processResources.dependsOn buildFrontend
 
+// Editor backups sit next to the migrations in src/main/resources/db, and
+// Database.setup executes every script it finds there -- so a stray `*.sql~`
+// in a developer's tree is not merely untidy, it is a migration.
+processResources {
+  exclude '**/*~'
+  exclude '**/#*#'
+}
+
 // The Java suite never actually ran: TestNG is on the classpath but was never
 // activated, so `gradle test` silently executed zero tests.
 test {

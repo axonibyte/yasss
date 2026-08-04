@@ -340,8 +340,6 @@ public class RSVP {
             res.getBoolean("reminders_enabled"),
             res.getString("ip_addr_bin"));
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -373,8 +371,6 @@ public class RSVP {
       stmt.setBytes(3, SQLBuilder.uuidToBytes(volunteer));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -405,8 +401,6 @@ public class RSVP {
       stmt.setBytes(3, SQLBuilder.uuidToBytes(volunteer));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }

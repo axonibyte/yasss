@@ -119,8 +119,6 @@ public final class StripeDriver {
       stmt.setBytes(1, SQLBuilder.uuidToBytes(event.getID()));
       stmt.setString(2, session.getId());
       stmt.executeUpdate();
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -198,8 +196,6 @@ public final class StripeDriver {
         }
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
@@ -285,8 +281,6 @@ public final class StripeDriver {
 
       return true;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }

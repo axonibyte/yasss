@@ -118,7 +118,7 @@ public class Detail implements Comparable<Detail> {
    * @param hint the hint for the detail
    * @param priority the detail's priority, to influence retrieval order
    * @param required {@code true} if a volunteer must answer the question
-a   */
+   */
   public Detail(UUID id, UUID event, Type type, String label, String hint, int priority, boolean required) {
     this.id = id;
     this.event = event;
@@ -355,8 +355,6 @@ a   */
         stmt.executeUpdate();
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -384,8 +382,6 @@ a   */
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }

@@ -162,59 +162,9 @@ public class Window implements Comparable<Window> {
                 res.getInt("s.max_slot_volunteers")));
       return slots;
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, res);
     }
-  }
-
-  /**
-   * Retrieves a specific {@link Slot} associated with this {@link Window}.
-   *
-   * @param activityID the {@link UUID} associated with the {@link Activity} with
-   *        which this {@link Window} forms an intersection manifesting as the
-   *        desired {@link Slot}
-   * @return the {@link Slot} that forms the intersection of this {@link Window}
-   *         and the provided {@link Activity} {@link UUID}, if it exists;
-   *         otherwise, {@code null}
-   * @throws SQLException if a database malfunction occurs
-   */
-  public Slot getSlot(UUID activityID) throws SQLException {
-    if(null == activityID) return null;
-    
-    Connection con = null;
-    PreparedStatement stmt = null;
-    ResultSet res = null;
-    
-    try {
-      con = YasssCore.getDB().connect();
-      stmt = con.prepareStatement(
-          new SQLBuilder()
-              .select(
-                  YasssCore.getDB().getPrefix() + "slot",
-                  "max_slot_volunteers")
-              .where("activity")
-              .where("window")
-              .limit(1)
-              .toString());
-      stmt.setBytes(1, SQLBuilder.uuidToBytes(activityID));
-      stmt.setBytes(2, SQLBuilder.uuidToBytes(id));
-      res = stmt.executeQuery();
-      
-      if(res.next())
-        return new Slot(
-            activityID,
-            id,
-            res.getInt("max_slot_volunteers"));
-      
-    } catch(SQLException e) {
-      throw e;
-    } finally {
-      YasssCore.getDB().close(con, stmt, res);
-    }
-    
-    return null;
   }
 
   /**
@@ -284,8 +234,6 @@ public class Window implements Comparable<Window> {
         stmt.executeUpdate();
       }
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
@@ -313,8 +261,6 @@ public class Window implements Comparable<Window> {
       stmt.setBytes(1, SQLBuilder.uuidToBytes(id));
       stmt.executeUpdate();
       
-    } catch(SQLException e) {
-      throw e;
     } finally {
       YasssCore.getDB().close(con, stmt, null);
     }
