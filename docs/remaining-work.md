@@ -16,7 +16,7 @@ constraint it describes shaped every migration in `db/`.
 
 | Issue | Detail |
 |---|---|
-| **Sessions die after ~15 minutes idle** | `ticket.refreshInterval` (1 min) × `ticket.maxHistory` (15) bounds the window, and every session dies on restart because the signing keys live in memory. The knock-on for emailed links is now fixed — verification and reminder links carry stored tokens — but a signed-in user is still logged out after a quarter-hour of inactivity. Worth confirming against how the service is actually operated before changing; the fix is either persisting the signers or lengthening the ring. |
+| ~~**Sessions die after ~15 minutes idle**~~ | **Fixed.** The signing keys are persisted (`ticket_signer`, migration 021) and encrypted under `ticket.globalSecret` — the engine refuses to write them without a real one, because the crypto helper is the identity function when it is unset. A session now lasts `session.idleTimeout` (7 days) or `session.absoluteTimeout` (30 days), survives a restart, and can be ended server-side: `session_epoch` on `user` (migration 022) is bumped by a credential reset, a ban, `DELETE /v1/users/:user/sessions` and `DELETE /v1/sessions`. `ticket.refreshInterval` moved from 1 to 1440; key retention is now derived from the absolute timeout rather than configured. |
 | ~~**`Database.setup` joins SQL lines with no separator**~~ | **Fixed upstream in `axb-lib-db` 0.4.1**, which this project now depends on. A `--` comment no longer swallows the rest of a script, and a file may hold several statements. See `docs/upstream-axb-lib-db.md`. The existing migrations were deliberately not rewritten: they work and are idempotent, so churning 21 files to change comment syntax buys nothing. |
 | **WebKit cannot run under FreeBSD's linuxulator** | `tests/e2e/compat.spec.js` is tagged `@compat` and the config defines firefox, webkit and mobile-chromium projects. Chromium, Firefox and Mobile Chromium all run in the Playwright container on FreeBSD; WebKit launches and then immediately loses its target process. Not investigated — CI and Arch WSL are real Linux and run all four. On FreeBSD, pass `--project=chromium --project=firefox --project=mobile-chromium`. |
 | **The connection pool is never closed at shutdown** | `axb-lib-db` 0.4.1 exposes no way to close it: `Database` offers only `close(Connection, Statement, ResultSet)` and keeps its `HikariDataSource` private. The shutdown hook now joins both daemons so an in-flight reminder batch is not abandoned after writing its claim rows, but the pool is still abandoned. Harmless at process exit — MariaDB reaps the connections — and fixable only upstream. |
@@ -91,33 +91,46 @@ headers, which is a larger change than the rest of this pass and wants its own l
 
 ## 3. Verification inventory
 
+Counts are from the release pass of August 2026, measured on a clean run.
+
 | Suite | Count | What it proves |
 |---|---|---|
-| Vitest | 311 | Pure logic: payloads, validation, session, dates and zones, credential vectors, toast precedence, the unsaved-work truth table, the published password policy |
-| Playwright (fake API) | 154 | Every user-facing flow, plus accessibility with axe, failure injection, history and the unload guard, paste paths, and the picker's default window across zones and DST boundaries |
-| Playwright (`@compat`, x3 engines) | 18 | The places where the browser is the variable: switch labels, bulma-calendar, modal dismissal, grid layout, time formatting, touch targets |
+| Vitest | 358 | Pure logic: payloads, validation, session, dates and zones, credential vectors, toast precedence and announcement, the unsaved-work truth table, the published password policy, the structural-write id guards and reorder rollback |
+| Playwright (fake API) | 173 | Every user-facing flow, plus accessibility with axe, failure injection, history and the unload guard, paste paths, the picker's default window across zones and DST boundaries, destructive-action confirmations, Enter-to-submit and modal focus |
+| Playwright (`@compat`, x3 engines) | 18 | The places where the browser is the variable: switch labels, bulma-calendar, modal dismissal, grid layout, time formatting, touch targets. Six of these run in the chromium count above; the three-engine total is 185 |
 | Playwright (live stack) | 70 | The real server, real Ed25519 in a browser, real database - including account-field fuzzing and read-back fidelity |
-| Java | 151 | Authorization matrix, detail types, query params, consent rules, verify tokens, zone and lead-time validation, the text bound in code points, markup escaping, and the model's natural orderings |
+| Java | 234 | Authorization matrix, detail types, query params, consent rules, expiring tokens, session-ticket verdicts, ticket-signer codec and retention, the health probe's deadline, zone and lead-time validation, the text bound in code points, markup escaping, and the model's natural orderings |
 | Fuzzer | 3,000+ requests | No 5xx and no stack trace from hostile input |
 | Accounts stage | 14 checks | Registration -> email -> link -> promotion -> first event, against real SMTP |
-| Text stage | ~130 checks | Every text surface round-tripped through a latin1-defaulted server, the length bound in code points, and output escaping on the printable report |
-| Concurrency stage | ~110 checks | Slot, activity and per-identity caps under 16 simultaneous claims, five rounds each |
+| Text stage | 149 checks | Every text surface round-tripped through a latin1-defaulted server, the length bound in code points, and output escaping on the printable report |
+| Concurrency stage | 102 checks | Slot, activity and per-identity caps under 16 simultaneous claims, five rounds each |
 | Reminders stage | 25 checks | Real SMTP, real daemon, real sweep, per-event lead times |
+| Regressions stage | 45 checks | Specific defects pinned: the wrong-table delete, the missing RSVP foreign key, pagination overflow, short codes, and clearing a nullable field |
+| Sessions stage | 25 + 4 checks | Revocation at both granularities, single-use reset tokens, and — across an application restart — that a ticket issued beforehand still authenticates |
+| Health stage | 5 + 3 checks | The readiness check against a live stack, then with the database stopped: a 503 rather than a green lie, answered promptly rather than hanging on the pool timeout, and green again once it returns |
 
-`npm run test:coverage` reports **31.8% statements** over `src/**` (824/2594). That number
-reads low and largely is not: it counts every `.svelte` component, which the Vitest run never
-imports — components are covered by the 98 Playwright specs, which are not instrumented. The
-modules holding decisions rather than markup are covered directly.
+The `--coverage` figure this section used to quote is stale and has deliberately not been
+replaced with a guess: the reporter emits nothing on the FreeBSD host, so it needs recomputing
+on Linux. The reasoning behind it still holds — the number reads low largely because it counts
+every `.svelte` component, which the Vitest run never imports. Components are covered by the
+Playwright specs, which are not instrumented. The modules holding decisions rather than markup
+are covered directly.
 
-Three gaps remain, all deliberate: `state/actions/*` (covered end to end; a mocked unit test
-there would pin the implementation and would not have caught either bug that module's own
-docstring describes), `toast.js` (a thin wrapper over `bulma-toast`), and the
-`window.history` half of `route.svelte.js`.
+The remaining gaps are deliberate, and one fewer than before. `structureActions` is now unit
+tested directly, because two of its defects — a write response with no id, and a reorder that
+fails partway — are invisible end to end: every request involved answers 200 and the damage
+only shows on the *next* edit. The other action modules are still covered end to end only, on
+the original reasoning that a mocked unit test there pins the implementation rather than the
+behaviour. The `window.history` half of `route.svelte.js` is likewise untested directly.
 
-Java stops at 120 because almost every endpoint's second statement opens JDBC through a static
-`YasssCore.getDB()`. Threading a repository seam through 32 endpoints and 14 model classes is
-a larger and riskier change than the tests it would buy — the containerised suite covers those
-paths against a real database instead.
+Java unit tests stop where the database begins: almost every endpoint's second statement opens
+JDBC through a static `YasssCore.getDB()`. Threading a repository seam through 30-odd endpoints
+and 14 model classes is a larger and riskier change than the tests it would buy — the
+containerised suite covers those paths against a real database instead. What is unit tested is
+everything that can be made pure, and this pass deliberately extracted more of it:
+`SessionTicket.evaluate`, `ExpiringToken.check`, `TicketEngine.signerCount` and
+`YasssCore.within` are all static functions taking their clock or their probe as an argument,
+precisely so the matrix around them can be walked without a database or a wait.
 
 ---
 
