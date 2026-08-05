@@ -1,9 +1,11 @@
 # `Database.setup` in `axb-lib-db` — fixed in 0.4.1
 
 **Status: resolved upstream.** This was written as a report against 0.3.4/0.4.0; the
-behaviours below were fixed in `axb-lib-db-java` 0.4.1, and this project now depends on that
-version. Kept as a record, because the constraints shaped every migration in `db/` and the
-reasoning is worth not rediscovering.
+behaviours below were fixed in `axb-lib-db-java` 0.4.1. Kept as a record, because the
+constraints shaped every migration in `db/` and the reasoning is worth not rediscovering.
+
+> **This project is now on 0.5.0.** See the bottom of this document for what changed after
+> 0.4.1 and what it means here — one of those changes alters connection-pool behaviour.
 
 Verified against MariaDB 11.
 
@@ -88,3 +90,53 @@ affects this project:
   `connect()` is not atomic. Nothing in this project currently needs it; `Volunteer.commit()`
   and `Event.commit()` would be the candidates if partial-write behaviour ever becomes a
   concern.
+
+---
+
+## 0.4.2 and 0.5.0 — the pool
+
+Two further changes landed upstream after this document was written, both in `Database` rather
+than in `setup`.
+
+### The pool can be closed (0.4.2)
+
+`Database` implements `AutoCloseable` and has a no-argument `close()` that shuts the pool down.
+Previously the `HikariDataSource` was private and the only public `close` took a connection, a
+statement and a result set — so an application could return connections to the pool and never
+dispose of the pool itself.
+
+`YasssCore`'s shutdown hook now calls it, **after** both daemon joins. The ordering is
+deliberate: a reminder sweep still draining its batch is writing through that pool, and closing
+it first would produce exactly the abandoned-mid-batch shutdown the joins exist to prevent.
+
+Note the two `close` methods are different operations that happen to share a name.
+`close(Connection, PreparedStatement, ResultSet)` — which every `finally` block in `model/`
+calls — still returns one connection to the pool and still tolerates nulls.
+
+### Pool settings now reach the pool (0.5.0)
+
+**This one changes runtime behaviour here.** The properties map passed to the six-argument
+constructor was handed wholesale to `addDataSourceProperty`, which forwards values to the JDBC
+driver. Pool settings sent that way are accepted and then ignored — so the library's own
+defaults named a `connectionTimeout`, `maxLifetime`, `idleTimeout` and `leakDetectionThreshold`
+while the pool ran on Hikari's values for all four. Nothing failed; the configuration simply did
+not exist.
+
+They take effect from 0.5.0. This deployment uses the no-argument constructor, so it inherits
+those defaults, and two of them are shorter than Hikari's:
+
+| Setting | Hikari default | Now in force | Effect here |
+|---|---|---|---|
+| `maxLifetime` | 30 min | 3 min | Connections are retired ten times more often |
+| `idleTimeout` | 10 min | 30 s | Idle connections are dropped much sooner |
+| `connectionTimeout` | 30 s | 30 s | No change |
+| `leakDetectionThreshold` | disabled | 60 s | Warns if a connection is held a full minute |
+
+The practical consequence is more connection churn against MariaDB. Nothing in this project
+holds a connection across requests, so no code changes; if the churn ever shows up in the
+database's own metrics, the six-argument constructor now accepts overrides — including
+`maximumPoolSize` and `minimumIdle`, which were unreachable before.
+
+`leakDetectionThreshold` was raised upstream from 5 s to 60 s specifically because `setup()`
+holds one connection for the length of a migration run. At 5 s, this project's 22 scripts would
+have reported that connection as a leak, with a stack trace, on every boot.

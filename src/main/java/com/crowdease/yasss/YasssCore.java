@@ -336,13 +336,16 @@ public class YasssCore {
           ticketEngine.join(SHUTDOWN_GRACE_MS);
           if(null != reminderEngine) reminderEngine.join(SHUTDOWN_GRACE_MS);
 
-          // The connection pool is deliberately *not* closed here, because
-          // axb-lib-db 0.4.1 exposes no way to: `Database` offers only
-          // close(Connection, Statement, ResultSet), and the HikariDataSource is
-          // private. Abandoning it at exit is harmless -- the process is going
-          // away and MariaDB reaps the connections -- but it is an upstream gap
-          // rather than an oversight here, and it is recorded in
-          // docs/remaining-work.md so nobody has to rediscover it.
+          // Last, and after both joins on purpose: a sweep still draining its
+          // batch needs the pool it is writing through, and pulling that out
+          // from under it would turn an orderly shutdown into the abandoned
+          // one the joins above exist to prevent.
+          //
+          // This was previously impossible -- axb-lib-db exposed no way to
+          // close the pool at all, which was recorded as an upstream gap. It
+          // does now, as of 0.5.0.
+          if(null != database) database.close();
+
           logger.info("Goodbye! ^_^");
         }
       });
