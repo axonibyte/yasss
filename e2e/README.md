@@ -197,6 +197,48 @@ constrains it:
 - `pkg install catatonit` — podman needs it for a pod's infra container and does
   not depend on it.
 
+## One suite at a time
+
+`run.sh` takes a host-wide lock (`/tmp/axb-e2e.lock`, override with
+`AXB_E2E_LOCK`) and holds it for the whole run, teardown included. If another
+suite holds it you get a `waiting` line and then your turn; `--help` is answered
+without queueing.
+
+This is not tidiness. Every e2e suite on this host drives the same rootful
+podman — one state database, one storage tree, one OCI runtime — and two of them
+at once corrupt each other. Neither script is at fault: each removes only its
+own containers, by name. The contention is on podman's global state, and it
+surfaces two ways:
+
+- `ocijail: mounting /catatonit ... Device busy` when the second pod starts,
+  because podman nullfs-mounts that single host binary into every pod's infra
+  container; and
+- **containers vanishing mid-run**, with the pod's own container count
+  disagreeing with what actually exists. `yasss-e2e-db` disappearing produces
+  `database malfunction` from every endpoint and `Connection is not available`
+  from Hikari — which reads exactly like a connection-pool bug, and is not one.
+  That misdirection cost the best part of a day.
+
+**The lock only works if every sibling suite takes the same one.** It is
+deliberately named for the host rather than for this project. A suite sharing
+this podman needs the same block near the top of its own `run.sh`:
+
+```bash
+readonly E2E_LOCK="${AXB_E2E_LOCK:-/tmp/axb-e2e.lock}"
+if [[ -z "${AXB_E2E_LOCK_HELD:-}" ]]; then
+  export AXB_E2E_LOCK_HELD=1
+  if command -v flock >/dev/null 2>&1; then
+    exec flock -w "${AXB_E2E_LOCK_WAIT:-3600}" "${E2E_LOCK}" "$0" "$@"
+  elif command -v lockf >/dev/null 2>&1; then
+    exec lockf -k -t "${AXB_E2E_LOCK_WAIT:-3600}" "${E2E_LOCK}" "$0" "$@"
+  fi
+fi
+```
+
+Place it after that script's argument parsing, and re-exec with the arguments
+saved before the parser consumed them. The lock is advisory and released when
+the holder dies, so a killed or crashed run leaves nothing to clean up.
+
 ## The text stage
 
 `text/verify.mjs`. Publishing successfully and storing faithfully are different claims, and

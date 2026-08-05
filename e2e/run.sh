@@ -48,6 +48,10 @@ readonly ROOT="$(cd "${HERE}/.." && pwd)"
 readonly API=http://127.0.0.1:7455
 readonly MAILPIT=http://127.0.0.1:8025
 
+# Kept because the parser below consumes "$@" with shift, and the lock further
+# down re-executes this script with its original arguments.
+ORIG_ARGS=("$@")
+
 KEEP=0
 SKIP_BUILD=0
 STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,browser,health"
@@ -100,6 +104,63 @@ warn() { printf '\033[1;33m warn\033[0m %s\n' "$*" >&2; }
 die() { printf '\n\033[1;31m==> FAILED\033[0m %s\n' "$*" >&2; exit 1; }
 
 has_stage() { [[ ",${STAGES}," == *",$1,"* ]]; }
+
+# Re-runs this script under `$@ <lockfile> <script> <args...>`, tolerating the
+# no-argument case, which `set -u` would otherwise reject on older bash.
+exec_locked() {
+  if [[ ${#ORIG_ARGS[@]} -gt 0 ]]; then
+    exec "$@" "${E2E_LOCK}" "$0" "${ORIG_ARGS[@]}"
+  fi
+  exec "$@" "${E2E_LOCK}" "$0"
+}
+
+# --- one suite at a time ------------------------------------------------------
+#
+# Every e2e suite on this host drives the same rootful podman: one state
+# database, one storage tree, one OCI runtime. Two of them running at once
+# corrupt each other, and not through anything either script does wrong --
+# neither touches the other's containers by name. It is contention on shared
+# global state, and it shows up two ways:
+#
+#   - `ocijail: mounting /catatonit ... Device busy` when a second pod starts,
+#     because podman nullfs-mounts that one host binary into every pod's infra
+#     container; and
+#   - containers disappearing mid-run, with the pod's own container count
+#     disagreeing with what exists. That is podman's bookkeeping losing
+#     coherence under concurrent mutation, and it is indistinguishable from a
+#     real failure until you go looking -- it cost most of a day before anyone
+#     worked out what it was.
+#
+# So the suites take turns. The lock is host-wide and deliberately not named
+# after this project: any sibling suite sharing this podman must take the *same*
+# one, or it does nothing. Advisory, and released when the holder dies, so a
+# killed run leaves nothing to clean up.
+readonly E2E_LOCK="${AXB_E2E_LOCK:-/tmp/axb-e2e.lock}"
+readonly E2E_LOCK_WAIT="${AXB_E2E_LOCK_WAIT:-3600}"
+
+if [[ -z "${AXB_E2E_LOCK_HELD:-}" ]]; then
+  export AXB_E2E_LOCK_HELD=1
+
+  # Re-executes rather than wrapping the body, so the lock is held for the
+  # whole run including teardown. Placed after argument parsing so that --help
+  # answers immediately rather than queueing behind somebody else's suite.
+  if command -v flock >/dev/null 2>&1; then
+    flock -n "${E2E_LOCK}" true 2>/dev/null \
+      || printf '\n\033[1;33m warn\033[0m another e2e suite holds %s; waiting\n' "${E2E_LOCK}" >&2
+    exec_locked flock -w "${E2E_LOCK_WAIT}"
+  elif command -v lockf >/dev/null 2>&1; then
+    # FreeBSD. -k keeps the file, so the lock is not unlinked out from under a
+    # process that is waiting on it.
+    lockf -kns "${E2E_LOCK}" true 2>/dev/null \
+      || printf '\n\033[1;33m warn\033[0m another e2e suite holds %s; waiting\n' "${E2E_LOCK}" >&2
+    exec_locked lockf -k -t "${E2E_LOCK_WAIT}"
+  else
+    printf '\n\033[1;33m warn\033[0m neither flock nor lockf found; running unserialised.\n' >&2
+    printf '        If another e2e suite runs concurrently, both may fail in ways\n' >&2
+    printf '        that look like application bugs.\n' >&2
+  fi
+fi
+
 
 # --- host differences -------------------------------------------------------
 
