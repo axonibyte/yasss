@@ -50,7 +50,7 @@ readonly MAILPIT=http://127.0.0.1:8025
 
 KEEP=0
 SKIP_BUILD=0
-STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,browser"
+STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,browser,health"
 
 usage() {
   cat <<'USAGE'
@@ -60,11 +60,12 @@ usage: e2e/run.sh [options]
   --skip-build     reuse the existing jar and image
   --only STAGES    comma-separated subset of:
                    fuzz,accounts,sessions,reminders,text,concurrency,regressions,
-                   browser
+                   browser,health
                    (default: all)
-                   Note that `sessions` restarts the application mid-stage; that
-                   is the point of it, and nothing else depends on the process
-                   staying up.
+                   Note that `sessions` restarts the application mid-stage and
+                   `health` stops the database under it; both are the point of
+                   those stages, and both run where nothing after them depends
+                   on the stack staying up.
   -h, --help       this text
 
 Environment:
@@ -266,6 +267,17 @@ if [[ ${SKIP_BUILD} -eq 0 ]]; then
       || die "${svc} has ${entries:-0} entries in the jar; shadowJar lost mergeServiceFiles()"
   done
   echo "  gRPC service registries survived the shadow jar"
+
+  # The artefact keeps a fixed name on purpose -- this script globs for it and
+  # the Containerfile copies it by name -- so the manifest is the only place the
+  # build can say which build it is. shadowJar inherits the `jar` task's
+  # manifest, which is exactly the sort of thing that stops being true after a
+  # plugin upgrade and is silent when it does.
+  stamped="$(unzip -p "${HERE}/yasss.jar" META-INF/MANIFEST.MF 2>/dev/null \
+    | tr -d '\r' | grep -c '^Implementation-Version: .' || true)"
+  [[ "${stamped:-0}" -ge 1 ]] \
+    || die "the jar manifest carries no Implementation-Version; nothing will know which build is running"
+  echo "  the jar knows which build it is"
 
   log "building the app image"
   pm build --quiet -t "${APP_IMAGE}" "${HERE}" >/dev/null || die "image build failed"
@@ -537,6 +549,38 @@ if has_stage browser; then
       npx playwright test --config playwright.live.config.js "${browser_args[@]}"; then
     failures=$((failures + 1))
     warn "browser stage failed"
+  fi
+fi
+
+if has_stage health; then
+  log "verifying the readiness check reports on the database"
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node health/verify.mjs; then
+    failures=$((failures + 1))
+    warn "health stage failed"
+  else
+    # Deliberately last, and deliberately destructive. Stopping the database
+    # under a running app is the only way to reach the branch this stage exists
+    # for, and nothing after it depends on the stack -- so if the pool does not
+    # recover, the final health check below is what says so rather than some
+    # unrelated stage failing mysteriously.
+    log "stopping the database to prove the check goes red"
+    pm stop "${DB_CTR}" >/dev/null 2>&1 || warn "could not stop the database"
+
+    if ! drive "${DRIVER_IMAGE}" /repo/e2e node health/while-down.mjs; then
+      failures=$((failures + 1))
+      warn "health stage failed with the database down"
+    fi
+
+    log "restarting the database"
+    pm start "${DB_CTR}" >/dev/null 2>&1 || die "could not restart the database"
+    # The pool has to re-establish connections on its own; if it cannot, the
+    # readiness check never goes green again and that is worth knowing.
+    if ! drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 120 '"status":"ok"'; then
+      failures=$((failures + 1))
+      warn "the app did not recover after the database came back"
+    else
+      echo "  and green again once the database returns"
+    fi
   fi
 fi
 

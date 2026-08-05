@@ -101,7 +101,17 @@ eclipse {
 
 jar {
   manifest {
-    attributes 'Main-Class': prjGroup + '.' + prjMain
+    attributes(
+      'Main-Class': prjGroup + '.' + prjMain,
+      // What is actually running. The jar deliberately keeps a fixed name --
+      // `archiveVersion.set('')` below, because the artefact name is a deploy
+      // contract and e2e/run.sh and the Containerfile both depend on it -- so
+      // the manifest is the only place the build can identify itself. Without
+      // it there was nothing on a running system that said which build it was,
+      // and "did the deploy land" could only be answered by comparing hashes.
+      'Implementation-Title': prjName,
+      'Implementation-Version': prjVer,
+    )
   }
 }
 

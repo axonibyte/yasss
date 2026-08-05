@@ -11,7 +11,16 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import com.axonibyte.lib.auth.Credentialed;
 import com.axonibyte.lib.cfg.CLConfig;
@@ -123,7 +132,7 @@ public class YasssCore {
    */
   public static void main(String[] args) {
 
-    logger.info("Hello, world!");
+    logger.info("Yasss! {} starting up", getVersion());
 
     try {
 
@@ -355,7 +364,15 @@ public class YasssCore {
           logger.error("Failed to save the default config file: {}", e2.getMessage());
         }
       }
-      
+
+      // Both branches are a failed start, and this one used to fall off the end
+      // of main and exit 0. systemd reads that as a clean shutdown and neither
+      // restarts the unit nor marks it failed; podman reports the container
+      // exited normally. So a first boot with no configuration, or a
+      // configuration that became unreadable, looked exactly like a successful
+      // deployment of a service that is not running.
+      System.exit(1);
+
     } catch(Exception e) {
       // The throwable goes to slf4j rather than stderr. A bad config parameter
       // is a user error and its message says everything useful; anything else
@@ -376,6 +393,90 @@ public class YasssCore {
    */
   public static Database getDB() {
     return database;
+  }
+
+  /**
+   * The build that is running.
+   *
+   * <p>Read from the jar manifest, which is the only place it can come from:
+   * the artefact deliberately keeps a fixed name, so the filename says nothing.
+   * Answers {@code "(dev)"} when there is no manifest, which is every run
+   * straight from compiled classes -- a Gradle {@code run}, an IDE, the test
+   * suite -- and which is honest rather than a lie about being some version.
+   *
+   * @return the version string, never {@code null}
+   */
+  public static String getVersion() {
+    String version = YasssCore.class.getPackage().getImplementationVersion();
+    return null == version || version.isBlank() ? "(dev)" : version;
+  }
+
+  /**
+   * Whether the database is answering.
+   *
+   * <p>{@code GET /v1} is what a supervisor polls and what {@code e2e/run.sh}
+   * waits on, and it used to read nothing but in-memory state -- so it stayed
+   * green with a dead database while every endpoint that matters returned
+   * {@code database malfunction}. "Ready" meant "the process is up", which is
+   * the one thing a supervisor already knows.
+   *
+   * @return {@code true} if a trivial query round-trips within the deadline
+   */
+  public static boolean databaseHealthy() {
+    return within(HEALTH_PROBE_TIMEOUT_MS, () -> {
+      try(Connection con = database.connect();
+          PreparedStatement stmt = con.prepareStatement("SELECT 1")) {
+        stmt.executeQuery().close();
+        return true;
+      }
+    });
+  }
+
+  /** How long the health probe waits before calling the database unavailable. */
+  private static final long HEALTH_PROBE_TIMEOUT_MS = 2_000L;
+
+  /**
+   * Runs a probe under a deadline.
+   *
+   * <p>Bounded deliberately. The connection pool's own timeout is measured in
+   * tens of seconds and is not configurable through {@code axb-lib-db}, so a
+   * health check that simply waited on it would hang for half a minute before
+   * reporting anything -- which is worse for a supervisor than the lie it
+   * replaces, because a hung probe is indistinguishable from a slow one.
+   *
+   * <p>Any failure at all is unhealthy: an exception, a timeout, an
+   * interruption. This is the one place where "I could not tell" and "no"
+   * should mean the same thing.
+   *
+   * @param millis the deadline
+   * @param probe the check to run
+   * @return {@code true} only if the probe returned {@code true} in time
+   */
+  static boolean within(long millis, Callable<Boolean> probe) {
+    // A daemon thread, so a probe still blocked on a dead socket cannot hold
+    // the JVM open at shutdown.
+    ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+      Thread t = new Thread(r, "health-probe");
+      t.setDaemon(true);
+      return t;
+    });
+    try {
+      Future<Boolean> result = executor.submit(probe);
+      try {
+        return Boolean.TRUE.equals(result.get(millis, TimeUnit.MILLISECONDS));
+      } catch(TimeoutException e) {
+        result.cancel(true);
+        return false;
+      } catch(InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return false;
+      } catch(ExecutionException e) {
+        logger.warn("health probe failed: {}", e.getCause().getMessage());
+        return false;
+      }
+    } finally {
+      executor.shutdownNow();
+    }
   }
 
   /**
