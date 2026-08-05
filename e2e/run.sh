@@ -413,7 +413,18 @@ log "starting the application"
 # The schema is applied by the app itself at boot -- Database.setup runs every
 # script in db/ on every start -- so a successful health check also means the
 # migrations, including the new IPv6 one, applied cleanly against a real server.
-pm run -d --pod "${POD}" --name "${APP_CTR}" "${APP_IMAGE}" >/dev/null
+# TZ is deliberately *not* UTC. Event times live in zone-less DATETIME columns,
+# and the JDBC driver renders instants into them using the JVM's default zone --
+# so that zone is the storage format, and the application pins it to UTC at
+# startup precisely so it cannot drift when a base image or a unit file changes.
+#
+# Running the whole suite under a different container zone is what proves the
+# pin works. If it is ever removed, every stored instant shifts by this offset
+# and the time assertions across the text, reminders and browser stages fail.
+# A container that happened to be UTC would prove nothing at all.
+pm run -d --pod "${POD}" --name "${APP_CTR}" \
+  -e TZ=America/Chicago \
+  "${APP_IMAGE}" >/dev/null
 
 log "waiting for the API"
 if ! drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 120 '"status":"ok"'; then

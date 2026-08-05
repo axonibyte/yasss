@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.TimeZone;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -126,11 +127,64 @@ public class YasssCore {
   private static final long SHUTDOWN_GRACE_MS = 5_000L;
 
   /**
+   * The zone every instant is stored in.
+   *
+   * <p>Not a display preference. Event times live in {@code DATETIME} columns,
+   * which carry no zone at all -- they hold a wall-clock reading and nothing
+   * else. The JDBC driver turns a {@link java.sql.Timestamp}, which is an
+   * instant, into one of those by rendering it in <em>the JVM's default
+   * zone</em>, and turns it back the same way. So the JVM's zone is not
+   * incidental to storage: it <em>is</em> the storage format.
+   *
+   * <p>That is symmetric, so nothing looks wrong while the zone stays put. It
+   * stops being symmetric the moment it moves. Relocate the server, change the
+   * base image, set {@code TZ} in a unit file, and every instant already in the
+   * database is reinterpreted -- 09:00 recorded in Chicago reads back as 09:00
+   * UTC, three hours of silent drift across every event, window and reminder,
+   * with nothing in any log to say so.
+   */
+  private static final TimeZone STORAGE_ZONE = TimeZone.getTimeZone("UTC");
+
+  /**
+   * Pins the JVM's default zone so stored instants cannot drift.
+   *
+   * <p>Deliberately a pin rather than a conversion. The container this ships in
+   * has always been UTC -- no {@code TZ}, and {@code /etc/localtime} pointing at
+   * {@code Etc/UTC} -- so the data on disk is already right and needs no
+   * migration. What it lacked was a guarantee: it was right by accident of the
+   * base image, and one {@code TZ=America/Chicago} away from being wrong
+   * everywhere at once. This makes it right on purpose.
+   *
+   * <p>A deployment that has been running in some other zone is a different
+   * matter, and is <em>not</em> handled here; see
+   * {@code docs/utc-storage.md} for the one-time conversion, and for why it is
+   * a manual step rather than a migration script.
+   *
+   * @return the zone that was in force beforehand, for the log and for tests
+   */
+  static TimeZone pinStorageZone() {
+    TimeZone previous = TimeZone.getDefault();
+    TimeZone.setDefault(STORAGE_ZONE);
+    if(!STORAGE_ZONE.getID().equals(previous.getID()))
+      logger.warn(
+          "JVM time zone was {}; pinned to {} because DATETIME storage is "
+          + "interpreted in it. Stored instants written under {} will read back "
+          + "shifted -- see docs/utc-storage.md.",
+          previous.getID(),
+          STORAGE_ZONE.getID(),
+          previous.getID());
+    return previous;
+  }
+
+  /**
    * Entry-point.
    *
    * @param args command-line arguments
    */
   public static void main(String[] args) {
+
+    // Before anything else, and before the first connection in particular.
+    pinStorageZone();
 
     logger.info("Yasss! {} starting up", getVersion());
 
