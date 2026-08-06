@@ -282,16 +282,19 @@ if pm pod exists "${POD}" 2>/dev/null; then
   pm pod rm -f "${POD}" >/dev/null
 fi
 
+# Counted rather than `grep -q`: under pipefail, grep exiting at the first match
+# kills the producer, and the producer's SIGPIPE status becomes the pipeline's,
+# so a port that is in use reports as free. See the note at the utf8mb4 checks.
 port_in_use() {
+  local hits=0
   if command -v ss >/dev/null 2>&1; then
-    ss -ltn 2>/dev/null | grep -q ":$1\b"
+    hits="$(ss -ltn 2>/dev/null | grep -c ":$1\b" || true)"
   elif command -v sockstat >/dev/null 2>&1; then
     # No ss(1) on FreeBSD. Field 6 is the local address, so match the port on
     # that alone -- the line also carries a foreign address that would collide.
-    sockstat -4 -6 -l 2>/dev/null | awk '{print $6}' | grep -qE "[:.]$1$"
-  else
-    return 1
+    hits="$(sockstat -4 -6 -l 2>/dev/null | awk '{print $6}' | grep -cE "[:.]$1$" || true)"
   fi
+  [[ "${hits}" -gt 0 ]]
 }
 
 if [[ ${PUBLISH} -eq 1 ]] && port_in_use "${APP_PORT}"; then
@@ -499,6 +502,36 @@ created_after="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_N
   || die "yasss_volunteer was rebuilt on restart (${created_before} -> ${created_after}); 017's guard is not working"
 echo "  no table was rebuilt on the second boot"
 
+# The guards in 017 and 018 build their statement into a session variable and
+# PREPARE it, because MariaDB has no ALTER TABLE ... IF NOT EXISTS for what they
+# do. PREPARE, EXECUTE and DEALLOCATE are not in the server's prepared-statement
+# whitelist, so a setup() that prepares every statement asks for all three and
+# gets error 1295 for each -- thirty of them, on every boot, in a log that is
+# supposed to be quiet.
+#
+# The schema assertions above cannot see this. Connector/J catches 1295 and
+# silently re-runs the statement as text, so the tables come out right either
+# way and the only evidence is the log. That fallback is undocumented and the
+# driver is free to drop it, at which point these migrations stop applying and
+# every assertion above starts failing at once. Checking the log is what
+# notices while it is still cosmetic.
+log "verifying the migrations do not fight the prepared-statement protocol"
+# Counted rather than `grep -q`. Under `set -o pipefail` -- which this script
+# sets -- `producer | grep -q pattern` reports the opposite of the truth: grep
+# exits at the first match, the producer takes SIGPIPE, and pipefail propagates
+# the producer's failure, so a successful match reads as no match. It is not
+# even reliably wrong, since a producer that finishes before grep exits never
+# gets the signal. `grep -c` reads to the end, so it cannot misfire.
+prepared="$(pm logs "${APP_CTR}" 2>&1 | grep -c "1295" || true)"
+if [[ "${prepared}" -gt 0 ]]; then
+  # `|| true` for the same reason as above, one step further along: `head` also
+  # exits early, so without it the ERR trap fires on this line and reports a
+  # line number instead of the diagnosis below.
+  { pm logs "${APP_CTR}" 2>&1 | grep "1295" | head -5 >&2; } || true
+  die "the server rejected ${prepared} prepared statements during setup; axb-lib-db is preparing bootstrap scripts again"
+fi
+echo "  no statement was sent through the prepared-statement protocol"
+
 # --- bootstrap administrator ------------------------------------------------
 
 # Deliberately unconditional, and deliberately before the fuzz stage.
@@ -663,9 +696,17 @@ drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 10 '"statu
   >/dev/null || die "server is no longer healthy after the suite"
 
 # A stack trace in the log is worth surfacing even when every assertion passed.
-if pm logs "${APP_CTR}" 2>&1 | grep -qE '^\s+at com\.crowdease'; then
+#
+# Counted rather than `grep -q`, for the reason given at the utf8mb4 checks
+# above: under pipefail a matching `grep -q` reports no match, because the
+# producer it kills takes the pipeline's exit status with it. This check has
+# never been able to fail.
+traces="$(pm logs "${APP_CTR}" 2>&1 | grep -cE '^\s+at com\.crowdease' || true)"
+if [[ "${traces}" -gt 0 ]]; then
   warn "the application logged stack traces:"
-  pm logs "${APP_CTR}" 2>&1 | grep -B3 -A6 '^\s\+at com\.crowdease' | head -40 >&2
+  # `|| true` because `head` exits early: without it the ERR trap fires here and
+  # the run dies on the line that was only meant to print the evidence.
+  { pm logs "${APP_CTR}" 2>&1 | grep -B3 -A6 '^\s\+at com\.crowdease' | head -40 >&2; } || true
   failures=$((failures + 1))
 fi
 

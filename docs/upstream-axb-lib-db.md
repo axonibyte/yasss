@@ -4,8 +4,9 @@
 behaviours below were fixed in `axb-lib-db-java` 0.4.1. Kept as a record, because the
 constraints shaped every migration in `db/` and the reasoning is worth not rediscovering.
 
-> **This project is now on 0.5.0.** See the bottom of this document for what changed after
-> 0.4.1 and what it means here — one of those changes alters connection-pool behaviour.
+> **This project is now on 0.5.1.** See the bottom of this document for what changed after
+> 0.4.1 and what it means here — one of those changes alters connection-pool behaviour, and
+> one of them is why 017 and 018 no longer fill the boot log with error packets.
 
 Verified against MariaDB 11.
 
@@ -140,3 +141,47 @@ database's own metrics, the six-argument constructor now accepts overrides — i
 `leakDetectionThreshold` was raised upstream from 5 s to 60 s specifically because `setup()`
 holds one connection for the length of a migration run. At 5 s, this project's 22 scripts would
 have reported that connection as a leak, with a stack trace, on every boot.
+
+---
+
+## 0.5.1 — bootstrap scripts are no longer prepared
+
+A boot of this application logged thirty of these, every time:
+
+```
+[WARN] org.mariadb.jdbc.message.server.ErrorPacket - Error: 1295-HY000:
+This command is not supported in the prepared statement protocol yet
+```
+
+Twenty-seven from `017_charset_utf8mb4.sql` and three from `018_fk_rsvp_slot.sql`, which is
+exactly nine and one guarded blocks at three statements each.
+
+`setup` handed every statement to `prepareStatement`, and the server's prepared-statement
+protocol accepts only a whitelist of commands. `PREPARE`, `EXECUTE` and `DEALLOCATE PREPARE`
+are not on it — and those three are how 017 and 018 do their work, because MariaDB has no
+`ALTER TABLE ... IF NOT EXISTS` for a charset conversion or a foreign key. Both scripts read
+`information_schema`, build the statement they need into a session variable, and prepare it.
+Every one of those preparations was refused.
+
+**It worked anyway, which is the uncomfortable part.** MariaDB Connector/J catches error 1295
+and quietly re-runs the statement in the text protocol. The conversion happened, the foreign
+key exists, and `e2e/run.sh`'s schema assertions — which run against a deliberately
+latin1-defaulted server — passed. The whole cost was the log, plus a schema whose correctness
+rested on an undocumented driver fallback. Had a driver bump dropped that fallback, 017 and
+018 would have silently stopped applying and the log would have said exactly what it says now.
+
+Fixed upstream by executing bootstrap statements through `Statement.execute(sql)`. Nothing is
+lost: these scripts have no parameters to bind — `${database}` and `${prefix}` are substituted
+long before the text is sent — so preparing bought a round trip and a query plan for a
+statement run once.
+
+Two smaller consequences worth knowing here. One `Statement` now serves a whole script, which
+matters because a session variable belongs to the connection that set it: `SET @yasss_conv_user`
+and the `PREPARE` two statements later are only correct while both land on the same connection.
+`setup` already held one connection for the entire run, so this was never broken — it is now
+stated rather than incidental. And a script that splits to nothing no longer asks the
+connection for a statement at all.
+
+`e2e/run.sh` now fails if `1295` appears in the application log. The schema assertions cannot
+catch this on their own — with the fallback in place both spellings produce identical tables,
+so the log is the only place the difference shows.
