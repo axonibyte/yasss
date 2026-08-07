@@ -12,6 +12,7 @@
   import DetailTable from './DetailTable.svelte';
   import { Mode } from '../../state/event.svelte.js';
   import { session } from '../../state/session.svelte.js';
+  import { pendingVolunteers } from '../../state/actions/volunteerActions.js';
   import { loadCalendar } from '../../lib/calendar.js';
   import { fmtZoneLabel, localZone } from '../../lib/format/dates.js';
 
@@ -29,6 +30,24 @@
   } = $props();
 
   const editingLayout = $derived(event.mode === Mode.CREATE || event.mode === Mode.EDIT);
+
+  /**
+   * How many volunteers this browser is holding that the server has never seen.
+   *
+   * The only thing "Submit RSVPs" writes. A volunteer who already exists
+   * server-side has their slot toggles saved the moment they are made
+   * (`rsvpActions.toggleRsvp`), so for an organiser looking at their own event,
+   * or for anyone revising a submission they already made, the button had
+   * nothing left to do and said so with a success toast -- which reads as
+   * confirmation of a save that never happened.
+   *
+   * Counting *pending* rather than checking a role is what makes this right for
+   * an organiser too: they are shown every volunteer on the event
+   * (RetrieveEventEndpoint authorises the list), but all of those are persisted,
+   * so none of them count here. An unpersisted volunteer has no id and exists
+   * only in this tab, so this can only ever mean "work you have not saved".
+   */
+  const pending = $derived(pendingVolunteers(event).length);
 
   // Warm the date picker's chunk as soon as an editing surface appears. It is a
   // megabyte, and the only people who reach this are the ones about to need it,
@@ -206,9 +225,16 @@
                 Same guard. Worse here than for publish: pendingVolunteers()
                 filters on !persisted and ids only arrive with the responses, so
                 a second click re-submitted the very same volunteers.
+
+                Disabled with nothing pending, and counted when there is. The
+                button stays on screen rather than appearing and vanishing,
+                because its two states are what teach the difference between the
+                deferred path and the immediate one.
               -->
-              <button class="button is-primary" class:is-loading={busy} disabled={busy}
-                onclick={onSubmitRsvps}>Submit RSVPs</button>
+              <button class="button is-primary" class:is-loading={busy}
+                disabled={busy || pending === 0} onclick={onSubmitRsvps}>
+                {pending === 0 ? 'Submit RSVPs' : `Submit ${pending} RSVP${pending === 1 ? '' : 's'}`}
+              </button>
             {/if}
           {/if}
         </div>

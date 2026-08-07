@@ -12,7 +12,7 @@
  * See docs/legacy/01-behavior.md §1.4 and §6.10.
  */
 import * as api from '../../lib/api/index.js';
-import { toastDanger, toastError, toastSuccess } from '../toast.js';
+import { toastDanger, toastError, toastInfo, toastSuccess } from '../toast.js';
 import { volunteerCreatePayload, volunteerUpdatePayload } from '../serialize/volunteerPayload.js';
 
 /** Volunteers that exist only in the browser. */
@@ -63,7 +63,12 @@ async function createVolunteer(event, volunteer, account, captcha) {
 export async function submitVolunteers(event, { account, captcha }) {
   const pending = pendingVolunteers(event);
   if (pending.length === 0) {
-    toastSuccess('Everything is already up to date!');
+    // The button that reaches this is disabled whenever the count is zero, so
+    // this is a programmatic guard rather than a path a user can take. Informational
+    // rather than a success: reporting a save that did not happen, in the green
+    // used for ones that did, is how the button came to be misread in the first
+    // place.
+    toastInfo('Everything is already up to date!');
     return true;
   }
 
