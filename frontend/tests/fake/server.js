@@ -14,7 +14,7 @@
 import { Hono } from 'hono';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { serve } from '@hono/node-server';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, getRandomValues } from 'node:crypto';
 import {
   createStore, findActivity, findSlot, findVolunteer, findWindow, nextId,
   seedEvent, seedUser, serializeEventRead,
@@ -188,6 +188,66 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   ));
 
   // --- users --------------------------------------------------------------
+
+  // --- passkeys -----------------------------------------------------------
+
+  // The fake verifies no signatures, for the same reason it verifies no Ed25519: doing so
+  // would test the reproduction rather than the client. What it owes is shape and
+  // sequencing -- above all that a challenge is single-use, which is the whole security
+  // claim and the one thing a client can get wrong on its own.
+  //
+  // Keyed on the challenge value itself, which is random per ceremony, so parallel workers
+  // cannot collide. This is the first stateful thing in a fake built to be per-request
+  // stateless.
+  const challenges = new Set();
+
+  const issueChallenge = () => {
+    const challenge = Buffer.from(
+      getRandomValues(new Uint8Array(32))).toString('base64');
+    challenges.add(challenge);
+    return challenge;
+  };
+
+  app.post('/v1/users/:user/passkeys/challenge', (c) => c.json(ok('challenge issued', {
+    challenge: issueChallenge(),
+    rpID: 'fake.yasss.test',
+    rpName: 'Yasss!',
+    userHandle: Buffer.alloc(16).toString('base64'),
+    userName: 'someone@example.com',
+    excludeCredentials: [],
+    expiresAt: Date.now() + 300000,
+  })));
+
+  app.post('/v1/users/:user/passkeys', async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognised'), 403);
+    return c.json(ok('passkey enrolled'), 201);
+  });
+
+  app.get('/v1/users/:user/passkeys', (c) => c.json(ok('passkeys retrieved', { passkeys: [] })));
+
+  app.delete('/v1/users/:user/passkeys/:passkey', (c) => c.json(ok('passkey removed')));
+
+  app.post('/v1/passkeys/challenge', (c) => c.json(ok('challenge issued', {
+    challenge: issueChallenge(),
+    rpID: 'fake.yasss.test',
+    expiresAt: Date.now() + 300000,
+  })));
+
+  app.post('/v1/passkeys/session', async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    // Single-use, asserted by deletion rather than by lookup: presenting the same
+    // assertion twice must fail the second time.
+    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognised'), 403);
+
+    const user = [...store.users.values()][0];
+    if (!user) return c.json(err('credential not recognised'), 403);
+
+    c.header('AXB-ACCOUNT', user.id);
+    c.header('AXB-ACCESS-LEVEL', user.accessLevel ?? 'STANDARD');
+    c.header('AXB-SESSION', sessionToken(store, user.id));
+    return c.json(ok('signed in', { email: user.email }));
+  });
 
   app.post('/v1/users', async (c) => {
     const body = await c.req.json();

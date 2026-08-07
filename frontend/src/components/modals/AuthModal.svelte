@@ -16,6 +16,7 @@
   import { validateLogin, validateRegistration } from '../../lib/validation/forms.js';
   import { genCreds } from '../../lib/crypto/creds.js';
   import * as api from '../../lib/api/index.js';
+  import { isSupported } from '../../lib/crypto/webauthn.js';
 
   let { onClose, onLoggedIn, requestCaptcha } = $props();
 
@@ -46,6 +47,36 @@
       onClose?.();
     } catch (e) {
       toastError(e, 'Invalid credentials. Try again?');
+    } finally {
+      busy = false;
+    }
+  }
+
+  // Offered only when both halves agree it could work: the browser supports WebAuthn, and
+  // the server published a relying party. Showing a button that fails inside the browser
+  // -- which is what an unresolvable relying party produces -- is worse than not showing
+  // one, because nothing server-side records the failure.
+  let passkeysOffered = $state(false);
+  $effect(() => {
+    if (!isSupported()) return;
+    api.getApiInfo({ anonymous: true })
+      .then((info) => { passkeysOffered = info.passkeys === true; })
+      .catch(() => { passkeysOffered = false; });
+  });
+
+  async function logInWithPasskey() {
+    busy = true;
+    try {
+      const result = await session.loginWithPasskey();
+      // Cancelled, or timed out -- the two are indistinguishable, and neither is worth
+      // saying anything about. Showing an error because somebody pressed Escape is the
+      // most common WebAuthn UX defect there is.
+      if (!result) return;
+      toastSuccess('Logged in!');
+      onLoggedIn?.();
+      onClose?.();
+    } catch (e) {
+      toastError(e, 'That passkey was not accepted.');
     } finally {
       busy = false;
     }
@@ -102,6 +133,21 @@
   {onClose}
   onSubmit={() => (registering ? register() : logIn())}
 >
+  {#if !registering && passkeysOffered}
+    <div class="field">
+      <button
+        type="button"
+        class="button is-fullwidth is-primary"
+        disabled={busy}
+        onclick={logInWithPasskey}
+      >
+        Sign in with a passkey
+      </button>
+      <p class="help">No password needed. Uses your device's screen lock or security key.</p>
+    </div>
+    <hr />
+  {/if}
+
   <Field label="Email Address" error={errors.email} id="auth-email">
     <input
       id="auth-email"

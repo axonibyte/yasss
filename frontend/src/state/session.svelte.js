@@ -14,6 +14,7 @@ import { installAuthBridge } from '../lib/api/authBridge.js';
 import * as api from '../lib/api/index.js';
 import { deriveKey, genCreds } from '../lib/crypto/creds.js';
 import { signRequest } from '../lib/crypto/sigreq2.js';
+import { authenticate, isSupported } from '../lib/crypto/webauthn.js';
 
 const COOKIE = 'user';
 
@@ -170,6 +171,45 @@ class Session {
     this.token = session;
     this.accessLevel = accessLevel;
     this.email = email.trim().toLowerCase();
+    this.#persist();
+    this.#startRefreshTimer();
+
+    await this.loadOwnedEvents();
+    return this;
+  }
+
+  /**
+   * Sign in with a passkey.
+   *
+   * Its own route rather than the `AXB-SIG-REQ` header, because a challenge-response needs
+   * a reply in the middle and that header path turns failure into an anonymous request
+   * rather than a 401. Everything after the sign-in is identical: the same session ticket,
+   * rotated the same way, in the same cookie.
+   *
+   * @returns {Promise<this|null>} null if the user cancelled, which is not an error
+   */
+  async loginWithPasskey() {
+    if (!isSupported()) throw new Error('This browser does not support passkeys.');
+
+    const challenge = await api.beginPasskeyAuth();
+    const assertion = await authenticate(challenge);
+    // Cancelled or timed out. The two are indistinguishable and neither is worth a
+    // message, so the caller shows nothing.
+    if (!assertion) return null;
+
+    const res = await api.finishPasskeyAuth(assertion);
+    const { account, session, accessLevel } = res._auth;
+
+    if (!account || !session) throw new Error('That passkey was not accepted.');
+
+    this.account = account;
+    this.token = session;
+    this.accessLevel = accessLevel;
+    // A usernameless sign-in never learns the address from the ceremony, so the server
+    // returns it. Without this, `session.email` stays null and every surface that offers
+    // to reuse it -- the reminder opt-in prefill -- silently stops working for exactly the
+    // users who moved to passkeys.
+    this.email = res.email ?? null;
     this.#persist();
     this.#startRefreshTimer();
 

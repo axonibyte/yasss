@@ -42,6 +42,29 @@ export const requestPasswordReset = (emailOrId, captcha) =>
 export const applyPasswordReset = (id, token, pubkey, captcha) =>
   post(`/users/${id}`, { token, pubkey }, { captcha });
 
+// --- passkeys ---------------------------------------------------------------
+
+/** Begin enrolment. Authenticated as the account itself. */
+export const beginPasskeyRegistration = (id) => post(`/users/${id}/passkeys/challenge`, {});
+
+/** Finish enrolment with what the authenticator produced. */
+export const finishPasskeyRegistration = (id, body) => post(`/users/${id}/passkeys`, body);
+
+/** The account's enrolled passkeys. */
+export const listPasskeys = (id) => get(`/users/${id}/passkeys`);
+
+/** Remove one. */
+export const removePasskey = (id, passkey) => del(`/users/${id}/passkeys/${passkey}`);
+
+/**
+ * Begin a sign-in. Anonymous, and deliberately takes no email -- accepting one would make
+ * this an oracle for which addresses are registered.
+ */
+export const beginPasskeyAuth = () => post('/passkeys/challenge', {}, { anonymous: true });
+
+/** Finish a sign-in; the session comes back in the response headers. */
+export const finishPasskeyAuth = (body) => post('/passkeys/session', body, { anonymous: true });
+
 export const verifyUser = (id, token, captcha) =>
   put(`/users/${id}`, { token }, { captcha });
 
