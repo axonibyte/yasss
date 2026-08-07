@@ -48,6 +48,9 @@ import com.crowdease.yasss.api.ModifyEventEndpoint;
 import com.crowdease.yasss.api.ModifyUserEndpoint;
 import com.crowdease.yasss.api.ModifyVolunteerEndpoint;
 import com.crowdease.yasss.api.ModifyWindowEndpoint;
+import com.crowdease.yasss.api.PasskeyAuthEndpoint;
+import com.crowdease.yasss.api.PasskeyListEndpoint;
+import com.crowdease.yasss.api.PasskeyRegistrationEndpoint;
 import com.crowdease.yasss.api.PublicTextEndpoint;
 import com.crowdease.yasss.api.RemoveActivityEndpoint;
 import com.crowdease.yasss.api.RemoveDetailEndpoint;
@@ -420,6 +423,12 @@ public class YasssCore {
               APIEndpoint.SERVER_TIME_HEADER)
           .addEndpoints(
               new APIInfoEndpoint(),
+              new PasskeyRegistrationEndpoint(PasskeyRegistrationEndpoint.Mode.BEGIN),
+              new PasskeyRegistrationEndpoint(PasskeyRegistrationEndpoint.Mode.FINISH),
+              new PasskeyListEndpoint(PasskeyListEndpoint.Mode.LIST),
+              new PasskeyListEndpoint(PasskeyListEndpoint.Mode.REMOVE),
+              new PasskeyAuthEndpoint(PasskeyAuthEndpoint.Mode.BEGIN),
+              new PasskeyAuthEndpoint(PasskeyAuthEndpoint.Mode.FINISH),
               new AddActivityEndpoint(),
               new AddDetailEndpoint(),
               new AddVolunteerEndpoint(),

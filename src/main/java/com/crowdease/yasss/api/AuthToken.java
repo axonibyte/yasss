@@ -185,7 +185,7 @@ public class AuthToken {
       // a sign-out-everywhere is not far-fetched: those endpoints stamp the
       // epoch with the same clock, and the client's next request follows
       // immediately.
-      long sessionStart = Math.max(now, user.getSessionEpoch() + 1);
+      long sessionStart = freshSessionStart(user, now);
 
       // Note the `else`: without it this fell straight through into signature
       // verification, so disabling the signin requirement did not actually
@@ -318,6 +318,26 @@ public class AuthToken {
    *
    * @author Caleb L. Power <cpower@crowdease.com>
    */
+  /**
+   * When a newly established session begins.
+   *
+   * <p>Strictly after any revocation already on the account, because
+   * {@code SessionTicket.evaluate} treats a session beginning <em>at</em> the epoch as
+   * revoked. Signing in again in the same millisecond as a reset or a sign-out-everywhere
+   * is not far-fetched: those endpoints stamp the epoch from the same clock and the
+   * client's next request follows immediately.
+   *
+   * <p>Extracted rather than copied into the passkey path. A second copy that drifted
+   * would be a session that outlives the revocation meant to end it.
+   *
+   * @param user the account signing in
+   * @param now epoch milliseconds
+   * @return the instant the session starts
+   */
+  static long freshSessionStart(User user, long now) {
+    return Math.max(now, user.getSessionEpoch() + 1);
+  }
+
   /**
    * Whether the failure was a clock-skew rejection rather than a bad credential.
    *
