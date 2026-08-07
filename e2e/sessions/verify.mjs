@@ -129,7 +129,11 @@ check(stillHere.account === alice.id, 'which still works', `got ${stillHere.acco
 
 // A third party cannot end somebody else's sessions.
 const bob = await newUser('bob', PASSWORD);
-const meddling = await api('DELETE', `/v1/users/${alice.id}/sessions`, { auth: bob.payload });
+// Bob signs in and acts with the resulting ticket. Presenting his credential directly
+// would now be refused for a different reason than the one under test, and the check
+// would pass while proving nothing about authorisation.
+const bobTicket = (await api('GET', '/v1', { auth: bob.payload })).session;
+const meddling = await api('DELETE', `/v1/users/${alice.id}/sessions`, { session: bobTicket });
 check(meddling.status === 403, "a stranger cannot revoke another account's sessions",
   `got ${meddling.status}`);
 
@@ -174,15 +178,31 @@ check(
 const withNew = await api('GET', '/v1', { auth: fresh.payload });
 check(withNew.account === alice.id, 'and the new credential signs in', `got ${withNew.account}`);
 
+// --- a credential is only good for signing in --------------------------------
+
+// A password credential deliberately escapes session_epoch, so that a platform-wide
+// revoke forces a re-login rather than locking everybody out for good. The cost is that a
+// captured credential header is a bearer token no revocation can withdraw -- and for an
+// account with no MFA the signed message never changes, so capturing it once is enough.
+// Confining it to the sign-in route does not fix that, but it does mean a captured header
+// buys a session ticket rather than unrestricted access for the life of the password.
+const credentialElsewhere = await api('GET', `/v1/users/${bob.id}`, { auth: bob.payload });
+check(!credentialElsewhere.account, 'a password credential is refused outside sign-in',
+  `got account ${credentialElsewhere.account}`);
+
+const credentialAtSignIn = await api('GET', '/v1', { auth: bob.payload });
+check(credentialAtSignIn.account === bob.id, 'while sign-in still accepts one',
+  `got ${credentialAtSignIn.account}`);
+
 // --- the platform-wide lever -------------------------------------------------
 
 const admin = await adminAuth();
 
-const notAdmin = await api('DELETE', '/v1/sessions', { auth: bob.payload });
+const bobSession = (await api('GET', '/v1', { auth: bob.payload })).session;
+
+const notAdmin = await api('DELETE', '/v1/sessions', { session: bobSession });
 check(notAdmin.status === 403, 'a standard user cannot revoke the platform',
   `got ${notAdmin.status}`);
-
-const bobSession = (await api('GET', '/v1', { auth: bob.payload })).session;
 const nuked = await api('DELETE', '/v1/sessions', { auth: admin });
 check(nuked.status === 200, 'an administrator can revoke every session', `got ${nuked.status}`);
 

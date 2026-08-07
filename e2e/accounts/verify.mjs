@@ -93,7 +93,10 @@ if (link) {
   // The proof that promotion is real rather than cosmetic: an authenticated
   // caller below STANDARD is refused here, where an anonymous one would pass.
   const event = await api('POST', '/v1/events', {
-    auth: payload,
+    // The ticket from the sign-in above, not the credential. A password credential is
+    // only accepted at GET /v1; everywhere else needs a ticket, so that a captured
+    // credential header cannot act on the account indefinitely.
+    session: postAuth.session,
     body: {
       shortDescription: 'First Event',
       longDescription: '',

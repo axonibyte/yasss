@@ -15,8 +15,9 @@ export function makeApi(base = process.env.YASSS_API ?? 'http://127.0.0.1:7455')
   return async function api(method, path, { body, auth, session, query = '', headers = {} } = {}) {
     const hdrs = { ...headers };
     if (body !== undefined) hdrs['Content-Type'] = 'application/json';
-    // The signed credential blob is static once derived, so the same value
-    // authenticates every request for the life of the process.
+    // A password credential. Static once derived -- but only GET /v1 accepts one now,
+    // so a driver that sends it anywhere else gets an anonymous response rather than an
+    // authenticated one. Sign in first and pass `session` instead.
     if (auth) hdrs.Authorization = `AXB-SIG-REQ ${auth}`;
     // A session ticket goes in the same header; the server tells the two apart
     // by which one verifies. Passed separately so a driver cannot accidentally

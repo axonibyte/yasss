@@ -59,6 +59,21 @@ public abstract class APIEndpoint extends JSONEndpoint {
   }
 
   /**
+   * Whether a password-derived credential may be presented to this endpoint, as opposed
+   * to a session ticket.
+   *
+   * <p>Defaults to {@code false}, and that default is the point: a credential is a
+   * permanent bearer token that {@code session_epoch} cannot revoke, so the set of places
+   * one is accepted should be as small as possible and should have to be stated. Only the
+   * sign-in route overrides this. See {@link AuthToken#process()}.
+   *
+   * @return {@code true} if this endpoint is a sign-in route
+   */
+  protected boolean acceptsCredentials() {
+    return false;
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
@@ -66,7 +81,7 @@ public abstract class APIEndpoint extends JSONEndpoint {
     User user = null;
 
     try {
-      AuthToken token = new AuthToken(authString);
+      AuthToken token = new AuthToken(authString, acceptsCredentials());
       String nextSession = token.process();
       user = token.getUser();
 

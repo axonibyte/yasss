@@ -233,7 +233,8 @@ public final class EventReportEndpoint extends Endpoint {
     User user = null;
 
     try {
-      AuthToken token = new AuthToken(authString);
+      // false: the HTML report is a normal authenticated resource, not a sign-in route.
+      AuthToken token = new AuthToken(authString, false);
       String nextSession = token.process();
       user = token.getUser();
 

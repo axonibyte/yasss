@@ -36,6 +36,19 @@ public final class APIInfoEndpoint extends APIEndpoint {
   /**
    * {@inheritDoc}
    */
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The only endpoint that returns {@code true}. There is no {@code /login} route in
+   * this API -- authenticating against the version root <em>is</em> the sign-in, and the
+   * client exchanges the credential it presents here for a session ticket immediately.
+   * See {@link AuthToken#process()} for why every other endpoint refuses one.</p>
+   */
+  @Override protected boolean acceptsCredentials() {
+    return true;
+  }
+
   @Override public JSONObject onCall(Request req, Response res, Authorization auth) throws EndpointException {
     // This is the readiness check -- what a supervisor polls, and what
     // `e2e/run.sh` waits on before it believes the stack is up. It read nothing

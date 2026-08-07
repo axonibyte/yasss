@@ -35,6 +35,7 @@ public class AuthToken {
   private static final Logger logger = LoggerFactory.getLogger(AuthToken.class);
 
   private final String authString;
+  private final boolean credentialsAllowed;
 
   private User user = null;
 
@@ -42,13 +43,41 @@ public class AuthToken {
    * Instantiates the authorization token.
    *
    * @param authString the raw header containing the credentials to be processed
+   * @param credentialsAllowed whether a password-derived credential may be presented
+   *        here, as opposed to a session ticket; see {@link #process()}
    */
-  public AuthToken(String authString) {
+  public AuthToken(String authString, boolean credentialsAllowed) {
     this.authString = authString;
+    this.credentialsAllowed = credentialsAllowed;
   }
 
   /**
    * Processes the authentication string and generates a session token.
+   *
+   * <p>Two very different things arrive in the same header. A <em>session ticket</em> is
+   * server-issued, short-lived, named by its signer, and subject to
+   * {@code session_epoch}. A <em>password credential</em> is client-signed, derived from
+   * the user's password, and deliberately <em>not</em> subject to the session epoch --
+   * otherwise a platform-wide revoke would be a permanent lockout rather than a forced
+   * re-login.
+   *
+   * <p>That exemption is what makes a captured credential so much worse than a captured
+   * ticket. The signed message is {@code {email, mfa}}, which for an account without MFA
+   * is byte-identical forever, so anyone who obtains the header once holds a credential
+   * that never expires and that no revocation this application offers can withdraw.
+   *
+   * <p>So a credential is accepted only where one is actually needed: the sign-in route,
+   * which is {@code GET /v1} -- there is no {@code /login}; authenticating against the
+   * API root <em>is</em> the sign-in. An endpoint opts in by overriding
+   * {@code APIEndpoint.acceptsCredentials()}. Everywhere else requires a ticket, which
+   * narrows a captured header from "anything, forever, immune to sign-out" to "obtain a
+   * session ticket" -- still a full compromise, but one that is bounded by
+   * {@code session_epoch} from that point on and that shows up in a revocation.
+   *
+   * <p>This is a behaviour change for any non-browser consumer that signs every request
+   * rather than exchanging a credential for a ticket once. The bundled clients do not:
+   * both the frontend and {@code register-admin.mjs} sign exactly one request, against
+   * {@code GET /v1}, and use the returned ticket thereafter.
    *
    * @return a session token, if verification is successful
    */
@@ -133,7 +162,8 @@ public class AuthToken {
         logger.warn(
             "user {} underwent de facto authentication by virtue of disabled auth requirement",
             user.getID().toString());
-      } else if(user.verifySig(creds, sig)
+      } else if(credentialsAllowed
+          && user.verifySig(creds, sig)
           && (null == user.getEncMFASecret()
               || user.verifyTOTP(
                   credsJSO.getString("mfa")))) {
@@ -162,6 +192,14 @@ public class AuthToken {
             "user {} successfully authenticated via ticket engine",
             user.getID().toString());
       } else {
+        // Named rather than folded into the generic failure below, because the two are
+        // very different events and only one of them is interesting. This costs an extra
+        // signature check, but only on a request that has already failed to authenticate.
+        if(!credentialsAllowed && user.verifySig(creds, sig))
+          throw new AuthException(
+              "user %1$s presented a password credential outside the sign-in route",
+              user.getID().toString());
+
         throw new AuthException("user %1$s failed to authenticate", user.getID().toString());
       }
 
