@@ -231,10 +231,11 @@ public final class EventReportEndpoint extends Endpoint {
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
     String authString = req.headers("Authorization");
     User user = null;
+    AuthToken token = null;
 
     try {
       // false: the HTML report is a normal authenticated resource, not a sign-in route.
-      AuthToken token = new AuthToken(authString, false);
+      token = new AuthToken(authString, false);
       String nextSession = token.process();
       user = token.getUser();
 
@@ -243,7 +244,15 @@ public final class EventReportEndpoint extends Endpoint {
       res.header(APIEndpoint.SESSION_HEADER, nextSession);
       
     } catch(AuthException e) {
-      logger.error("authorization error: {}", e.getMessage());
+      // A wrong clock is otherwise indistinguishable from a wrong password: the request
+      // just becomes anonymous and the client reports "invalid credentials", which is
+      // both false and unactionable. Saying so costs nothing -- skew is decided before
+      // any account is resolved, so this reveals nothing about who exists.
+      if(token.clockSkewed()) {
+        res.header(APIEndpoint.AUTH_HINT_HEADER, APIEndpoint.HINT_CLOCK_SKEW);
+        res.header(APIEndpoint.SERVER_TIME_HEADER, Long.toString(System.currentTimeMillis()));
+      }
+      logger.debug("authorization error: {}", e.getMessage());
     } catch(SQLException e) {
       logger.error(
           "database malfunction: {}",

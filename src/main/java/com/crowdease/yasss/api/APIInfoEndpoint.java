@@ -88,7 +88,17 @@ public final class APIInfoEndpoint extends APIEndpoint {
       // Published rather than enforced: the password never leaves the browser,
       // so the client is the only tier that can apply this. See
       // YasssCore.getPasswordMinLength.
-      .put("passwordMinLength", YasssCore.getPasswordMinLength());
+      .put("passwordMinLength", YasssCore.getPasswordMinLength())
+      // What a v2 credential must name, and how far its timestamp may sit from ours.
+      // Published rather than guessed: behind a proxy the client cannot know the
+      // deployment's public name, and a wrong audience fails every sign-in silently.
+      .put("sigAudience", YasssCore.getSigAudience())
+      .put("sigMaxSkew", YasssCore.getSigMaxSkew())
+      // So a client can tell whether it may still fall back to the replayable format.
+      .put("acceptLegacySig", YasssCore.acceptLegacySig())
+      // The clock a credential is judged against, so a client that has never been
+      // refused can still correct for its own drift before it signs.
+      .put("serverTime", System.currentTimeMillis());
 
     if(null != YasssCore.getCAPTCHAValidator())
       resBody.put("captcha", YasssCore.getCAPTCHAValidator().getSiteKey());

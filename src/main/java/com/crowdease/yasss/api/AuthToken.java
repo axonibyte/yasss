@@ -14,6 +14,7 @@ import java.util.UUID;
 import com.axonibyte.lib.auth.CryptoException;
 import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.daemon.TicketEngine;
+import com.crowdease.yasss.model.AuthNonce;
 import com.crowdease.yasss.model.User;
 
 import org.bouncycastle.util.encoders.Base64;
@@ -36,6 +37,15 @@ public class AuthToken {
 
   private final String authString;
   private final boolean credentialsAllowed;
+
+  /**
+   * Whether the last {@link #process()} refused a credential purely on its timestamp.
+   *
+   * <p>Read by {@code APIEndpoint} so the response can carry a hint and the server's
+   * clock, which is how a client with a wrong clock recovers rather than being told its
+   * password is wrong. Safe to disclose: it is decided before any account is looked up.
+   */
+  private boolean clockSkewed = false;
 
   private User user = null;
 
@@ -131,7 +141,29 @@ public class AuthToken {
         credsJSO = new JSONObject(creds);
       }
 
-      if(credsJSO.has("account")) {
+      // Parsed before the user is resolved, because a v2 credential addresses the
+      // account differently and because everything cheap and account-independent --
+      // shape, audience, freshness -- is better decided before touching the database.
+      final SigReqV2.Credential v2 =
+          SigReqV2.isV2(credsJSO) ? SigReqV2.parse(credsJSO) : null;
+
+      if(null != v2) {
+        if(!YasssCore.getSigAudience().equals(v2.audience()))
+          throw new AuthException(
+              "credential names audience %1$s, not ours", v2.audience());
+
+        // Before any lookup, so the hint is triggerable by any caller with any garbage
+        // and therefore says nothing about whether an account exists.
+        var freshness = SigReqV2.evaluate(v2, System.currentTimeMillis(), YasssCore.getSigMaxSkew());
+        if(SigReqV2.Verdict.VALID != freshness) {
+          clockSkewed = true;
+          throw new AuthException("credential is %1$s", freshness.name());
+        }
+
+        if(null != v2.email()) user = User.getUser(v2.email());
+        else user = User.getUser(UUID.fromString(v2.account()));
+
+      } else if(credsJSO.has("account")) {
         user = User.getUser(
             UUID.fromString(
                 credsJSO.getString("account")));
@@ -162,7 +194,19 @@ public class AuthToken {
         logger.warn(
             "user {} underwent de facto authentication by virtue of disabled auth requirement",
             user.getID().toString());
-      } else if(credentialsAllowed
+      } else if(credentialsAllowed && null != v2
+          && user.verifySig(
+              new String(v2.canonicalBytes(), StandardCharsets.US_ASCII), sig)
+          && user.isMFASatisfied(v2.mfa())
+          && spend(user, v2)) {
+        // A v2 credential: fresh, bound to this audience, and now spent. The signature is
+        // checked over bytes rebuilt from the values above rather than over the string as
+        // it arrived -- see SigReqV2 for why those are not the same thing.
+        logger.info(
+            "user {} successfully authenticated (new session, v2)",
+            user.getID().toString());
+
+      } else if(credentialsAllowed && null == v2 && YasssCore.acceptLegacySig()
           && user.verifySig(creds, sig)
           && (null == user.getEncMFASecret()
               || user.verifyTOTP(
@@ -274,6 +318,32 @@ public class AuthToken {
    *
    * @author Caleb L. Power <cpower@crowdease.com>
    */
+  /**
+   * Whether the failure was a clock-skew rejection rather than a bad credential.
+   *
+   * @return {@code true} if the credential's timestamp was outside the skew window
+   */
+  public boolean clockSkewed() {
+    return clockSkewed;
+  }
+
+  /**
+   * Spends the credential's nonce, refusing a replay.
+   *
+   * <p>Called last in the credential branch, after the signature and any MFA code have
+   * already been accepted, so that a nonce cannot be burned by somebody who merely
+   * observed the credential in flight. A replay therefore costs one signature
+   * verification, which is microseconds.
+   *
+   * <p>A database failure here is <em>not</em> a replay and must not be reported as one:
+   * it propagates, so a broken ledger is an error rather than a silent refusal of every
+   * sign-in.
+   */
+  private boolean spend(User user, SigReqV2.Credential credential) throws SQLException {
+    AuthNonce.reapIfDue(System.currentTimeMillis(), YasssCore.getSigMaxSkew());
+    return AuthNonce.claim(user.getID(), credential.nonceBytes(), credential.issuedAt());
+  }
+
   public static class AuthException extends Exception {
     AuthException(String format, Object... args) {
       super(String.format(format, args));

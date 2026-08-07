@@ -50,6 +50,30 @@ const nfkc = (s) => s.normalize('NFKC');
  *   `payload` goes in `Authorization: AXB-SIG-REQ <payload>`;
  *   `pubkey` is what gets registered with the server.
  */
+/**
+ * The Ed25519 seed for a password, without signing anything with it.
+ *
+ * Split out for AXB-SIG-REQ v2, which signs a fresh message per request: the scrypt is
+ * the expensive part and must happen once, while signing must happen every time. Byte-
+ * identical to what `genCreds` derives internally -- `creds.test.js` asserts that against
+ * the golden vectors, so the two cannot drift.
+ *
+ * @param {string} password
+ * @param {string} [salt] always '' in this application; see the note above
+ * @returns {Promise<Uint8Array>} the 32-byte seed
+ */
+export async function deriveKey(password, salt = '') {
+  return scrypt(
+    utf8(nfkc(password)),
+    utf8(nfkc(salt)),
+    SCRYPT_N, SCRYPT_R, SCRYPT_P, SCRYPT_DKLEN);
+}
+
+/** The public key for a derived seed, base64, as registered with the server. */
+export function publicKeyOf(privkey) {
+  return bytesToBase64(ed.getPublicKey(privkey));
+}
+
 export async function genCreds(email, password, mfa = '', salt = '') {
   const privkey = await scrypt(
     utf8(nfkc(password)),

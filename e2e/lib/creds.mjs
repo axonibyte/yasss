@@ -17,10 +17,12 @@
  * -- to test the sign-in route, or to prove it is refused elsewhere -- use
  * {@link credentialFor}.
  *
- * The derivation is real scrypt at N=16384, which costs a second or two, so both the
- * credential and the resulting ticket are memoised per account for the life of the
- * process. Re-deriving per request would multiply a driver's runtime by the number of
- * calls it makes.
+ * The derivation is real scrypt at N=16384, which costs a second or two, so the derived
+ * key and the resulting ticket are memoised per account for the life of the process. The
+ * **credential itself is not**, and must not be: since v2 it carries a timestamp and a
+ * single-use nonce, so a cached one is a replay and the server refuses it. This file
+ * previously memoised the payload and said so in its own comments -- that was correct
+ * when the signature was static and is now exactly backwards.
  *
  * `genCreds` is imported straight out of the application's own source. That is the point:
  * if the client's derivation and the server's expectation ever drift apart, these drivers
@@ -28,7 +30,8 @@
  * with itself. Node resolves its dependencies out of frontend/node_modules relative to
  * that file, so the importing driver's working directory does not matter.
  */
-import { genCreds } from '../../frontend/src/lib/crypto/creds.js';
+import { deriveKey, genCreds } from '../../frontend/src/lib/crypto/creds.js';
+import { signRequest } from '../../frontend/src/lib/crypto/sigreq2.js';
 import { makeApi } from './api.mjs';
 
 const api = makeApi();
@@ -40,15 +43,39 @@ const tickets = new Map();
 // grep, which is how it went unnoticed here for as long as it did.
 const key = (email, password) => `${email}\0${password}`;
 
+let audience = null;
+
+/** The audience a v2 credential must name, as the server publishes it. */
+async function sigAudience() {
+  if (null === audience) {
+    const info = await api('GET', '/v1');
+    audience = info.payload?.info?.sigAudience ?? info.payload?.sigAudience ?? null;
+    if (!audience) throw new Error('server published no sigAudience; cannot sign a v2 credential');
+  }
+  return audience;
+}
+
 /**
- * The raw `Authorization` credential for an account.
+ * A freshly signed `Authorization` credential for an account.
  *
- * Only `GET /v1` accepts one. Use {@link authFor} for anything else.
+ * **Minted per call, never cached.** A v2 credential carries a timestamp and a single-use
+ * nonce, so reusing one is precisely what the server now refuses — and a harness that
+ * cached it would be asserting that replay works. Only the scrypt is memoised, which is
+ * where the second-or-two goes.
+ *
+ * Only `GET /v1` accepts one of these at all. Use {@link authFor} for anything else.
  */
 export async function credentialFor(email, password) {
   const k = key(email, password);
-  if (!credentials.has(k)) credentials.set(k, genCreds(email, password).then((c) => c.payload));
-  return credentials.get(k);
+  if (!credentials.has(k)) credentials.set(k, deriveKey(password));
+  return signRequest(await credentials.get(k), { aud: await sigAudience(), email });
+}
+
+/**
+ * A credential in the original replayable format, for tests about the legacy path.
+ */
+export async function legacyCredentialFor(email, password) {
+  return (await genCreds(email, password)).payload;
 }
 
 /**

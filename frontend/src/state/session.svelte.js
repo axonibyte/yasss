@@ -12,7 +12,8 @@
 import Cookies from 'js-cookie';
 import { installAuthBridge } from '../lib/api/authBridge.js';
 import * as api from '../lib/api/index.js';
-import { genCreds } from '../lib/crypto/creds.js';
+import { deriveKey, genCreds } from '../lib/crypto/creds.js';
+import { signRequest } from '../lib/crypto/sigreq2.js';
 
 const COOKIE = 'user';
 
@@ -128,8 +129,37 @@ class Session {
    * account/session/access-level come back as response headers.
    */
   async login(email, password) {
-    const { payload } = await genCreds(email, password);
-    const res = await api.getApiInfo({ authToken: payload });
+    // An anonymous GET /v1 first, for the audience a v2 credential must name and the
+    // server's clock. The audience cannot be guessed: behind a proxy the browser has no
+    // reliable way to know the deployment's public name, and signing the wrong one fails
+    // every attempt with nothing to say why. It is one extra round trip on the slowest
+    // interaction in the app, next to a second of scrypt.
+    const info = await api.getApiInfo({ anonymous: true });
+
+    const privkey = await deriveKey(password);
+
+    // Signed against the server's clock rather than ours. A device whose clock is wrong
+    // by more than auth.sigMaxSkew would otherwise be told its password is invalid, which
+    // is both false and unactionable. Only somebody holding the private key can produce a
+    // corrected signature, so this is not a way around the freshness window.
+    const skew = typeof info.serverTime === 'number' ? info.serverTime - Date.now() : 0;
+
+    let res;
+    if (info.sigAudience) {
+      res = await api.getApiInfo({
+        authToken: signRequest(privkey, {
+          aud: info.sigAudience,
+          email,
+          now: Date.now() + skew,
+        }),
+      });
+    } else {
+      // A server too old to publish an audience. Falls back to the original format, which
+      // that server necessarily still accepts.
+      const { payload } = await genCreds(email, password);
+      res = await api.getApiInfo({ authToken: payload });
+    }
+
     const { account, session, accessLevel } = res._auth;
 
     if (!account || !session) {

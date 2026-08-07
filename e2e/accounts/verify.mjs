@@ -19,6 +19,7 @@
  * Env: YASSS_API, YASSS_MAILPIT.
  */
 import { genCreds } from '../../frontend/src/lib/crypto/creds.js';
+import { credentialFor } from '../lib/creds.mjs';
 import { makeApi } from '../lib/api.mjs';
 import { check, finish } from '../lib/check.mjs';
 import { messageBody, waitForMail as waitForMessage } from '../lib/mailpit.mjs';
@@ -40,7 +41,7 @@ console.log('self-service registration');
 
 // The key is derived by the application's own module, so it is byte-identical
 // to what a browser produces for the same password.
-const { pubkey, payload } = await genCreds(EMAIL, PASSWORD);
+const { pubkey } = await genCreds(EMAIL, PASSWORD);
 
 const created = await api('POST', '/v1/users', {
   body: { email: EMAIL, pubkey, generateMFA: false },
@@ -57,7 +58,7 @@ check(
 // Before verifying, the address is only pending, so authentication cannot even
 // resolve the account -- which is why an "unverified user sees 403s" banner
 // would have had nowhere to appear.
-const preAuth = await api('GET', '/v1', { auth: payload });
+const preAuth = await api('GET', '/v1', { auth: await credentialFor(EMAIL, PASSWORD) });
 check(!preAuth.account, 'an unverified account cannot authenticate at all');
 
 const mail = await waitForMail(EMAIL);
@@ -81,7 +82,7 @@ if (link) {
   const replay = await api('PUT', `/v1/users/${link.user}`, { body: { token: link.token } });
   check(replay.status === 403, 'the link is single-use', `got ${replay.status}`);
 
-  const postAuth = await api('GET', '/v1', { auth: payload });
+  const postAuth = await api('GET', '/v1', { auth: await credentialFor(EMAIL, PASSWORD) });
   check(!!postAuth.account, 'the account can authenticate once verified');
   check(
     postAuth.accessLevel === 'STANDARD',

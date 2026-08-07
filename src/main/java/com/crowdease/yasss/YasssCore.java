@@ -98,6 +98,9 @@ public class YasssCore {
   private static boolean authRequired = true;
   private static boolean debugEnabled = false;
   private static int passwordMinLength = 8;
+  private static long sigMaxSkew = 0L;
+  private static String sigAudience = null;
+  private static boolean acceptLegacySig = true;
   private static long sessionIdleTimeout = 0L;
   private static long sessionAbsoluteTimeout = 0L;
   private static long verifyTokenTTL = 0L;
@@ -270,6 +273,28 @@ public class YasssCore {
         logger.error("could not sweep stored MFA secrets: {}", e.getMessage());
       }
 
+      sigMaxSkew = minutesToMillis(config.getInteger(ParamEnum.AUTH_SIG_MAX_SKEW));
+      acceptLegacySig = config.getBoolean(ParamEnum.AUTH_ACCEPT_LEGACY_SIG);
+
+      // Derived from api.host when unset, which is the same source the CORS sentinel
+      // uses. A client cannot compute this for itself: behind a proxy the public name is
+      // not something the browser can infer, and a wrong audience fails every sign-in
+      // with nothing in any log to say why. So the server publishes it and the client
+      // signs what it is given.
+      sigAudience = config.getString(ParamEnum.AUTH_SIG_AUDIENCE);
+      if(null == sigAudience || sigAudience.isBlank() || "same-origin".equals(sigAudience)) {
+        try {
+          sigAudience = new java.net.URI(config.getString(ParamEnum.API_HOST)).getHost();
+        } catch(java.net.URISyntaxException e) {
+          sigAudience = null;
+        }
+        if(null == sigAudience || sigAudience.isBlank())
+          throw new MisconfigurationException(
+              "auth.sigAudience is unset and api.host is not a URL with a host, so there "
+              + "is nothing to bind credentials to. Set one of them.");
+      }
+      logger.info("credentials are bound to audience {}", sigAudience);
+
       sessionIdleTimeout = minutesToMillis(config.getInteger(ParamEnum.SESSION_IDLE_TIMEOUT));
       sessionAbsoluteTimeout =
           minutesToMillis(config.getInteger(ParamEnum.SESSION_ABSOLUTE_TIMEOUT));
@@ -352,7 +377,13 @@ public class YasssCore {
               // Set on every authenticated response and read by the client to
               // drive admin overrides, but previously not exposed -- so it
               // silently vanished cross-origin, e.g. the Vite dev server.
-              APIEndpoint.ACCESS_LEVEL_HEADER)
+              APIEndpoint.ACCESS_LEVEL_HEADER,
+              // Both are how a client with a wrong clock recovers rather than being told
+              // its password is bad. Exposed for the same reason ACCESS_LEVEL_HEADER
+              // above had to be: unexposed, they silently vanish cross-origin, and the
+              // recovery would work in production and not in the dev server.
+              APIEndpoint.AUTH_HINT_HEADER,
+              APIEndpoint.SERVER_TIME_HEADER)
           .addEndpoints(
               new APIInfoEndpoint(),
               new AddActivityEndpoint(),
@@ -673,6 +704,33 @@ public class YasssCore {
    *
    * @return {@code session.idleTimeout}, in milliseconds
    */
+  /**
+   * How far either side of now a credential's timestamp may sit.
+   *
+   * @return {@code auth.sigMaxSkew}, in milliseconds
+   */
+  public static long getSigMaxSkew() {
+    return sigMaxSkew;
+  }
+
+  /**
+   * The audience a credential must name.
+   *
+   * @return the resolved {@code auth.sigAudience}
+   */
+  public static String getSigAudience() {
+    return sigAudience;
+  }
+
+  /**
+   * Whether replayable v1 credentials are still honoured.
+   *
+   * @return {@code auth.acceptLegacySig}
+   */
+  public static boolean acceptLegacySig() {
+    return acceptLegacySig;
+  }
+
   public static long getSessionIdleTimeout() {
     return sessionIdleTimeout;
   }

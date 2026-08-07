@@ -20,6 +20,10 @@
  * covered by the live `sessions` stage. What the fake owes is the *shape*, since
  * the client round-trips this through a cookie.
  *
+ * Freshness and replay are deliberately NOT enforced here. `SigReqV2Test` owns the
+ * boundaries and the `sessions` stage owns the wiring; a fake that expired credentials
+ * would make every spec depend on the wall clock.
+ *
  * The point is that this is **per request**. What it replaces was a single
  * global `pendingLogin`, armed by a test-control endpoint and consumed
  * destructively, so under `fullyParallel: true` one worker's login could be
@@ -54,6 +58,20 @@ export function identityOf(token) {
     } catch {
       return null;
     }
+  }
+
+  // v2 addresses the account differently: the email travels base64url under `sub` so the
+  // signed message can stay ASCII, and `acct` carries a UUID. Everything else about the
+  // envelope is unchanged, which is the point of putting the version inside `creds`.
+  if (creds?.v === 2) {
+    if (typeof creds.acct === 'string' && creds.acct) return { account: creds.acct };
+    if (typeof creds.sub === 'string' && creds.sub) {
+      const padded = creds.sub.replaceAll('-', '+').replaceAll('_', '/');
+      const email = Buffer.from(
+        padded + '='.repeat((4 - (padded.length % 4)) % 4), 'base64').toString('utf8');
+      return { email };
+    }
+    return null;
   }
 
   if (typeof creds?.account === 'string') return { account: creds.account };

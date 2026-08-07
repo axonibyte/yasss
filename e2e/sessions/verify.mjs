@@ -23,7 +23,9 @@ import { writeFileSync } from 'node:fs';
 import { genCreds } from '../../frontend/src/lib/crypto/creds.js';
 import { makeApi } from '../lib/api.mjs';
 import { check, finish } from '../lib/check.mjs';
-import { adminAuth } from '../lib/creds.mjs';
+import { adminAuth, credentialFor } from '../lib/creds.mjs';
+import { deriveKey } from '../../frontend/src/lib/crypto/creds.js';
+import { signRequest } from '../../frontend/src/lib/crypto/sigreq2.js';
 import { sleep } from '../lib/check.mjs';
 import { inbox, linkParams, messageBody } from '../lib/mailpit.mjs';
 import { HANDLE } from './handle.mjs';
@@ -62,7 +64,7 @@ async function waitForLink(address, action, { not = null, timeoutMs = 20_000 } =
  */
 async function newUser(label, password) {
   const email = `${label}-${Date.now()}@example.com`;
-  const { pubkey, payload } = await genCreds(email, password);
+  const { pubkey } = await genCreds(email, password);
 
   const created = await api('POST', '/v1/users', {
     body: { email, pubkey, generateMFA: false },
@@ -75,7 +77,26 @@ async function newUser(label, password) {
   const verified = await api('PUT', `/v1/users/${link.user}`, { body: { token: link.token } });
   if (verified.status !== 200) throw new Error(`could not verify ${label}: ${verified.status}`);
 
-  return { email, password, id: created.payload?.user?.id, payload };
+  // A function, not a value. A v2 credential is single-use, so handing back one blob to
+  // be reused would make every second sign-in a replay -- which is exactly what the
+  // server now refuses.
+  return {
+    email,
+    password,
+    id: created.payload?.user?.id,
+    credential: () => credentialFor(email, password),
+  };
+}
+
+/** A correctly signed credential stamped well outside the skew window. */
+async function staleCredential(email, password) {
+  const privkey = await deriveKey(password);
+  const info = await api('GET', '/v1');
+  return signRequest(privkey, {
+    aud: info.payload?.info?.sigAudience ?? info.payload?.sigAudience,
+    email,
+    now: Date.now() - 60 * 60 * 1000,
+  });
 }
 
 const PASSWORD = 'a-perfectly-ordinary-password';
@@ -86,7 +107,7 @@ const alice = await newUser('alice', PASSWORD);
 
 // --- a ticket is a credential in its own right -------------------------------
 
-const first = await api('GET', '/v1', { auth: alice.payload });
+const first = await api('GET', '/v1', { auth: await alice.credential() });
 check(!!first.session, 'authenticating issues a session ticket');
 
 const bySession = await api('GET', '/v1', { session: first.session });
@@ -103,8 +124,11 @@ check(
 // --- signing out everywhere --------------------------------------------------
 
 // Two independent sign-ins: two devices, in the sense that matters here.
-const deviceA = (await api('GET', '/v1', { auth: alice.payload })).session;
-const deviceB = (await api('GET', '/v1', { auth: alice.payload })).session;
+// Two separate sign-ins, each with its own credential. This used to present one blob
+// twice, which was fine when a credential was static and is now precisely a replay --
+// the check would have started asserting that replay works.
+const deviceA = (await api('GET', '/v1', { auth: await alice.credential() })).session;
+const deviceB = (await api('GET', '/v1', { auth: await alice.credential() })).session;
 check(!!deviceA && !!deviceB && deviceA !== deviceB, 'two sign-ins yield two tickets');
 
 const revoked = await api('DELETE', `/v1/users/${alice.id}/sessions`, { session: deviceA });
@@ -132,14 +156,14 @@ const bob = await newUser('bob', PASSWORD);
 // Bob signs in and acts with the resulting ticket. Presenting his credential directly
 // would now be refused for a different reason than the one under test, and the check
 // would pass while proving nothing about authorisation.
-const bobTicket = (await api('GET', '/v1', { auth: bob.payload })).session;
+const bobTicket = (await api('GET', '/v1', { auth: await bob.credential() })).session;
 const meddling = await api('DELETE', `/v1/users/${alice.id}/sessions`, { session: bobTicket });
 check(meddling.status === 403, "a stranger cannot revoke another account's sessions",
   `got ${meddling.status}`);
 
 // --- a credential reset ends every session -----------------------------------
 
-const living = (await api('GET', '/v1', { auth: alice.payload })).session;
+const living = (await api('GET', '/v1', { auth: await alice.credential() })).session;
 check(!!living, 'alice has a live session before the reset');
 
 const requested = await api('POST', `/v1/users/${alice.id}`, {});
@@ -175,7 +199,9 @@ check(
     + 'leaves whoever compromised it signed in',
 );
 
-const withNew = await api('GET', '/v1', { auth: fresh.payload });
+const withNew = await api('GET', '/v1', {
+  auth: await credentialFor(alice.email, NEW_PASSWORD),
+});
 check(withNew.account === alice.id, 'and the new credential signs in', `got ${withNew.account}`);
 
 // --- a credential is only good for signing in --------------------------------
@@ -186,19 +212,48 @@ check(withNew.account === alice.id, 'and the new credential signs in', `got ${wi
 // account with no MFA the signed message never changes, so capturing it once is enough.
 // Confining it to the sign-in route does not fix that, but it does mean a captured header
 // buys a session ticket rather than unrestricted access for the life of the password.
-const credentialElsewhere = await api('GET', `/v1/users/${bob.id}`, { auth: bob.payload });
+const credentialElsewhere = await api('GET', `/v1/users/${bob.id}`, { auth: await bob.credential() });
 check(!credentialElsewhere.account, 'a password credential is refused outside sign-in',
   `got account ${credentialElsewhere.account}`);
 
-const credentialAtSignIn = await api('GET', '/v1', { auth: bob.payload });
+const credentialAtSignIn = await api('GET', '/v1', { auth: await bob.credential() });
 check(credentialAtSignIn.account === bob.id, 'while sign-in still accepts one',
   `got ${credentialAtSignIn.account}`);
+
+// --- a credential is single-use and expires ----------------------------------
+
+// What v2 buys over the sign-in-route restriction alone. A captured credential is now
+// good for one use inside a five-minute window, rather than forever.
+const once = await bob.credential();
+const firstUse = await api('GET', '/v1', { auth: once });
+check(firstUse.account === bob.id, 'a fresh credential signs in', `got ${firstUse.account}`);
+
+const replayed = await api('GET', '/v1', { auth: once });
+check(!replayed.account, 'and the same credential cannot be presented twice');
+
+// The claim happens only after the signature verifies, so a refused replay must not have
+// spent anything the legitimate holder still needs. Without this, an attacker who
+// observed a credential in flight could burn its nonce before the real request landed.
+const afterReplay = await api('GET', '/v1', { auth: await bob.credential() });
+check(afterReplay.account === bob.id, 'and the account is not poisoned by the replay',
+  `got ${afterReplay.account}`);
+
+// A credential dated outside the window, signed correctly. Refused on its timestamp
+// alone, which is decided before any account is looked up -- hence the hint being safe to
+// return, and hence a client with a wrong clock getting something actionable instead of
+// "invalid credentials".
+const stale = await staleCredential(bob.email, bob.password);
+const staleRes = await api('GET', '/v1', { auth: stale });
+check(!staleRes.account, 'a credential outside the skew window is refused');
+check(staleRes.authHint === 'CLOCK_SKEW', 'and says so, so a wrong clock is diagnosable',
+  `got ${staleRes.authHint}`);
+check(!!staleRes.serverTime, 'and hands back the server clock to correct against');
 
 // --- the platform-wide lever -------------------------------------------------
 
 const admin = await adminAuth();
 
-const bobSession = (await api('GET', '/v1', { auth: bob.payload })).session;
+const bobSession = (await api('GET', '/v1', { auth: await bob.credential() })).session;
 
 const notAdmin = await api('DELETE', '/v1/sessions', { session: bobSession });
 check(notAdmin.status === 403, 'a standard user cannot revoke the platform',
@@ -222,7 +277,9 @@ check(
 
 // Captured last, after the platform revoke, so the ticket under test was signed
 // by a signer minted after the wipe. Anything earlier would prove nothing.
-const surviving = (await api('GET', '/v1', { auth: fresh.payload })).session;
+const surviving = (await api('GET', '/v1', {
+  auth: await credentialFor(alice.email, NEW_PASSWORD),
+})).session;
 check(!!surviving, 'a ticket is available to carry across the restart');
 
 const pending = await api('POST', `/v1/users/${alice.id}`, {});

@@ -233,6 +233,64 @@ public enum ParamEnum {
   TEXTS_PRIVACY_POLICY(new Param("texts.privacyPolicy")),
   
   /**
+   * How far either side of the server's clock a v2 credential's timestamp may sit, in
+   * minutes. Default: five.
+   *
+   * <p>This is the window in which a captured credential remains usable, so shorter is
+   * safer -- and it is also the tolerance for a device whose clock is wrong, so shorter
+   * is more support tickets. Five minutes is short enough that a header lifted from a
+   * proxy log is stale before anyone reads it, and long enough to absorb a phone that has
+   * not seen NTP in a fortnight. A client that is refused gets
+   * {@code AXB-AUTH-HINT: CLOCK_SKEW} and the server's time, and can re-sign with the
+   * offset applied -- which only somebody holding the private key can do, so it is not a
+   * way around the window.
+   *
+   * <p>Symmetric on purpose. An asymmetric window buys little, because the replay ledger
+   * has to retain a nonce for the whole future half regardless.
+   */
+  AUTH_SIG_MAX_SKEW(new Param("auth.sigMaxSkew", 5)),
+
+  /**
+   * The audience a v2 credential must name. Default: derived from {@code api.host}.
+   *
+   * <p>Domain separation. Without it a signature minted for one AXB service verifies at
+   * any other service that knows the same public key -- and since the keypair is derived
+   * from the password alone, a user with an account at two of them has the same key at
+   * both.
+   *
+   * <p>The default is the sentinel {@code same-origin}, resolved to the host of
+   * {@code api.host} -- the same idiom {@code api.allowedOrigins} uses, and for the same
+   * reason: the value is almost always derivable, but has to be overridable for a
+   * deployment fronted by something else.
+   *
+   * <p>Published by {@code GET /v1} rather than guessed by the client, because a
+   * deployment behind a proxy has no reliable way to know its own public name, and a
+   * client that guesses wrong fails every sign-in with nothing to say why.
+   */
+  AUTH_SIG_AUDIENCE(new Param("auth.sigAudience", "same-origin")),
+
+  /**
+   * Whether credentials in the original, replayable format are still accepted.
+   * Default: true.
+   *
+   * <p>A v1 credential is a signature over {@code {email, mfa}}, which for an account
+   * without MFA never changes -- so it is a bearer token that cannot expire and that
+   * {@code session_epoch} deliberately cannot revoke. v2 adds a timestamp and a
+   * single-use nonce.
+   *
+   * <p>Turning this off costs nothing to any account, because the client controls the
+   * format and any client that can reach the server can emit v2. The only population it
+   * affects is a stale cached bundle in a tab left open across the deploy, which recovers
+   * on reload. Holding it on for a month -- matching {@code session.absoluteTimeout} --
+   * means no session predating the rollout survives to care.
+   *
+   * <p>It gates the <em>credential</em> path only. Session tickets carry no version
+   * either, and gating them would invalidate every ticket in circulation the moment this
+   * is flipped.
+   */
+  AUTH_ACCEPT_LEGACY_SIG(new Param("auth.acceptLegacySig", true)),
+
+  /**
    * How long a session may go untouched before it must be re-established, in
    * minutes. Default: seven days.
    *

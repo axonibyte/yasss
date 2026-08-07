@@ -442,7 +442,7 @@ log "verifying the schema actually applied"
 tables="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
   -N -B -e "SHOW TABLES;" 2>/dev/null | tr '\n' ' ')"
 echo "  tables: ${tables}"
-for t in yasss_user yasss_event yasss_activity yasss_event_window yasss_slot yasss_volunteer; do
+for t in yasss_user yasss_event yasss_activity yasss_event_window yasss_slot yasss_volunteer yasss_auth_nonce; do
   [[ "${tables}" == *"${t}"* ]] || die "expected table ${t} is missing"
 done
 

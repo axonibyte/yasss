@@ -27,3 +27,29 @@ export function base64ToBytes(b64) {
 /** UTF-8 encode, matching `Buffer.from(str)` in the legacy bundle. */
 export const utf8 = (str) => new TextEncoder().encode(str);
 
+
+/**
+ * base64url, unpadded -- the alphabet AXB-SIG-REQ v2 uses for every binary field.
+ *
+ * Built on the standard pair above rather than as a second implementation. What it
+ * encodes is a credential id and an email address, so a mismatched alphabet would corrupt
+ * roughly one value in sixty-four -- often enough to be a real bug, rarely enough that
+ * nobody can reproduce it.
+ *
+ * @param {Uint8Array} bytes
+ */
+export function bytesToBase64Url(bytes) {
+  return bytesToBase64(bytes).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+/** @param {string} b64u */
+export function base64UrlToBytes(b64u) {
+  const padded = b64u.replaceAll('-', '+').replaceAll('_', '/');
+  // atob wants a length that is a multiple of four; base64url drops the padding.
+  return base64ToBytes(padded + '='.repeat((4 - (padded.length % 4)) % 4));
+}
+
+/** Cryptographically random bytes, for a nonce that must not repeat. */
+export function randomBytes(n) {
+  return crypto.getRandomValues(new Uint8Array(n));
+}

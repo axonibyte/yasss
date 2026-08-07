@@ -50,6 +50,10 @@ export function makeApi(base = process.env.YASSS_API ?? 'http://127.0.0.1:7455')
       // anonymous ones, which is what makes it the signal for "this credential
       // was accepted".
       session: res.headers.get('axb-session'),
+      // Why a credential was refused, when saying so gives nothing away, and the clock it
+      // was judged against. Only ever set for a skew rejection.
+      authHint: res.headers.get('axb-auth-hint'),
+      serverTime: res.headers.get('axb-server-time'),
     };
   };
 }

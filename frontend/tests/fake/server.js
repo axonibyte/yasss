@@ -163,7 +163,18 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
   // --- meta ---------------------------------------------------------------
 
   app.get('/v1', (c) => {
-    const payload = { uptime: 1, version: 1, debug: false };
+    // sigAudience and serverTime are what the client signs a v2 credential against; it
+    // fetches them anonymously before signing, so their absence would send it down the
+    // legacy path and quietly stop exercising v2 at all.
+    const payload = {
+      uptime: 1,
+      version: 1,
+      debug: false,
+      sigAudience: 'fake.yasss.test',
+      sigMaxSkew: 300000,
+      acceptLegacySig: true,
+      serverTime: Date.now(),
+    };
     // Present only when CAPTCHAs are enabled; the client uses its absence as
     // the "no challenge needed" switch.
     if (captchaSiteKey) payload.captcha = captchaSiteKey;

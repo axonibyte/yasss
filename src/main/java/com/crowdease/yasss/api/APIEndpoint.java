@@ -41,6 +41,28 @@ import spark.Response;
 public abstract class APIEndpoint extends JSONEndpoint {
 
   public static final String ACCESS_LEVEL_HEADER = "AXB-ACCESS-LEVEL";
+
+  /**
+   * Why a credential was refused, when saying so gives nothing away.
+   *
+   * <p>Only ever set for a clock-skew rejection, which is decided before any account is
+   * looked up -- so any caller can trigger it with any garbage and it reveals nothing
+   * about whether an account exists. A replay is deliberately <em>not</em> hinted at: that
+   * is only reachable after a signature has already verified, so naming it would confirm
+   * to whoever captured the header that it was genuine.
+   */
+  public static final String AUTH_HINT_HEADER = "AXB-AUTH-HINT";
+
+  /**
+   * The server's clock, in epoch milliseconds, so a client can correct for its own.
+   *
+   * <p>Not the standard {@code Date} header, which is not CORS-safelisted and so cannot
+   * be read by a cross-origin client -- which is exactly the case that needs it.
+   */
+  public static final String SERVER_TIME_HEADER = "AXB-SERVER-TIME";
+
+  /** The value of {@link #AUTH_HINT_HEADER} when a credential is outside the skew window. */
+  public static final String HINT_CLOCK_SKEW = "CLOCK_SKEW";
   public static final String ACCOUNT_HEADER = "AXB-ACCOUNT";
   public static final String SESSION_HEADER = "AXB-SESSION";
   
@@ -79,9 +101,10 @@ public abstract class APIEndpoint extends JSONEndpoint {
   @Override public AuthStatus authenticate(Request req, Response res) throws EndpointException {
     String authString = req.headers("Authorization");
     User user = null;
+    AuthToken token = null;
 
     try {
-      AuthToken token = new AuthToken(authString, acceptsCredentials());
+      token = new AuthToken(authString, acceptsCredentials());
       String nextSession = token.process();
       user = token.getUser();
 
@@ -90,7 +113,15 @@ public abstract class APIEndpoint extends JSONEndpoint {
       res.header(SESSION_HEADER, nextSession);
       
     } catch(AuthException e) {
-      logger.error("authorization error: {}", e.getMessage());
+      // A wrong clock is otherwise indistinguishable from a wrong password: the request
+      // just becomes anonymous and the client reports "invalid credentials", which is
+      // both false and unactionable. Saying so costs nothing -- skew is decided before
+      // any account is resolved, so this reveals nothing about who exists.
+      if(token.clockSkewed()) {
+        res.header(AUTH_HINT_HEADER, HINT_CLOCK_SKEW);
+        res.header(SERVER_TIME_HEADER, Long.toString(System.currentTimeMillis()));
+      }
+      logger.debug("authorization error: {}", e.getMessage());
     } catch(SQLException e) {
       logger.error(
           "database malfunction: {}",
