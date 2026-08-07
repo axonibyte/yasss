@@ -24,6 +24,15 @@ targetCompatibility = prjCompat
 
 dependencies {
   implementation 'com.stripe:stripe-java:28.0.1'
+  // WebAuthn, confined to PasskeyVerifier so the swap is one file if it ever needs to be.
+  // Chosen over Yubico's java-webauthn-server for two reasons that outweigh the size
+  // difference: Yubico's published metadata declares its runtime dependencies without
+  // versions, deferring to a parent that pins them as open ranges, so two builds of one
+  // commit can ship different Jackson -- which this project already treats as a defect,
+  // see npmInstallCommand below. And it requires implementing a CredentialRepository that
+  // it calls into from inside the ceremony, which fights a model layer of static finders.
+  // webauthn4j's verify() is a pure function of what it is handed, like SessionTicket.
+  implementation 'com.webauthn4j:webauthn4j-core:0.31.9.RELEASE'
   implementation 'org.bitbucket.axonibyte:axb-lib-auth-java:0.2.0'
   implementation 'org.bitbucket.axonibyte:axb-lib-cfg-java:0.0.2'
   implementation 'org.bitbucket.axonibyte:axb-lib-db-java:0.5.1'

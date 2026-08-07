@@ -438,6 +438,21 @@ fi
 
 # Nothing below should see a 500 from a healthy server; a crash here is a real
 # finding rather than a flaky environment.
+# A relying party that cannot be resolved disables passkeys with an error and lets
+# everything else carry on -- which is the right behaviour and exactly the kind of thing
+# that goes unnoticed. api.host must be a hostname, not the shipped IP literal, or no
+# browser will perform a ceremony; nothing else in this suite can catch that, because
+# Playwright's virtual authenticator does not enforce the rule.
+# Counted into a variable rather than `grep -q`: under `set -Eeuo pipefail` a matching
+# grep exits first, the producer takes SIGPIPE, and pipefail reports the producer's
+# failure -- so a match reads as no match. Three checks in this file were written that
+# way and could never fail; do not make it four.
+rp_broken="$(pm logs "${APP_CTR}" 2>&1 | grep -c "passkeys are unavailable" || true)"
+if [[ "${rp_broken}" -gt 0 ]]; then
+  { pm logs "${APP_CTR}" 2>&1 | grep "passkeys are unavailable" | head -3 >&2; } || true
+  die "the relying party did not resolve, so passkeys are silently off"
+fi
+
 log "verifying the schema actually applied"
 tables="$(pm exec "${DB_CTR}" mariadb -u"${DB_USER}" -p"${DB_PW}" "${DB_NAME}" \
   -N -B -e "SHOW TABLES;" 2>/dev/null | tr '\n' ' ')"

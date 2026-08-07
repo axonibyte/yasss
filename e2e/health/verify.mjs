@@ -49,4 +49,27 @@ check(
   `version=${JSON.stringify(res.payload?.version)} build=${JSON.stringify(res.payload?.build)}`,
 );
 
+// A relying party that cannot be resolved disables passkeys with an error and lets
+// everything else carry on -- correct behaviour, and exactly the kind of thing that goes
+// unnoticed. Asserted positively rather than by grepping the boot log for the absence of
+// an error, which would also hold if the server had never started.
+//
+// Nothing else in this suite can catch it: an RP ID may not be an IP address, the shipped
+// api.host is one, and Playwright's virtual authenticator does not enforce the rule -- so
+// the browser tier would pass green against a configuration no real browser accepts.
+check(
+  res.payload?.passkeys === true,
+  'the relying party resolved, so passkeys are actually available',
+  `got ${JSON.stringify(res.payload?.passkeys)} -- api.host must be a hostname, not an IP `
+    + 'literal; see RelyingPartyConfig',
+);
+
+// The audience a v2 credential must name. Published for the client to sign against, and
+// pinned here because a client that cannot read it falls back to the replayable format.
+check(
+  typeof res.payload?.sigAudience === 'string' && res.payload.sigAudience.length > 0,
+  'and the credential audience is published',
+  `got ${JSON.stringify(res.payload?.sigAudience)}`,
+);
+
 finish('readiness');

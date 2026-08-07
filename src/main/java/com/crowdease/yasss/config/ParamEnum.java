@@ -93,6 +93,57 @@ public enum ParamEnum {
   AUTH_PASSWORD_MIN_LENGTH(new Param("auth.password.minLength", 8)),
   
   /**
+   * Whether passkey (WebAuthn) authentication is offered at all. Default: true.
+   *
+   * <p>Also switched off automatically, with an error naming the reason, when the relying
+   * party cannot be resolved -- see {@code passkey.rpID}. Publishing the capability from
+   * {@code GET /v1} means the client can hide a button that could not have worked, rather
+   * than showing one that fails inside the browser where nothing logs it.
+   */
+  PASSKEY_ENABLED(new Param("passkey.enabled", true)),
+
+  /**
+   * The WebAuthn relying party identifier. Default: the host of {@code api.host}.
+   *
+   * <p><b>A credential is bound to this for life.</b> There is no migration: change it and
+   * every enrolled passkey silently stops working. Treat it as permanent.
+   *
+   * <p>It must be a bare, registrable hostname. It may <em>not</em> be an IP address --
+   * and the shipped {@code api.host} is one, so a deployment taking the defaults has to
+   * set this or point {@code api.host} at a name. That is validated at boot rather than
+   * discovered later, because a browser refuses the ceremony client-side and no server
+   * log would ever mention it.
+   */
+  PASSKEY_RP_ID(new Param("passkey.rpID", "same-origin")),
+
+  /**
+   * The human-readable name shown in the authenticator's prompt.
+   */
+  PASSKEY_RP_NAME(new Param("passkey.rpName", "Yasss!")),
+
+  /**
+   * Comma-separated origins at which a ceremony may be performed.
+   * Default: {@code api.host}.
+   *
+   * <p>Deliberately <em>not</em> {@code api.allowedOrigins}, which governs which sites may
+   * read a response. This governs which origin a ceremony was performed at, and a wildcard
+   * here would accept one performed at any site that could reach a browser holding the
+   * user's passkey -- precisely the attack WebAuthn's origin binding prevents. A
+   * {@code *} is discarded rather than honoured.
+   *
+   * <p>Local development needs two, because the Vite dev server and the API are different
+   * origins. The RP ID covers both, since ports do not enter into it; the origin check is
+   * exact.
+   */
+  PASSKEY_ORIGINS(new Param("passkey.origins", "same-origin")),
+
+  /**
+   * How long a registration or authentication challenge stays good, in minutes.
+   * Default: five.
+   */
+  PASSKEY_CHALLENGE_TTL(new Param("passkey.challengeTTL", 5)),
+
+  /**
    * Path to the configuration file.
    */
   CONFIG_FILE(new Param("config.file", null)),

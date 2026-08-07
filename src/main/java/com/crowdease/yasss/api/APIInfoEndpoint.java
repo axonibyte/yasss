@@ -98,7 +98,11 @@ public final class APIInfoEndpoint extends APIEndpoint {
       .put("acceptLegacySig", YasssCore.acceptLegacySig())
       // The clock a credential is judged against, so a client that has never been
       // refused can still correct for its own drift before it signs.
-      .put("serverTime", System.currentTimeMillis());
+      .put("serverTime", System.currentTimeMillis())
+      // So the client can hide a sign-in button that could not have worked. A relying
+      // party that cannot be resolved -- an IP address for api.host, most likely -- makes
+      // every ceremony fail inside the browser, where nothing server-side sees it.
+      .put("passkeys", null != YasssCore.getRelyingParty());
 
     if(null != YasssCore.getCAPTCHAValidator())
       resBody.put("captcha", YasssCore.getCAPTCHAValidator().getSiteKey());

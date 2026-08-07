@@ -72,6 +72,7 @@ import com.crowdease.yasss.daemon.TicketEngine;
 import com.crowdease.yasss.model.CAPTCHAValidator;
 import com.crowdease.yasss.model.CredentialMigrator;
 import com.crowdease.yasss.model.Mail;
+import com.crowdease.yasss.model.RelyingPartyConfig;
 import com.crowdease.yasss.model.TicketSigner;
 
 import org.slf4j.Logger;
@@ -98,6 +99,9 @@ public class YasssCore {
   private static boolean authRequired = true;
   private static boolean debugEnabled = false;
   private static int passwordMinLength = 8;
+  private static RelyingPartyConfig.Resolved relyingParty = null;
+  private static String relyingPartyName = "Yasss!";
+  private static long passkeyChallengeTTL = 0L;
   private static long sigMaxSkew = 0L;
   private static String sigAudience = null;
   private static boolean acceptLegacySig = true;
@@ -294,6 +298,36 @@ public class YasssCore {
               + "is nothing to bind credentials to. Set one of them.");
       }
       logger.info("credentials are bound to audience {}", sigAudience);
+
+      // Resolved once, at boot, and logged either way. A relying party is permanent --
+      // a credential is bound to it for life and there is no migration -- so an operator
+      // debugging a passkey that stopped working needs to be able to see what it was.
+      relyingPartyName = config.getString(ParamEnum.PASSKEY_RP_NAME);
+      passkeyChallengeTTL = minutesToMillis(config.getInteger(ParamEnum.PASSKEY_CHALLENGE_TTL));
+      relyingParty = RelyingPartyConfig.resolve(
+          config.getString(ParamEnum.PASSKEY_RP_ID),
+          config.getString(ParamEnum.API_HOST),
+          config.getString(ParamEnum.PASSKEY_ORIGINS));
+
+      if(!config.getBoolean(ParamEnum.PASSKEY_ENABLED)) {
+        relyingParty = null;
+        logger.info("passkeys are disabled by configuration");
+      } else if(!relyingParty.usable()) {
+        // Not fatal: everything else about the deployment works, and refusing to boot over
+        // an optional credential type would be worse than the problem. But it is an error
+        // rather than a warning, because the alternative is a sign-in button that fails
+        // inside the browser with nothing server-side to say why.
+        logger.error(
+            "passkeys are unavailable: {}. Set passkey.rpID, or point api.host at a "
+            + "hostname. Until then the client will not offer them.",
+            relyingParty.refusal().detail());
+        relyingParty = null;
+      } else {
+        logger.info(
+            "passkeys are bound to relying party {} and origin(s) {}",
+            relyingParty.rpID(),
+            relyingParty.origins());
+      }
 
       sessionIdleTimeout = minutesToMillis(config.getInteger(ParamEnum.SESSION_IDLE_TIMEOUT));
       sessionAbsoluteTimeout =
@@ -709,6 +743,37 @@ public class YasssCore {
    *
    * @return {@code auth.sigMaxSkew}, in milliseconds
    */
+  /**
+   * The resolved relying party, or {@code null} when passkeys are unavailable.
+   *
+   * <p>A {@code null} here is the single switch: it covers disabled-by-configuration and
+   * cannot-be-resolved alike, because from every caller's point of view those are the same
+   * thing.
+   *
+   * @return the relying party, or {@code null}
+   */
+  public static RelyingPartyConfig.Resolved getRelyingParty() {
+    return relyingParty;
+  }
+
+  /**
+   * The name an authenticator shows in its prompt.
+   *
+   * @return {@code passkey.rpName}
+   */
+  public static String getRelyingPartyName() {
+    return relyingPartyName;
+  }
+
+  /**
+   * How long a ceremony challenge stays good.
+   *
+   * @return {@code passkey.challengeTTL}, in milliseconds
+   */
+  public static long getPasskeyChallengeTTL() {
+    return passkeyChallengeTTL;
+  }
+
   public static long getSigMaxSkew() {
     return sigMaxSkew;
   }
