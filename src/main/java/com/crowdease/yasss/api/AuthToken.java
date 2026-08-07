@@ -8,6 +8,7 @@
 package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import com.axonibyte.lib.auth.CryptoException;
@@ -61,9 +62,15 @@ public class AuthToken {
       throw new AuthException("malformed Authorization header");
 
     try {
+      // UTF-8 explicitly. This decodes attacker-supplied bytes into the string that
+      // verifySig is ultimately called on, so the platform default would mean a caller
+      // whose email contains a non-ASCII character authenticates on a UTF-8 host and not
+      // on any other. Pinning the library's charset alone does not fix that -- the JSON
+      // is already mangled by the time it gets there.
       JSONObject payload = new JSONObject(
           new String(
-              Base64.decode(header[1])));
+              Base64.decode(header[1]),
+              StandardCharsets.UTF_8));
 
       // The decoded payload carries the caller's credentials and signature;
       // it must never be logged.
@@ -89,7 +96,8 @@ public class AuthToken {
       try {
         credsJSO = new JSONObject(
             new String(
-                Base64.decode(creds)));
+                Base64.decode(creds),
+                StandardCharsets.UTF_8));
       } catch(DecoderException e) {
         credsJSO = new JSONObject(creds);
       }
@@ -193,7 +201,10 @@ public class AuthToken {
     String sessionCreds = Base64.toBase64String(
         SessionTicket.issue(account, sessionStart, now)
             .toString()
-            .getBytes());
+            // Only ever UUIDs and longs, so ASCII in practice -- but a ticket this
+            // process encodes is decoded by the block above, and having the two ends
+            // disagree about the charset is precisely the bug being closed.
+            .getBytes(StandardCharsets.UTF_8));
 
     TicketEngine.Signature signature;
     try {
@@ -208,7 +219,7 @@ public class AuthToken {
             .put("sig", signature.value())
             .put("kid", signature.signerID().toString())
             .toString()
-            .getBytes());
+            .getBytes(StandardCharsets.UTF_8));
   }
 
   /**

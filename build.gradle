@@ -24,7 +24,7 @@ targetCompatibility = prjCompat
 
 dependencies {
   implementation 'com.stripe:stripe-java:28.0.1'
-  implementation 'org.bitbucket.axonibyte:axb-lib-auth-java:0.0.2'
+  implementation 'org.bitbucket.axonibyte:axb-lib-auth-java:0.2.0'
   implementation 'org.bitbucket.axonibyte:axb-lib-cfg-java:0.0.2'
   implementation 'org.bitbucket.axonibyte:axb-lib-db-java:0.5.1'
   implementation 'org.bitbucket.axonibyte:axb-lib-http-java:0.3.1'
@@ -90,7 +90,30 @@ test {
 
 // `gradle check` runs both tiers. Playwright is deliberately excluded — it is
 // its own CI step so `gradle build` stays fast.
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.withType(Javadoc).configureEach { options.encoding = 'UTF-8' }
+tasks.withType(Test).configureEach { systemProperty 'file.encoding', 'UTF-8' }
+
+// Re-runs the credential interop vectors under a default charset that is not UTF-8.
+// One of those vectors signs {"email":"jos\u00e9@example.com","mfa":""} as raw JSON, so
+// it exercises AuthToken's decode and Credentialed.verifySig on a non-ASCII string --
+// the path that silently rejected such an account on a non-UTF-8 host. Under a UTF-8
+// default it passes whether or not the charsets are pinned, so the ordinary run cannot
+// fail for the right reason.
+//
+// A filter rather than a suite file, because `test` here uses no suite XML.
+tasks.register('charsetTest', Test) {
+  description = 'Re-runs the credential interop vectors under a non-UTF-8 default charset.'
+  group = 'verification'
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  useTestNG()
+  filter { includeTestsMatching 'com.crowdease.yasss.api.CredentialInteropTest' }
+  jvmArgs '-Dfile.encoding=US-ASCII', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'
+}
+
 check.dependsOn testFrontend
+check.dependsOn charsetTest
 
 eclipse {
   classpath {

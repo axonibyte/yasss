@@ -271,11 +271,20 @@ public enum ParamEnum {
   /**
    * The global secret for the ticket engine and, ultimately, all users.
    *
-   * <p>Load-bearing beyond its name. Without it {@code Credentialed}'s crypto
-   * helper is the identity function, so the ticket engine refuses to persist its
-   * signing keys rather than write them to the database in the clear -- which
-   * means every restart signs out every user. The shipped placeholder counts as
-   * unset; see {@code TicketSigner.persistenceAllowed}.
+   * <p><b>Mandatory.</b> {@code YasssCore} refuses to start without it, and that is
+   * deliberate: since {@code axb-lib-auth-java} 0.1.0 the crypto helper fails closed
+   * rather than passing credential material through unencrypted, so a server without a
+   * secret cannot mint a signing key. It would boot, report {@code ok} on {@code GET /v1},
+   * pass its health check, and fail every authenticated request -- which is a far worse
+   * thing to debug than a refusal that names this parameter.
+   *
+   * <p>It was optional before that, and the old note here said the helper was "the
+   * identity function" without one. That is no longer true, and the consequence is no
+   * longer "signing keys stay in memory": there are no signing keys at all.
+   *
+   * <p>The shipped placeholder still counts as unset for the narrower question of whether
+   * signers may be written to disk -- it is a real key, but one published in the source
+   * tree. See {@code TicketSigner.persistenceAllowed}.
    */
   TICKET_GLOBAL_SECRET(new Param("ticket.globalSecret", null)),
 

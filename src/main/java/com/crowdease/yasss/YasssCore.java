@@ -70,6 +70,7 @@ import com.crowdease.yasss.daemon.StripeDriver;
 import com.crowdease.yasss.daemon.ReminderEngine;
 import com.crowdease.yasss.daemon.TicketEngine;
 import com.crowdease.yasss.model.CAPTCHAValidator;
+import com.crowdease.yasss.model.CredentialMigrator;
 import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.TicketSigner;
 
@@ -219,11 +220,55 @@ public class YasssCore {
       database.setup(YasssCore.class, "db");
 
       String globalSecret = config.getString(ParamEnum.TICKET_GLOBAL_SECRET);
+
+      // Refusing to start is the least bad outcome, and it is a change in behaviour for
+      // any deployment that never set this.
+      //
+      // Since axb-lib-auth-java 0.1.0, Credentialed refuses to encrypt credential
+      // material without a secret rather than silently returning it unencrypted. That
+      // makes TicketEngine.rotate's regenerateKeypair() throw; rotate catches and returns;
+      // start() leaves the signer deque empty; sign() then throws "signer queue has not
+      // yet been populated" on every request that needs a ticket. The process starts
+      // cleanly, GET /v1 reports ok, the health check passes -- and nobody can
+      // authenticate. That is far worse to diagnose than a startup error naming the
+      // parameter, so fail here instead.
+      if(null == globalSecret || globalSecret.isBlank())
+        throw new MisconfigurationException(
+            "ticket.globalSecret is not set. It is required: without it the ticket engine "
+            + "cannot generate a signing key, so the server would start, report healthy, "
+            + "and fail every authenticated request. See docs/upstream-axb-lib-auth.md.");
+
       Credentialed.setGlobalSecret(globalSecret);
       // Decided once, here, rather than each time a signer is written: whether
       // signing keys may go to disk at all is a property of the deployment, and
       // the answer must not vary between one call and the next.
       boolean persistSigners = TicketSigner.persistenceAllowed(globalSecret);
+
+      // Legacy fixed-IV MFA secrets get rewritten in the current format here, while the
+      // database and the secret are both available and nothing is listening yet. The
+      // library reads the old format transparently, so this is not required for
+      // correctness -- but reading is not migrating, and without it the accounts that
+      // keep fixed-IV ciphertext forever are the ones that never change a credential.
+      //
+      // Idempotent and non-fatal, in the shape of Event.backfillCodes below: after the
+      // first boot it finds nothing and says nothing.
+      try {
+        var swept = CredentialMigrator.sweepMFASecrets();
+        if(0 < swept.migrated())
+          logger.info("re-encrypted {} MFA secret(s) in the current format", swept.migrated());
+        if(0 < swept.adopted())
+          logger.warn(
+              "encrypted {} previously-unencrypted MFA secret(s); they were stored in the "
+              + "clear by a deployment running without a ticket.globalSecret",
+              swept.adopted());
+        if(0 < swept.failed())
+          logger.warn(
+              "{} MFA secret(s) could not be read and were left untouched; those accounts "
+              + "must re-enrol -- see docs/upstream-axb-lib-auth.md",
+              swept.failed());
+      } catch(SQLException e) {
+        logger.error("could not sweep stored MFA secrets: {}", e.getMessage());
+      }
 
       sessionIdleTimeout = minutesToMillis(config.getInteger(ParamEnum.SESSION_IDLE_TIMEOUT));
       sessionAbsoluteTimeout =
@@ -434,7 +479,7 @@ public class YasssCore {
       // The throwable goes to slf4j rather than stderr. A bad config parameter
       // is a user error and its message says everything useful; anything else
       // gets its trace into the same log as the rest.
-      if(e instanceof BadParamException)
+      if(e instanceof BadParamException || e instanceof MisconfigurationException)
         logger.error("Failed to properly launch: {}", e.getMessage());
       else
         logger.error("Failed to properly launch: {}", e.getMessage(), e);
@@ -657,6 +702,30 @@ public class YasssCore {
    */
   public static long getResetTokenTTL() {
     return resetTokenTTL;
+  }
+
+  /**
+   * A configuration that parses but cannot work.
+   *
+   * <p>Distinct from {@code Config.BadParamException}, which covers a value the config
+   * layer could not read at all. This one is for a value that read fine and is still
+   * wrong -- most usefully, one whose absence would produce a server that starts, passes
+   * its health check, and cannot do its job.
+   *
+   * <p>Caught alongside {@code BadParamException} in {@link #main(String[])} and logged
+   * without a stack trace, because the message is the entire useful content and a trace
+   * would only bury it.</p>
+   */
+  public static class MisconfigurationException extends RuntimeException {
+
+    /**
+     * Instantiates a {@link MisconfigurationException}.
+     *
+     * @param message what is wrong, and what to set
+     */
+    public MisconfigurationException(String message) {
+      super(message);
+    }
   }
 
 }

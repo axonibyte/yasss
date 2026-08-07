@@ -57,7 +57,8 @@ public class CredentialInteropTest {
    * @return the decoded envelope
    */
   private static JSONObject unpack(String payload) {
-    return new JSONObject(new String(Base64.getDecoder().decode(payload)));
+    return new JSONObject(
+        new String(Base64.getDecoder().decode(payload), java.nio.charset.StandardCharsets.UTF_8));
   }
 
   private static Credentialed credentialed(String pubkeyB64) {

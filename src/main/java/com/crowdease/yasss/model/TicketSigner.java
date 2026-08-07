@@ -34,23 +34,36 @@ import org.slf4j.LoggerFactory;
  * signed before a restart still verifies after it.
  *
  * <p>Two properties of {@link Credentialed} govern everything here, and both are
- * covered by {@code TicketSignerCodecTest}:
+ * covered by {@code TicketSignerCodecTest}. <b>Both changed at
+ * {@code axb-lib-auth-java} 0.1.0</b>, and the old statements of them are kept below
+ * because rows written under the old behaviour are still in the table:
  *
  * <ol>
- *   <li>The private key is AES-GCM encrypted using <em>the signer's own
- *       {@link UUID} as the IV</em>. Restore a signer under any other id and the
- *       GCM tag fails. The symptom is not an exception anywhere useful: the
- *       signer simply stops verifying, {@code AuthToken} reports a failure,
- *       {@code APIEndpoint.authenticate} swallows it, and every caller quietly
- *       becomes anonymous. So ids are preserved exactly and every restored
- *       signer is probed before it is trusted.</li>
- *   <li>When no global secret is configured, {@code Credentialed}'s crypto
- *       helper returns its input unchanged. The default <em>is</em> no secret,
- *       and the shipped configuration file carries a placeholder. Persisting
- *       under either would write raw Ed25519 signing keys into a table, and
- *       anyone with read access to one table could mint a session for any
- *       account. {@link #persistenceAllowed(String)} is what stops that, and it
- *       is checked before anything is written rather than after.</li>
+ *   <li>The private key is AES-GCM encrypted under {@code ticket.globalSecret} with a
+ *       <em>random nonce per record</em>, carried inside the stored blob. The signer's
+ *       {@link UUID} is no longer key material, so a signer restored under the wrong id
+ *       now decrypts perfectly well.
+ *
+ *       <p>Ids are still preserved exactly, but for a different reason: a session ticket
+ *       names the signer that produced it and {@link com.crowdease.yasss.daemon.TicketEngine#verify}
+ *       resolves it by id. What changed is where a mistake is caught. It used to be
+ *       {@link #load(int)}, incidentally, because a wrong id failed the GCM tag; it is now
+ *       {@code TicketEngineKidTest}, deliberately.
+ *
+ *       <p>Rows written before that change <em>are</em> keyed to the id -- the legacy
+ *       format derives the IV from it -- and the library reads both formats, so the
+ *       upgrade does not invalidate them. {@link CredentialMigrator} does not sweep this
+ *       table; see its javadoc for why.</li>
+ *   <li>When no global secret is configured, {@code Credentialed} refuses to generate or
+ *       encrypt a key at all, rather than returning its input unchanged. Raw Ed25519
+ *       signing keys can therefore no longer reach this table by that route -- the
+ *       process fails before it has a key to write, and {@code YasssCore} refuses to boot
+ *       without a secret in any case.
+ *
+ *       <p>{@link #persistenceAllowed(String)} now guards a different hazard, and still
+ *       earns its keep: the shipped placeholder is a <em>real</em> secret, so a signer
+ *       encrypted under it is genuinely encrypted -- under a key that is in the public
+ *       source tree. To anyone holding that tree it is as good as plaintext.</li>
  * </ol>
  *
  * @author Caleb L. Power <cpower@crowdease.com>
@@ -76,10 +89,18 @@ public final class TicketSigner {
   /**
    * Whether signing keys may be written to the database under this secret.
    *
-   * <p>Refuses null, blank, and the shipped placeholder. There is deliberately
-   * no override: the failure mode is silent plaintext key storage, which nobody
-   * would notice, so the only safe default is to keep the keys in memory and say
-   * so loudly.
+   * <p>Refuses null, blank, and the shipped placeholder. There is deliberately no
+   * override.
+   *
+   * <p>The null and blank cases are now unreachable in practice, because {@code YasssCore}
+   * refuses to boot without a secret at all -- kept anyway, since this is a public static
+   * a future caller may reach without going through {@code main}, and a method asked "may
+   * these go to disk" should answer for every input rather than assume its caller checked.
+   *
+   * <p>The placeholder case is what carries the method now. A signer encrypted under
+   * {@code "CHANGE-ME-to-a-long-random-string"} is genuinely encrypted -- under a key
+   * printed in the public source tree, which makes it as good as plaintext to anyone
+   * holding a checkout. That used to be a figure of speech and is now literally accurate.
    *
    * @param secret the configured {@code ticket.globalSecret}
    * @return {@code true} if signers may be persisted
@@ -98,7 +119,10 @@ public final class TicketSigner {
    *
    * <p>A signer whose keys do not survive the round trip is dropped with a
    * complaint rather than returned. Left in place it would verify nothing and
-   * look like an expired session to every affected user.
+   * look like an expired session to every affected user. Three things now reach
+   * that path: a secret that has changed since the row was written, a row in a
+   * format this build cannot read, and a row that is simply corrupt. They are
+   * indistinguishable from here, and all three warrant the same action.
    *
    * @param limit the most signers to return
    * @return the signers, oldest first; never {@code null}
@@ -154,9 +178,13 @@ public final class TicketSigner {
   /**
    * Signs and verifies a known message with a signer to prove it works.
    *
-   * <p>This is what catches a signer restored under the wrong id, or decrypted
-   * with the wrong secret. Both fail here rather than at three in the morning
-   * when everybody is mysteriously signed out.
+   * <p>This is what catches a signer decrypted with the wrong secret, or stored in a
+   * format this build cannot read -- either fails here rather than at three in the
+   * morning when everybody is mysteriously signed out.
+   *
+   * <p>It no longer catches a signer restored under the wrong id. That was never the
+   * intent, only a consequence of the id having been the GCM IV; the nonce is now random
+   * and travels inside the blob. See the class javadoc.
    *
    * @param signer the {@link Credentialed} to probe
    * @return {@code true} if it round-trips a signature
@@ -175,6 +203,11 @@ public final class TicketSigner {
 
   /**
    * Writes a signer to the database.
+   *
+   * <p>A current-format encrypted private key is 61 bytes -- a version byte, a 12-byte
+   * nonce, 32 bytes of ciphertext and a 16-byte tag -- against a {@code VARBINARY(255)}
+   * column. {@code TicketSignerCodecTest} asserts that, so a future format change fails
+   * a test rather than silently truncating on the way in.
    *
    * @param signer the {@link Credentialed} to store
    * @param createdAt the epoch millisecond at which it was generated
