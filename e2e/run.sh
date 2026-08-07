@@ -54,7 +54,7 @@ ORIG_ARGS=("$@")
 
 KEEP=0
 SKIP_BUILD=0
-STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,browser,health"
+STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,journeys,browser,health"
 
 usage() {
   cat <<'USAGE'
@@ -64,7 +64,7 @@ usage: e2e/run.sh [options]
   --skip-build     reuse the existing jar and image
   --only STAGES    comma-separated subset of:
                    fuzz,accounts,sessions,reminders,text,concurrency,regressions,
-                   browser,health
+                   journeys,browser,health
                    (default: all)
                    Note that `sessions` restarts the application mid-stage and
                    `health` stops the database under it; both are the point of
@@ -81,6 +81,13 @@ Environment:
                       parallel and needs no stack; this is for checking the
                       bundle the jar actually serves. Note that WebKit does not
                       run under FreeBSD's linuxulator.
+  JOURNEY_SEED        replay one journey run. Without it the stage runs the seeds
+                      in journeys/seeds.json, which is the CI shape and includes
+                      every seed promoted from a past failure.
+  JOURNEY_ITERATIONS  actions per journey run. Only meaningful with JOURNEY_SEED,
+                      or as the length of a one-off hunting run.
+  JOURNEY_ACTORS      accounts to simulate (default 4). Each costs a registration
+                      and a verification email, so this is not free.
   YASSS_E2E_PUBLISH   1 to publish those ports to the host, 0 not to. Defaults to
                       1, and to 0 on a FreeBSD host with no pf(4) -- podman
                       publishes ports by writing pf rules, so without it the pod
@@ -258,6 +265,11 @@ drive() {
   [[ -n "${YASSS_ADMIN_ID:-}" ]] && env_args+=(-e "YASSS_ADMIN_ID=${YASSS_ADMIN_ID}")
   [[ -n "${FUZZ_ITERATIONS:-}" ]] && env_args+=(-e "FUZZ_ITERATIONS=${FUZZ_ITERATIONS}")
   [[ -n "${FUZZ_SEED:-}" ]] && env_args+=(-e "FUZZ_SEED=${FUZZ_SEED}")
+  # Same nullish caution as above. JOURNEY_FIXED is set by the stage itself
+  # rather than forwarded, so that an explicit seed always means one run of it.
+  [[ -n "${JOURNEY_SEED:-}" ]] && env_args+=(-e "JOURNEY_SEED=${JOURNEY_SEED}")
+  [[ -n "${JOURNEY_ITERATIONS:-}" ]] && env_args+=(-e "JOURNEY_ITERATIONS=${JOURNEY_ITERATIONS}")
+  [[ -n "${JOURNEY_ACTORS:-}" ]] && env_args+=(-e "JOURNEY_ACTORS=${JOURNEY_ACTORS}")
 
   # `${#a[@]}` rather than `"${a[@]}"` -- expanding an empty array is an unbound
   # variable error under `set -u` on older bash, and the FreeBSD path is real.
@@ -352,8 +364,10 @@ fi
 
 # The browser stage runs Playwright out of the repo's node_modules against the
 # browsers in the image, so the install has to have happened. It normally has:
-# the Gradle build above runs npmInstall.
-if has_stage browser && [[ ! -d "${ROOT}/frontend/node_modules/@playwright" ]]; then
+# the Gradle build above runs npmInstall. The journeys stage ends with a browser
+# audit and needs the same thing.
+if { has_stage browser || has_stage journeys; } \
+    && [[ ! -d "${ROOT}/frontend/node_modules/@playwright" ]]; then
   die "frontend/node_modules is missing @playwright; run the build without --skip-build"
 fi
 
@@ -362,7 +376,7 @@ fi
 ensure_image docker.io/library/mariadb:11
 ensure_image docker.io/axllent/mailpit:latest
 ensure_image "${DRIVER_IMAGE}"
-has_stage browser && ensure_image "${BROWSER_IMAGE}"
+{ has_stage browser || has_stage journeys; } && ensure_image "${BROWSER_IMAGE}"
 
 if [[ ${PUBLISH} -eq 1 ]]; then
   log "creating pod ${POD} (app published on host port ${APP_PORT})"
@@ -650,6 +664,58 @@ if has_stage sessions; then
       failures=$((failures + 1))
       warn "sessions stage failed after the restart"
     fi
+  fi
+fi
+
+if has_stage journeys; then
+  # Several simulated users, taking turns for as long as the run lasts, with a
+  # shadow model asserted against the server as they go. The stages above each
+  # answer one question well; this one exists for the defects that only appear
+  # after state has accumulated -- which is where the bugs actually found during
+  # use have come from.
+  #
+  # Without JOURNEY_SEED this runs journeys/seeds.json: a short fixed set, plus
+  # every seed promoted from a failure. That keeps the pipeline's cost known and
+  # still catches anything that regresses. A long hunting run is
+  # `JOURNEY_ITERATIONS=2000 e2e/run.sh --only journeys`.
+  # The invariants first, against canned responses and no stack at all. An
+  # invariant that never fires looks exactly like a suite that passes, so this
+  # is the check that the rest of the stage means anything.
+  log "checking the journey oracle fires"
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node journeys/selftest.mjs; then
+    failures=$((failures + 1))
+    warn "journey selftest failed -- the invariants below cannot be trusted"
+  fi
+
+  log "simulating users over a long run"
+
+  # An explicit seed means one run of exactly that seed, so the fixed set is only
+  # requested when there is no seed to honour. Written as an `if` rather than
+  # `[[ ... ]] && ...` because a false test there is a non-zero status, and this
+  # script runs under `set -e`.
+  DRIVE_ENV=()
+  if [[ -z "${JOURNEY_SEED:-}" ]]; then
+    DRIVE_ENV=("JOURNEY_FIXED=1")
+  fi
+
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node journeys/journey.mjs; then
+    failures=$((failures + 1))
+    warn "journeys stage failed"
+  fi
+
+  # The audit reads the handle the engine just wrote. Separate image because
+  # Playwright's browsers live in that one; separate invocation because a
+  # driver container cannot start a browser.
+  if [[ -f "${HERE}/journeys/handle.json" ]]; then
+    log "auditing the journey's state in a browser"
+    if ! drive "${BROWSER_IMAGE}" /repo/frontend \
+        npx playwright test --config playwright.live.config.js \
+        --project=chromium journey-audit; then
+      failures=$((failures + 1))
+      warn "journey audit failed"
+    fi
+  else
+    warn "no journey handle was written; skipping the browser audit"
   fi
 fi
 

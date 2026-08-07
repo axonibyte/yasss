@@ -1,0 +1,18 @@
+{
+  "_comment": [
+    "Seeds the journeys stage runs every time, so that what a random run once",
+    "found is checked deliberately from then on. `fixed` is the CI set: short",
+    "runs, chosen for coverage rather than for having failed. `regressions` is",
+    "where a shrunk failure goes -- seed, length, and what it caught, so the",
+    "entry says why it is here rather than just that it is.",
+    "",
+    "This is the same bargain corpus.js makes: findings graduate from random to",
+    "named. A seed that only ever passes is cheap to keep and worthless to",
+    "remove."
+  ],
+  "fixed": [
+    { "seed": 20260807, "iterations": 120, "note": "general coverage" },
+    { "seed": 811, "iterations": 120, "note": "general coverage, different action mix" }
+  ],
+  "regressions": []
+}

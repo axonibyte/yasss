@@ -370,3 +370,5 @@ frontend/coverage/
 e2e/yasss.jar
 # E2E: handoff between the two halves of the sessions stage, written by a driver
 e2e/sessions/handle.json
+# E2E: handoff from the journey engine to its browser audit, written by a driver
+e2e/journeys/handle.json
