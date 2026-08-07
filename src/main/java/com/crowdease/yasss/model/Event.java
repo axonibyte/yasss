@@ -93,7 +93,12 @@ public class Event {
               YasssCore.getDB().getPrefix() + "volunteer",
               "v",
               new Comparison("e.id", "v.event", ComparisonOp.EQUAL_TO))
-          .where("v.user", ComparisonOp.EQUAL_TO);
+          .where("v.user", ComparisonOp.EQUAL_TO)
+          // One row per volunteer record, not per event -- and an account may
+          // legitimately hold several on the same event, which is the whole
+          // point of allow_multiuser_signups. Without this the event comes back
+          // once per signup.
+          .group("e.id");
     if(null != adminID)
       query.where("e.admin_user", ComparisonOp.EQUAL_TO);
     if(null != labelSubstr)
@@ -199,7 +204,11 @@ public class Event {
               YasssCore.getDB().getPrefix() + "volunteer",
               "v",
               new Comparison("e.id", "v.event", ComparisonOp.EQUAL_TO))
-          .where("v.user", ComparisonOp.EQUAL_TO);
+          .where("v.user", ComparisonOp.EQUAL_TO)
+          // See the note on the other overload: without this, LIMIT counts the
+          // same event once per signup, so a page of ten can hold fewer than
+          // ten distinct events and the ones it displaces are never shown.
+          .group("e.id");
     if(null != adminID)
       query.where("e.admin_user", ComparisonOp.EQUAL_TO);
     if(null != labelSubstr)
@@ -273,7 +282,10 @@ public class Event {
     SQLBuilder query = new SQLBuilder()
         .select(
             YasssCore.getDB().getPrefix() + "event")
-        .count("e.id", "event_count")
+        // DISTINCT, because the volunteer join below multiplies the rows for an
+        // account holding more than one signup on an event. Counting those
+        // reports more events than exist and pages past the end of the list.
+        .count("DISTINCT e.id", "event_count")
         .tableAlias("e")
         .join(
             Join.INNER,
@@ -483,6 +495,40 @@ public class Event {
    */
   public UUID getID() {
     return id;
+  }
+
+  /**
+   * Two events are the same event when they carry the same identifier.
+   *
+   * <p>Without this, identity was the only equality this class had, so the
+   * {@link Set} that {@link #getEvents(UUID, UUID, String, Timestamp, Timestamp)}
+   * returns never actually deduplicated anything -- every row built a fresh
+   * instance, and a query whose joins repeated an event handed the same event
+   * back several times. The return type said otherwise, which is why nobody
+   * looked here when it did.
+   *
+   * <p>An event that has not been committed has no identifier yet and is equal
+   * only to itself. Note that {@link #commit()} assigns one, so an uncommitted
+   * event's hash changes when it is first persisted -- do not hold one in a
+   * hash-based collection across that call.
+   *
+   * @param other the object to compare against
+   * @return {@code true} if the two denote the same persisted event
+   */
+  @Override public boolean equals(Object other) {
+    if(this == other) return true;
+    if(!(other instanceof Event)) return false;
+    UUID otherID = ((Event)other).id;
+    return null != id && id.equals(otherID);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override public int hashCode() {
+    // Identity for the id-less: they are equal only to themselves, so they are
+    // free to hash apart from one another.
+    return null == id ? System.identityHashCode(this) : id.hashCode();
   }
 
   /**
