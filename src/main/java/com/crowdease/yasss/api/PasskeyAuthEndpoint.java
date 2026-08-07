@@ -20,6 +20,8 @@ import com.crowdease.yasss.model.PasskeyVerifier;
 import com.crowdease.yasss.model.User;
 
 import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import spark.Request;
 import spark.Response;
@@ -52,6 +54,9 @@ import spark.Response;
  * @author Caleb L. Power
  */
 public final class PasskeyAuthEndpoint extends APIEndpoint {
+
+  private static final Logger LOG =
+      LoggerFactory.getLogger(PasskeyAuthEndpoint.class);
 
   /** Which half of the ceremony an instance serves. */
   public static enum Mode {
@@ -181,6 +186,11 @@ public final class PasskeyAuthEndpoint extends APIEndpoint {
     res.raw().setHeader(ACCOUNT_HEADER, user.getID().toString());
     res.raw().setHeader(ACCESS_LEVEL_HEADER, user.getAccessLevel().name());
     res.raw().setHeader(SESSION_HEADER, ticket);
+
+    LOG.info(
+        "login method=passkey uv={} user={}",
+        asserted.userVerified(), user.getID().toString());
+
 
     res.status(200);
     return new JSONObject()

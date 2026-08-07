@@ -115,13 +115,29 @@ public final class PasskeyListEndpoint extends APIEndpoint {
 
   private JSONObject remove(Request req, Response res, User user)
       throws EndpointException, SQLException {
-    UUID id = null;
+    UUID parsed = null;
     try {
-      id = UUID.fromString(req.params("passkey"));
+      parsed = UUID.fromString(req.params("passkey"));
     } catch(IllegalArgumentException e) { }
 
-    if(null == id)
+    if(null == parsed)
       throw new EndpointException(req, "malformed argument (passkey)", 400);
+
+    final UUID id = parsed;
+
+    // The lockout guard. With password sign-in off, the passkeys ARE the account, and
+    // removing the last one leaves nothing that can authenticate it -- recoverable only by
+    // email, which is a fallback rather than a plan. Refused with something actionable
+    // rather than allowed and regretted.
+    if(user.isPasswordLoginDisabled()) {
+      var enrolled = Passkey.byUser(user.getID());
+      if(1 >= enrolled.size() && enrolled.stream().anyMatch(p -> p.getID().equals(id)))
+        throw new EndpointException(
+            req,
+            "this is the only way left to sign in to this account; turn password sign-in "
+            + "back on, or enrol another passkey, before removing it",
+            409);
+    }
 
     // Scoped to the account, so naming somebody else's credential is a 404 rather than a
     // deletion.

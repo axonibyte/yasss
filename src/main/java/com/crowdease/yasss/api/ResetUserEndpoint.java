@@ -114,6 +114,15 @@ public class ResetUserEndpoint extends APIEndpoint {
           throw new EndpointException(req, "malformed argument (pubkey)", 400, e);
         }
 
+        // The switch is never a one-way door. An account that turned its password off and
+        // then lost every passkey is recovered by email, and comes back with a password
+        // that works -- otherwise "disable password sign-in" would be a button that can
+        // permanently destroy an account, which no amount of warning text makes acceptable.
+        //
+        // Unconditional: reaching here means the reset token was valid, which means
+        // control of the mailbox, which is the recovery root for this account anyway.
+        user.setPasswordLoginDisabled(false);
+
         // Single-use, like the verification link.
         user.setResetToken(null);
         user.setResetTokenExpires(null);

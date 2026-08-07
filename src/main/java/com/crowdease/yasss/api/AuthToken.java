@@ -194,6 +194,19 @@ public class AuthToken {
         logger.warn(
             "user {} underwent de facto authentication by virtue of disabled auth requirement",
             user.getID().toString());
+      } else if(user.isPasswordLoginDisabled()
+          && (null != v2 || !credsJSO.has(SessionTicket.CLAIM_SESSION_START))) {
+        // This account has turned its password off, so the only things that may
+        // authenticate it are a passkey -- which does not come through here at all -- and
+        // a session ticket. A password credential is refused before it is even verified,
+        // because verifying it would be work done on behalf of a credential we have
+        // already decided not to honour.
+        //
+        // The ticket branch below is deliberately still reachable: sessions established
+        // before the switch stay valid, and a ticket is not a password.
+        throw new AuthException(
+            "user %1$s has disabled password sign-in", user.getID().toString());
+
       } else if(credentialsAllowed && null != v2
           && user.verifySig(
               new String(v2.canonicalBytes(), StandardCharsets.US_ASCII), sig)
@@ -202,9 +215,13 @@ public class AuthToken {
         // A v2 credential: fresh, bound to this audience, and now spent. The signature is
         // checked over bytes rebuilt from the values above rather than over the string as
         // it arrived -- see SigReqV2 for why those are not the same thing.
+        // Method named explicitly, and the same shape on every branch. There is no metrics
+        // infrastructure here, and building one to answer a single question would be
+        // disproportionate -- but "what fraction of sign-ins still use a password" is the
+        // question that decides whether the password path can ever be retired, and it is
+        // answerable by counting log lines.
         logger.info(
-            "user {} successfully authenticated (new session, v2)",
-            user.getID().toString());
+            "login method=password credential=v2 user={}", user.getID().toString());
 
       } else if(credentialsAllowed && null == v2 && YasssCore.acceptLegacySig()
           && user.verifySig(creds, sig)
@@ -216,8 +233,7 @@ public class AuthToken {
         // out of signing in again -- otherwise a platform-wide revoke is a
         // permanent outage rather than a forced re-login.
         logger.info(
-            "user {} successfully authenticated (new session)",
-            user.getID().toString());
+            "login method=password credential=v1 user={}", user.getID().toString());
       } else if(YasssCore.getTicketEngine().verify(creds, sig, signerID)) {
         var verdict = SessionTicket.evaluate(
             credsJSO,
@@ -233,8 +249,7 @@ public class AuthToken {
 
         sessionStart = SessionTicket.sessionStart(credsJSO, now);
         logger.info(
-            "user {} successfully authenticated via ticket engine",
-            user.getID().toString());
+            "login method=ticket user={}", user.getID().toString());
       } else {
         // Named rather than folded into the generic failure below, because the two are
         // very different events and only one of them is interesting. This costs an extra

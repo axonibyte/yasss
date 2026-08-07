@@ -64,6 +64,7 @@ public final class ModifyUserEndpoint extends APIEndpoint {
         .tokenize("accessLevel", false)
         .tokenize("pubkey", false)
         .tokenize("regenerateMFA", false)
+        .tokenize("passwordLoginDisabled", false)
         .check();
 
       if(!auth.atLeast(user))
@@ -134,6 +135,29 @@ public final class ModifyUserEndpoint extends APIEndpoint {
         // Without this, someone who changed their password because they thought
         // it had leaked left whoever had it signed in indefinitely.
         revoke = true;
+      }
+
+      if(deserializer.has("passwordLoginDisabled")) {
+        boolean disable = deserializer.getBool("passwordLoginDisabled");
+
+        // Turning it ON is guarded; turning it OFF never is. An account that has locked
+        // itself out of its own password must always be able to get back, and refusing
+        // that would make this a one-way door.
+        if(disable && !user.mayDisablePasswordLogin())
+          throw new EndpointException(
+              req,
+              "enrol a second passkey, or one that syncs to your other devices, before "
+              + "turning off password sign-in -- otherwise losing this device loses the "
+              + "account",
+              409);
+
+        if(disable != user.isPasswordLoginDisabled()) {
+          user.setPasswordLoginDisabled(disable);
+          // Either direction changes what may authenticate this account, so sessions
+          // established under the old rule end. Turning the password off while whoever
+          // phished it is still signed in would achieve very little.
+          revoke = true;
+        }
       }
 
       if(revoke) user.setSessionEpoch(System.currentTimeMillis());

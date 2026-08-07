@@ -127,7 +127,8 @@ public class User extends Credentialed implements Comparable<User> {
     "verify_token_expires",
     "session_epoch",
     "reset_token",
-    "reset_token_expires"
+    "reset_token_expires",
+    "password_login_disabled"
   };
 
   /**
@@ -154,7 +155,8 @@ public class User extends Credentialed implements Comparable<User> {
         .setResetToken(
             SQLBuilder.bytesToUUID(res.getBytes("reset_token")))
         .setResetTokenExpires(
-            nullableLong(res, "reset_token_expires"));
+            nullableLong(res, "reset_token_expires"))
+        .setPasswordLoginDisabled(res.getBoolean("password_login_disabled"));
   }
 
   /**
@@ -337,6 +339,7 @@ public class User extends Credentialed implements Comparable<User> {
   private UUID resetToken = null;
   private Long resetTokenExpires = null;
   private long sessionEpoch = 0L;
+  private boolean passwordLoginDisabled = false;
 
   /**
    * Instantiates a user. This method is designed to be invoked when retrieving
@@ -520,6 +523,56 @@ public class User extends Credentialed implements Comparable<User> {
     return this;
   }
 
+  /**
+   * Whether this account still accepts a password.
+   *
+   * <p>The switch that makes passkeys worth having. Until an account can turn its password
+   * off, a passkey is an alternative way in and nothing more -- the password remains a
+   * thing that can be phished, and the AXB-SIG-REQ credential remains a thing that can be
+   * captured.
+   *
+   * @return {@code true} if password sign-in is refused for this account
+   */
+  public boolean isPasswordLoginDisabled() {
+    return passwordLoginDisabled;
+  }
+
+  /**
+   * Sets whether this account accepts a password.
+   *
+   * <p>Turning it on is guarded: see {@code ModifyUserEndpoint}, which refuses unless the
+   * account holds enough passkeys to survive losing one. Turning it <em>off</em> is not
+   * guarded, and is done unconditionally by {@code ResetUserEndpoint} whenever a new
+   * public key is installed -- which is what keeps the switch from being a one-way door.
+   *
+   * @param passwordLoginDisabled whether to refuse password sign-in
+   * @return this user
+   */
+  public User setPasswordLoginDisabled(boolean passwordLoginDisabled) {
+    this.passwordLoginDisabled = passwordLoginDisabled;
+    return this;
+  }
+
+  /**
+   * Whether this account may safely stop accepting a password.
+   *
+   * <p>Two passkeys, or one that is backed up to a cloud. The point is that losing a single
+   * device must not lose the account: a synced credential survives the device, and a second
+   * credential survives the first. One device-bound passkey and no password is one dropped
+   * phone away from an account nobody can reach.
+   *
+   * <p>Email recovery exists regardless, but it is a fallback rather than a plan -- and an
+   * account gets here only by holding a verified address, since enrolment requires one.
+   *
+   * @return {@code true} if the password may be turned off
+   * @throws SQLException if a database malfunction occurs
+   */
+  public boolean mayDisablePasswordLogin() throws SQLException {
+    var passkeys = Passkey.byUser(getID());
+    if(2 <= passkeys.size()) return true;
+    return passkeys.stream().anyMatch(Passkey::isBackupEligible);
+  }
+
   public User setPendingEmail(String pendingEmail) {
     this.pendingEmail = pendingEmail;
     return this;
@@ -576,7 +629,8 @@ public class User extends Credentialed implements Comparable<User> {
                   "verify_token_expires",
                   "session_epoch",
                   "reset_token",
-                  "reset_token_expires")
+                  "reset_token_expires",
+                  "password_login_disabled")
               .where("id")
               .toString());
       stmt.setBytes(1, getPubkey());
@@ -589,7 +643,11 @@ public class User extends Credentialed implements Comparable<User> {
       stmt.setLong(8, sessionEpoch);
       stmt.setBytes(9, SQLBuilder.uuidToBytes(resetToken));
       setNullableLong(stmt, 10, resetTokenExpires);
-      stmt.setBytes(11, SQLBuilder.uuidToBytes(getID()));
+      stmt.setBoolean(11, passwordLoginDisabled);
+      // Index 12, not 11. Adding a column shifts the WHERE bind, and getting that wrong
+      // writes a UUID into password_login_disabled with no exception -- which is why
+      // UserColumnBindingTest asserts the count against COLUMNS.
+      stmt.setBytes(12, SQLBuilder.uuidToBytes(getID()));
 
       if(0 == stmt.executeUpdate()) {
         YasssCore.getDB().close(null, stmt, null);
@@ -607,7 +665,8 @@ public class User extends Credentialed implements Comparable<User> {
                     "verify_token_expires",
                     "session_epoch",
                     "reset_token",
-                    "reset_token_expires")
+                    "reset_token_expires",
+                    "password_login_disabled")
                 .toString());
         stmt.setBytes(1, SQLBuilder.uuidToBytes(getID()));
         stmt.setBytes(2, getPubkey());
@@ -620,6 +679,7 @@ public class User extends Credentialed implements Comparable<User> {
         stmt.setLong(9, sessionEpoch);
         stmt.setBytes(10, SQLBuilder.uuidToBytes(resetToken));
         setNullableLong(stmt, 11, resetTokenExpires);
+        stmt.setBoolean(12, passwordLoginDisabled);
         stmt.executeUpdate();
       }
 

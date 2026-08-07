@@ -42,6 +42,9 @@ public class PasskeyRouteTest {
     assertFalse(acceptsCredentials(new PasskeyListEndpoint(PasskeyListEndpoint.Mode.REMOVE)));
     assertFalse(acceptsCredentials(new PasskeyAuthEndpoint(PasskeyAuthEndpoint.Mode.BEGIN)));
     assertFalse(acceptsCredentials(new PasskeyAuthEndpoint(PasskeyAuthEndpoint.Mode.FINISH)));
+    // The recovery route especially: it is reached by somebody who has lost every other
+    // way in, so accepting a password credential there would defeat the point twice over.
+    assertFalse(acceptsCredentials(new MagicLinkSessionEndpoint()));
   }
 
   @Test public void theTwoCeremoniesAreDistinguishable() {

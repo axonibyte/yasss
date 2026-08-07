@@ -48,6 +48,7 @@ import com.crowdease.yasss.api.ModifyEventEndpoint;
 import com.crowdease.yasss.api.ModifyUserEndpoint;
 import com.crowdease.yasss.api.ModifyVolunteerEndpoint;
 import com.crowdease.yasss.api.ModifyWindowEndpoint;
+import com.crowdease.yasss.api.MagicLinkSessionEndpoint;
 import com.crowdease.yasss.api.PasskeyAuthEndpoint;
 import com.crowdease.yasss.api.PasskeyListEndpoint;
 import com.crowdease.yasss.api.PasskeyRegistrationEndpoint;
@@ -427,6 +428,7 @@ public class YasssCore {
               new PasskeyRegistrationEndpoint(PasskeyRegistrationEndpoint.Mode.FINISH),
               new PasskeyListEndpoint(PasskeyListEndpoint.Mode.LIST),
               new PasskeyListEndpoint(PasskeyListEndpoint.Mode.REMOVE),
+              new MagicLinkSessionEndpoint(),
               new PasskeyAuthEndpoint(PasskeyAuthEndpoint.Mode.BEGIN),
               new PasskeyAuthEndpoint(PasskeyAuthEndpoint.Mode.FINISH),
               new AddActivityEndpoint(),
