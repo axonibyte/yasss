@@ -10,6 +10,7 @@
  * See docs/legacy/01-behavior.md §4.
  */
 import Cookies from 'js-cookie';
+import { untrack } from 'svelte';
 import { installAuthBridge } from '../lib/api/authBridge.js';
 import * as api from '../lib/api/index.js';
 import { deriveKey, genCreds } from '../lib/crypto/creds.js';
@@ -297,7 +298,18 @@ let onSessionLost = null;
 export function connectSessionToApi(handlers = {}) {
   onSessionLost = handlers.onSessionLost ?? null;
   installAuthBridge({
-    getToken: () => session.token,
+    // Untracked, and that is the whole point. `request()` reads the token
+    // synchronously, before its first await -- so a tracked read here lands in
+    // whatever reactive context happens to be running, and an $effect that
+    // calls the API ends up depending on the token. Every authenticated
+    // response then rotates that token, writing the dependency the effect is
+    // tracking, which re-runs the effect, which issues the request again. It is
+    // unbounded: ~140 req/s against the dev server until the tab was closed.
+    //
+    // Nothing should ever re-render because a token rotated; it is transport
+    // state. Fixing it at each $effect instead would leave the next one to
+    // rediscover this, which is how there came to be three of them.
+    getToken: () => untrack(() => session.token),
     onRotate: (token) => session.rotate(token),
   });
 }
