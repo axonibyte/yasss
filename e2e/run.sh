@@ -72,6 +72,11 @@ usage: e2e/run.sh [options]
                    on the stack staying up.
   -h, --help       this text
 
+  See also e2e/fake.sh, which runs the frontend suite against the *fake* API in
+  a container. It needs no stack, so it is not a stage here -- but it is the
+  only way to run those specs on a host where Playwright will not install, and
+  `./gradlew check` does not cover them.
+
 Environment:
   YASSS_E2E_PORT      host port for the app when publishing (default 7455)
   YASSS_E2E_MAIL_PORT host port for mailpit's web UI when publishing (default 8025)

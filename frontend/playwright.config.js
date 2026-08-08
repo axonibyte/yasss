@@ -12,6 +12,13 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
+    // A locator that can never resolve otherwise eats the whole test timeout,
+    // and then eats it again on the retry. That is how one renamed button --
+    // `Submit RSVPs` becoming `Submit 1 RSVP`, which is not a substring of it --
+    // turned ten failures into ten minutes of what read as a hang. Anything
+    // that legitimately needs longer says so at the call site, which is the
+    // right place for that claim to be argued.
+    actionTimeout: 10_000,
     // The grid's date labels come from toLocaleDateString, so pin both or the
     // expected strings shift with the machine.
     locale: 'en-US',

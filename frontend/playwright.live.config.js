@@ -22,6 +22,10 @@ export default defineConfig({
   use: {
     baseURL: process.env.YASSS_LIVE_URL ?? 'http://127.0.0.1:7455',
     trace: 'retain-on-failure',
+    // Same reasoning as the fake config, with more headroom: the test timeout
+    // here is 60s because a real login runs scrypt at N=16384 in the browser.
+    // `classifySave` already passes its own 15s where it needs it.
+    actionTimeout: 15_000,
     screenshot: 'only-on-failure',
     locale: 'en-US',
     timezoneId: 'UTC',
