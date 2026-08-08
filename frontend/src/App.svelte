@@ -46,6 +46,7 @@
     deleteVolunteer, hasUnsavedWork, saveVolunteer, submitVolunteers,
   } from './state/actions/volunteerActions.js';
   import * as api from './lib/api/index.js';
+  import { theme } from './state/theme.svelte.js';
   import { tutorial, loadPracticeEvent, stepIds } from './state/tutorial.svelte.js';
   import { DEFAULT_COPY } from './lib/tutorial/defaults.js';
   import { copyFor } from './lib/tutorial/deck.js';
@@ -167,6 +168,10 @@
   }
 
   async function boot() {
+    // First, and before any await: the stored choice has to be on the document
+    // before the first paint or the reader sees a flash of the other theme.
+    theme.start();
+
     // The legacy loaded reCAPTCHA unconditionally and read `debug` here too;
     // the site key decides whether the CAPTCHA machinery is used at all.
     try {

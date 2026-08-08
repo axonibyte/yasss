@@ -16,8 +16,10 @@
 // `prefers-color-scheme` blocks, `.theme-light` and `.theme-dark`. Two of those
 // are all that is needed -- light into `:root` and dark behind the media query
 // -- which is 185 KB down to about 120, and honours the reader's OS setting.
-// The `.theme-*` class variants stay dropped: nothing toggles a theme by class,
-// and the document no longer pins one.
+// The `.theme-*` class variants stay dropped, but the document *can* now pin a
+// theme: `[data-theme]` blocks below emit the two sets a toggle needs, under our
+// own selector rather than Bulma's class names. Same cost as the variants would
+// have been, and it keeps the three states distinguishable -- see there.
 //
 // Two things this list must not lose, because neither is visible to a grep of
 // the markup: `elements/notification`, which bulma-toast injects at runtime,
@@ -72,6 +74,29 @@
 
 @include cv.system-theme($name: 'dark') {
   @include dark.dark-theme;
+  @include setup.setup-theme;
+}
+
+// An explicit choice, which beats the OS preference.
+//
+// Three states, not two, and the distinction is the whole design: no attribute
+// means "follow the system", and the two attribute values mean "I said so". A
+// two-state toggle has to guess an initial value, and guesses wrong for every
+// reader whose OS is already set the way they want it.
+//
+// `[data-theme='light']` is not redundant with `:root`. Without it, a reader on
+// a dark-preferring OS who asks for light gets `:root`'s light values and then
+// the media query above overwrites them again.
+//
+// This costs two more full variable sets -- roughly what the note above measured
+// per set. That is the price of the feature, paid knowingly.
+[data-theme='dark'] {
+  @include dark.dark-theme;
+  @include setup.setup-theme;
+}
+
+[data-theme='light'] {
+  @include light.light-theme;
   @include setup.setup-theme;
 }
 
@@ -231,106 +256,101 @@ body.tutorial-running {
   border-radius: 4px;
 }
 
-// Links sitting inside a paragraph were distinguishable from the text around
-// them by colour alone, which is invisible to a reader who cannot separate the
-// two. Nav items, buttons and block-list entries are excluded: they read as
-// controls from their position and surroundings, and WCAG 1.4.1 is about links
-// embedded in prose.
-.content a,
-.footer a {
-  text-decoration: underline;
-}
+// --- scrollbars -------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// The entirety of the legacy custom stylesheet (public/assets/css/style.css).
-// Both rules are load-bearing; see docs/legacy/02-aesthetics.md §4.
-// ---------------------------------------------------------------------------
-
-// Grid cells stretch to the tallest row member but the inner block-list <li>
-// does not, so outlined slot tiles ended shorter than the solid header tiles
-// and the grid looked ragged. 94% rather than 100% leaves room for the
-// block-list's own border and margin. Targets only .is-outlined lists — i.e.
-// slot tiles, not the solid activity/window headers.
-.event-cell ul.is-outlined li {
-  height: 94%;
-}
-
-// ---------------------------------------------------------------------------
-// Narrow viewports.
-// ---------------------------------------------------------------------------
-
-// The grid is a matrix: a cell means "this activity, at this window", so it
-// cannot reflow to fewer columns without losing what it says. `has-5-cols`
-// therefore holds at every width, which on a phone gave roughly 65px per tile
-// -- legible to nobody.
+// Two syntaxes, because neither is universal yet: `scrollbar-width`/`-color` is
+// the standard and is what Firefox honours, `::-webkit-scrollbar` is what
+// Chromium and Safari still do. They are not equivalent -- the standard one has
+// no way to say "narrower on hover" and the WebKit one has no way to say "thin"
+// -- so each is written for what it can express rather than one being a
+// fallback for the other.
 //
-// Floor the column width and let the grid scroll sideways instead. A two-column
-// grid still fills the screen, because the floor is a minimum rather than a
-// fixed width; only a grid too wide to fit starts scrolling.
-@media screen and (max-width: 768px) {
-  #view-event-table .fixed-grid {
-    overflow-x: auto;
-    // Room for the scrollbar, so it never sits on top of the last row.
-    padding-bottom: 0.5rem;
+// Colours come from Bulma's variables, so these follow the theme without
+// knowing which one is on. That matters more than it sounds: a hard-coded grey
+// track is invisible in light mode and a bright stripe in dark.
+//
+// Deliberately not applied to `*`. A scrollbar the reader has to hunt for is
+// worse than a plain one, so these are the four surfaces that actually scroll
+// and where a default bar was loud enough to notice.
+%thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bulma-border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 0.55rem;
+    height: 0.55rem;
   }
 
-  #view-event-table .fixed-grid > .grid {
-    grid-template-columns: repeat(var(--bulma-grid-column-count), minmax(7.5rem, 1fr));
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--bulma-border);
+    border-radius: 999px;
+    // An inset border rather than a margin: it keeps the thumb clear of the
+    // track edges without shrinking the hit target, which on a touchpad is the
+    // difference between grabbing it and grabbing the page.
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background-color: var(--bulma-text-weak);
+  }
+
+  // Chromium draws a pair of stepper buttons on some platforms; they are not
+  // reachable by keyboard and duplicate what the track already does.
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  // Where two scrollable areas meet, the untouched square between them.
+  &::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
 
-// --- tutorial ---------------------------------------------------------------
+html {
+  @extend %thin-scrollbar;
+}
 
-// The step panel is docked rather than floating over the middle of the page,
-// because the learner has to be able to see and click the thing it is talking
-// about. Nothing here covers the page: no scrim, no `inert`, no focus trap --
-// see TutorialPanel.svelte for why that is the whole design and not an
-// oversight.
+// The modal's own scroller. `.modal-card-body` is the part that overflows --
+// the card header and footer are pinned -- so styling `.modal` would decorate
+// something that never scrolls.
+.modal-card-body {
+  @extend %thin-scrollbar;
+}
+
+// The grid's sideways scroller on narrow screens, added with the column floor.
+#view-event-table .fixed-grid {
+  @extend %thin-scrollbar;
+}
+
 .tutorial-panel {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 30; // under Bulma's modal (40), so the chooser still wins
-  background-color: var(--bulma-scheme-main);
-  border-top: 2px solid var(--bulma-primary);
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
-  padding: 0.75rem 1rem;
-  max-height: 45vh;
-  overflow-y: auto;
+  @extend %thin-scrollbar;
 }
 
-.tutorial-panel-inner {
-  max-width: 60rem;
-  margin: 0 auto;
-}
+// --- theme toggle -----------------------------------------------------------
 
-.tutorial-panel-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+// `is-ghost` is a link-styled button, so it inherits the link colour rather
+// than the navbar's text colour and sits oddly among the items beside it.
+.theme-toggle {
+  color: inherit;
+  text-decoration: none;
+  gap: 0.4rem;
 
-  // Bulma gives `.buttons` a bottom margin meant for stacked blocks; inside a
-  // single flex row it just makes the panel taller than its contents.
-  .buttons {
-    margin-bottom: 0;
+  &:hover {
+    color: var(--bulma-primary-on-scheme);
+    text-decoration: none;
   }
 }
 
-// The panel is fixed, so without this it sits on top of the last thing on the
-// page -- which, on the event view, is the Submit button one of the steps is
-// telling the learner to press.
-body.tutorial-running {
-  padding-bottom: 45vh;
-}
-
-// Outline rather than a background change: cells and cards already use colour
-// to mean something (available, booked, full), and repainting one to highlight
-// it would say something false about its state.
-.tutorial-anchor {
-  outline: 3px solid var(--bulma-primary);
-  outline-offset: 2px;
-  border-radius: 4px;
+// The word is useful in the stacked mobile menu, where there is room and no
+// other label; beside the other items on a wide screen the icon carries it and
+// the word is noise.
+@media screen and (min-width: 1024px) {
+  .theme-toggle-label {
+    display: none;
+  }
 }
