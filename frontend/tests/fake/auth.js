@@ -85,8 +85,9 @@ export function identityOf(token) {
  * Deliberately stable for a given user and signer epoch. Ed25519 signatures are
  * deterministic and the real signer only rolls on the ticket engine's refresh
  * interval, so a repeating token is what the server actually does — the
- * incrementing counter this replaces was less faithful, not more. `signerEpoch`
- * models that roll for the one spec that needs to observe a rotation.
+ * incrementing counter this replaces was less faithful, not more. The user's
+ * own `signerEpoch` models that roll for the one spec that needs to observe a
+ * rotation, and is per user so that spec cannot reach across workers.
  *
  * The shape matters beyond cosmetics: the client round-trips this token through
  * a cookie, so an opaque `session-user-7` string would not catch a client that
@@ -101,7 +102,8 @@ export function sessionToken(store, userId) {
   const creds = Buffer.from(
     JSON.stringify({ account: userId, sat: 1, iat: 1 }),
   ).toString('base64');
-  const sig = `fake-signature-${store.signerEpoch}`;
-  const kid = `fake-signer-${store.signerEpoch}`;
+  const epoch = store.users.get(userId)?.signerEpoch ?? 0;
+  const sig = `fake-signature-${epoch}`;
+  const kid = `fake-signer-${epoch}`;
   return Buffer.from(JSON.stringify({ creds, sig, kid })).toString('base64');
 }

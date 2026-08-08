@@ -41,6 +41,20 @@ async function signUp(page, { name = 'Ada', email, signedIn = false } = {}) {
 }
 
 /**
+ * A reminder address no other test in this file will use.
+ *
+ * `store.suppressed` is platform-wide and keyed by address: unsubscribing adds
+ * to it (`server.js:677`) and confirming deletes from it (`server.js:663`). With
+ * one shared `ada@example.com` and more than one worker, a confirmation in one
+ * test can clear the suppression another test is in the middle of asserting.
+ *
+ * Derived from the seeded event id for the same reason `seedUser` derives its
+ * default address, and load-bearing for the same reason: uniqueness is what
+ * makes these tests independent of each other, not tidiness.
+ */
+const addressFor = (eventId, who = 'ada') => `${who}-${eventId}@example.com`;
+
+/**
  * The single volunteer on a freshly seeded event.
  *
  * Read through `/__test__` rather than `GET /events/:id`, because that endpoint
@@ -102,13 +116,14 @@ test('opting in leaves the address pending, not confirmed', async ({ page, reque
 
   await page.goto(`/?event=${eventId}`);
   await waitForApp(page);
-  await signUp(page, { email: 'Ada@Example.COM' });
+  const address = addressFor(eventId);
+  await signUp(page, { email: address.toUpperCase() });
 
   const volunteerId = await onlyVolunteerId(request, eventId);
   const reminder = await reminderState(request, eventId, volunteerId);
 
   // Lowercased on the way out — the server's email pattern is case-sensitive.
-  expect(reminder.email).toBe('ada@example.com');
+  expect(reminder.email).toBe(address);
   // The load-bearing assertion: an address nobody has proven control of is
   // never confirmed by the act of typing it.
   expect(reminder.state).toBe('PENDING');
@@ -138,11 +153,12 @@ test("naming somebody else's address still requires confirmation", async ({ page
 
   await page.goto(`/?event=${eventId}`);
   await waitForApp(page);
-  await signUp(page, { email: 'stranger@example.com', signedIn: true });
+  const stranger = addressFor(eventId, 'stranger');
+  await signUp(page, { email: stranger, signedIn: true });
 
   const volunteerId = await onlyVolunteerId(request, eventId);
   const reminder = await reminderState(request, eventId, volunteerId);
-  expect(reminder.email).toBe('stranger@example.com');
+  expect(reminder.email).toBe(stranger);
   expect(reminder.state).toBe('PENDING');
 });
 
@@ -151,7 +167,7 @@ test('the emailed confirmation link confirms the subscription', async ({ page, r
 
   await page.goto(`/?event=${eventId}`);
   await waitForApp(page);
-  await signUp(page, { email: 'ada@example.com' });
+  await signUp(page, { email: addressFor(eventId) });
 
   const volunteerId = await onlyVolunteerId(request, eventId);
   const { token } = await reminderState(request, eventId, volunteerId);
@@ -170,7 +186,7 @@ test('a wrong token confirms nothing and says nothing either way', async ({ page
 
   await page.goto(`/?event=${eventId}`);
   await waitForApp(page);
-  await signUp(page, { email: 'ada@example.com' });
+  await signUp(page, { email: addressFor(eventId) });
   const volunteerId = await onlyVolunteerId(request, eventId);
 
   await page.goto(
@@ -193,7 +209,7 @@ test('the unsubscribe link stops reminders and suppresses the address', async ({
 
   await page.goto(`/?event=${eventId}`);
   await waitForApp(page);
-  await signUp(page, { email: 'ada@example.com' });
+  await signUp(page, { email: addressFor(eventId) });
 
   const volunteerId = await onlyVolunteerId(request, eventId);
   const { token } = await reminderState(request, eventId, volunteerId);
@@ -218,7 +234,7 @@ test('a confirmation link cannot resurrect an unsubscribed volunteer', async ({
 
   await page.goto(`/?event=${eventId}`);
   await waitForApp(page);
-  await signUp(page, { email: 'ada@example.com' });
+  await signUp(page, { email: addressFor(eventId) });
 
   const volunteerId = await onlyVolunteerId(request, eventId);
   const { token } = await reminderState(request, eventId, volunteerId);
@@ -246,14 +262,15 @@ test('the address is never returned to the client', async ({ page, request }) =>
 
   await page.goto(`/?event=${eventId}`);
   await waitForApp(page);
-  await signUp(page, { email: 'ada@example.com', signedIn: true });
+  const address = addressFor(eventId);
+  await signUp(page, { email: address, signedIn: true });
 
   const res = await request.get(`/v1/events/${eventId}`, {
     headers: { Authorization: `AXB-SIG-REQ ${session}` },
   });
   const body = JSON.stringify(await res.json());
 
-  expect(body).not.toContain('ada@example.com');
+  expect(body).not.toContain(address);
   expect(body).not.toContain('reminderToken');
   expect(user).toBeTruthy();
 });

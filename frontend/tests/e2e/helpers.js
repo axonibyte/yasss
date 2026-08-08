@@ -23,9 +23,15 @@ export async function seed(request, spec) {
   return res.json();
 }
 
-/** Roll the fake's signing key, so the next response carries a new token. */
-export async function rotateSigner(request) {
-  await request.post('/__test__/rotate-signer');
+/**
+ * Roll one account's signing key, so its next response carries a new token.
+ *
+ * Scoped to a user because the suite runs in parallel: rolling it platform-wide
+ * would change the token every other worker was about to be handed.
+ */
+export async function rotateSigner(request, userId) {
+  const res = await request.post('/__test__/rotate-signer', { data: { user: userId } });
+  expect(res.ok()).toBe(true);
 }
 
 /** Wait past the boot splash, which is held for a deliberate minimum. */

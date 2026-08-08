@@ -805,8 +805,16 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     }));
   });
 
-  app.post('/__test__/rotate-signer', (c) => {
-    store.signerEpoch += 1;
+  // Takes the account whose key is rolling. Platform-wide it would reach across
+  // workers, which is the one thing this fake's design is built to prevent.
+  app.post('/__test__/rotate-signer', async (c) => {
+    const { user: userId } = await c.req.json();
+    const user = store.users.get(userId);
+    // Loudly, rather than reporting success for a rotation that never happened:
+    // the spec that calls this asserts a token *changed*, so a silent no-op
+    // would look like a client that failed to persist one.
+    if (!user) return c.json({ error: `no such user: ${userId}` }, 404);
+    user.signerEpoch += 1;
     return c.json({ ok: true });
   });
 

@@ -14,11 +14,6 @@ export function createStore() {
     events: new Map(), // id -> event
     /** Deterministic ids make failures readable. */
     seq: 0,
-    /**
-     * Bumped by /__test__/rotate-signer so the next minted session token
-     * differs. Models the real ticket engine rolling its signing key.
-     */
-    signerEpoch: 0,
     /** Addresses that unsubscribed, platform-wide. */
     suppressed: new Set(),
     /** Everything the fake would have mailed, newest last. */
@@ -61,6 +56,17 @@ export function seedUser(store, {
     // An account that registered is always waiting on a link, so seeding one
     // UNVERIFIED without a token would model a state the server never produces.
     verifyToken: verifyToken ?? (accessLevel === 'UNVERIFIED' ? randomUUID() : null),
+    /**
+     * Bumped by /__test__/rotate-signer so this user's next minted session
+     * token differs. Models the real ticket engine rolling its signing key.
+     *
+     * Per user for the same reason the default email is: as one number on the
+     * store, one worker rolling the key changed the token every other worker
+     * was about to be handed. That is the shape of the global `pendingLogin`
+     * this fake was rebuilt to remove -- see the header of auth.js -- and it
+     * only went unnoticed because a single spec touches it.
+     */
+    signerEpoch: 0,
   });
   return store.users.get(id);
 }

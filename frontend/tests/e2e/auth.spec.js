@@ -97,13 +97,13 @@ test('a session the server no longer recognises is dropped at boot', async ({ pa
 });
 
 test('a rotated session token is persisted immediately', async ({ page, request }) => {
-  const { session } = await seedSignedIn(page, request);
+  const { session, user } = await seedSignedIn(page, request);
 
   await page.goto('/');
   await waitForApp(page);
 
-  await rotateSigner(request);
-  // Any authenticated call now returns a different token.
+  await rotateSigner(request, user.id);
+  // Any authenticated call for this account now returns a different token.
   await page.reload();
   await waitForApp(page);
 
