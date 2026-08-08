@@ -21,8 +21,10 @@
  */
 import { check, finish } from '../lib/check.mjs';
 import {
-  World, checkListing, checkEvent, checkVisibility, slotKey,
+  World, checkListing, checkEvent, checkVisibility, checkNoSandboxLeak,
+  checkEventFreeOfMarkers, slotKey,
 } from './model.mjs';
+import * as markers from '../../frontend/src/lib/tutorial/markers.js';
 
 /** An actor that records rotations but talks to nothing. */
 const actorNamed = (name, account) => ({
@@ -215,6 +217,79 @@ console.log('\ndeterminism');
   check(
     JSON.stringify(first) !== JSON.stringify(draw(c)),
     'a different seed draws a different sequence',
+  );
+}
+
+// --- the sandbox leak check -------------------------------------------------
+
+/**
+ * Written from the negative side, which is where polarity gets inverted.
+ *
+ * `checkNoSandboxLeak` reports when it *finds* something, so an implementation
+ * that never found anything -- a typo in a marker, a query that always 404s, a
+ * filter the wrong way round -- would look exactly like a platform with no
+ * leaks. This is the difference between the two.
+ *
+ * The same mistake has already been made once here: an earlier `checkListing`
+ * tested for undercounting when the defect it was written for overcounted, and
+ * this file is what caught it.
+ */
+{
+  const actors = [{ name: 'ada', account: 'U1', session: 'ticket' }];
+
+  // A server that has never heard of any of it: 404 for the direct read, empty
+  // listings everywhere else.
+  const clean = async (method, path) => (path.includes(markers.PRACTICE_EVENT_ID)
+    ? { status: 404, payload: null, text: '' }
+    : { status: 200, payload: { events: [], eventCount: 0 }, text: '{"events":[]}' });
+
+  check(
+    (await checkNoSandboxLeak(clean, actors, markers)).length === 0,
+    'the leak check is quiet when the practice event never reached the server',
+  );
+
+  // Now each way it can arrive, one at a time, so a check that only notices one
+  // of them cannot pass by covering for the others.
+  const leaked = {
+    'the event id being readable': async (method, path) => (
+      path.includes(markers.PRACTICE_EVENT_ID)
+        ? { status: 200, payload: { event: {} }, text: '{}' }
+        : { status: 200, payload: { events: [] }, text: '{"events":[]}' }),
+
+    'the practice code resolving': async (method, path, opts = {}) => (
+      (opts.query ?? '').includes(markers.PRACTICE_CODE)
+        ? { status: 200, payload: { events: [{ id: 'X' }] }, text: '{"events":[{"id":"X"}]}' }
+        : { status: 404, payload: null, text: '' }),
+
+    'the practice title in a listing': async (method, path) => (
+      path.includes(markers.PRACTICE_EVENT_ID)
+        ? { status: 404, payload: null, text: '' }
+        : {
+          status: 200,
+          payload: { events: [{ id: 'X', title: markers.PRACTICE_TITLE }] },
+          text: JSON.stringify({ events: [{ id: 'X', title: markers.PRACTICE_TITLE }] }),
+        }),
+  };
+
+  for (const [what, api] of Object.entries(leaked)) {
+    const problems = await checkNoSandboxLeak(api, actors, markers);
+    check(problems.length > 0, `the leak check notices ${what}`, JSON.stringify(problems));
+  }
+
+  // And the per-event sweep, which is the one that would catch a practice
+  // volunteer attached to somebody's real event.
+  const withVolunteer = answering({
+    volunteers: [{ name: markers.PRACTICE_VOLUNTEER }],
+  });
+  check(
+    (await checkEventFreeOfMarkers(withVolunteer, actors[0], 'E1', markers)).length > 0,
+    'the per-event sweep notices a practice volunteer on a real event',
+  );
+  check(
+    (await checkEventFreeOfMarkers(
+      answering({ volunteers: [{ name: 'A Real Person' }] }), actors[0], 'E1', markers,
+    )).length === 0,
+    'and is quiet about a real one',
   );
 }
 

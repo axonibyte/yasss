@@ -727,6 +727,17 @@ if has_stage journeys; then
       failures=$((failures + 1))
       warn "journey audit failed"
     fi
+
+    # Last, and after the audit on purpose: the audit is what runs the tutorial,
+    # and this asks the server whether any of it arrived. The audit can only
+    # watch what the browser requested, which proves the page made no call --
+    # not that the database holds nothing. A leak by some route the audit does
+    # not think to watch passes it and fails this.
+    log "verifying the tutorial left nothing behind"
+    if ! drive "${DRIVER_IMAGE}" /repo/e2e node journeys/verify-sandbox.mjs; then
+      failures=$((failures + 1))
+      warn "journeys sandbox verification failed"
+    fi
   else
     warn "no journey handle was written; skipping the browser audit"
   fi
