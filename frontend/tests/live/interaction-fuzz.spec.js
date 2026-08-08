@@ -20,6 +20,7 @@ import {
 import {
   DETAIL_ANSWERS, OPTIONAL_TEXT, REMINDER_EMAILS, REQUIRED_TEXT,
 } from './helpers/corpus.js';
+import { SUBMIT_RSVPS } from '../shared/labels.js';
 
 /** The volunteer picker's "Add Volunteer" button. */
 const addVolunteer = (page) => page.getByRole('button', { name: 'Add Volunteer' }).click();
@@ -176,7 +177,7 @@ test.describe('volunteers', () => {
             // Submitting is the only thing that proves the server agrees: the
             // client's pattern is a mirror of the server's, and a mirror can be
             // wrong in either direction.
-            await page.getByRole('button', { name: 'Submit RSVPs' }).click();
+            await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
             await expect(
               page.getByText('RSVP successfully submitted!'),
               `${type} ${c.name} passed the client and failed the server`,
@@ -223,7 +224,7 @@ test.describe('volunteers', () => {
       await openVolunteerForm(page);
       await page.locator('#vol-name').fill('Grace');
       expect((await classifySave(page, 'Save Volunteer')).outcome).toBe('accepted');
-      await page.getByRole('button', { name: 'Submit RSVPs' }).click();
+      await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
       await expect(page.getByText('RSVP successfully submitted!')).toBeVisible({
         timeout: 20_000,
       });
@@ -315,7 +316,7 @@ test.describe('RSVPs', () => {
     await cell.locator('button').click();
     await expect(cell).toContainText('Booked');
 
-    await page.getByRole('button', { name: 'Submit RSVPs' }).click();
+    await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
     await expect(page.getByText('RSVP successfully submitted!')).toBeVisible({
       timeout: 20_000,
     });
@@ -350,7 +351,7 @@ test.describe('RSVPs', () => {
     expect((await classifySave(page, 'Save Volunteer')).outcome).toBe('accepted');
     await button.click();
     await expect(cell).toContainText('Booked');
-    await page.getByRole('button', { name: 'Submit RSVPs' }).click();
+    await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
     await expect(page.getByText('RSVP successfully submitted!')).toBeVisible({
       timeout: 20_000,
     });
@@ -403,7 +404,7 @@ test.describe('RSVPs', () => {
     await openVolunteerForm(page);
     await page.locator('#vol-name').fill('Someone Private');
     expect((await classifySave(page, 'Save Volunteer')).outcome).toBe('accepted');
-    await page.getByRole('button', { name: 'Submit RSVPs' }).click();
+    await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
     await expect(page.getByText('RSVP successfully submitted!')).toBeVisible({
       timeout: 20_000,
     });

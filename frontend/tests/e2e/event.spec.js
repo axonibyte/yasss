@@ -7,7 +7,8 @@
  * actor. Both are fixed; this is what proves the whole path now runs.
  */
 import { test, expect } from '@playwright/test';
-import { seed, waitForApp } from './helpers.js';
+import { seed, submitRsvps, waitForApp } from './helpers.js';
+import { SUBMIT_RSVPS } from '../shared/labels.js';
 
 test('renders the grid for an anonymous visitor', async ({ page, request }) => {
   const { eventId } = await seed(request, {
@@ -74,8 +75,7 @@ test('a guest can add a volunteer and claim a slot', async ({ page, request }) =
   await firstSlot.click();
   await expect(page.locator('.event-cell li').filter({ hasText: /^Booked$/ })).toHaveCount(1);
 
-  await page.getByRole('button', { name: 'Submit RSVPs' }).click();
-  await expect(page.getByText('RSVP successfully submitted!')).toBeVisible();
+  await submitRsvps(page);
 });
 
 test('an RSVP survives a reload once submitted', async ({ page, request }) => {
@@ -88,8 +88,7 @@ test('an RSVP survives a reload once submitted', async ({ page, request }) => {
   await page.getByLabel('Name').fill('Ada');
   await page.getByRole('button', { name: 'Save Volunteer' }).click();
   await page.locator('.event-cell li').filter({ hasText: /^Available$/ }).first().click();
-  await page.getByRole('button', { name: 'Submit RSVPs' }).click();
-  await expect(page.getByText('RSVP successfully submitted!')).toBeVisible();
+  await submitRsvps(page);
 
   await page.reload();
   await waitForApp(page);
@@ -108,7 +107,7 @@ test('an expired event cannot be signed up for', async ({ page, request }) => {
   await waitForApp(page);
 
   await expect(page.getByRole('button', { name: 'This event has expired.' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Submit RSVPs' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: SUBMIT_RSVPS })).toHaveCount(0);
 });
 
 test('the share link uses the query-parameter form the server emails', async ({ page, request }) => {

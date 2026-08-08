@@ -12,7 +12,7 @@
  * visible to anyone until the platform is already mailing strangers.
  */
 import { test, expect } from '@playwright/test';
-import { seed, seedSignedIn, waitForApp } from './helpers.js';
+import { seed, seedSignedIn, submitRsvps, waitForApp } from './helpers.js';
 
 /** Reads back the consent state the API itself never discloses. */
 async function reminderState(request, eventId, volunteerId) {
@@ -37,8 +37,7 @@ async function signUp(page, { name = 'Ada', email, signedIn = false } = {}) {
 
   await page.getByRole('button', { name: 'Save Volunteer' }).click();
   await page.locator('.event-cell li').filter({ hasText: /^Available$/ }).first().click();
-  await page.getByRole('button', { name: 'Submit RSVPs' }).click();
-  await expect(page.getByText('RSVP successfully submitted!')).toBeVisible();
+  await submitRsvps(page);
 }
 
 /**

@@ -11,6 +11,7 @@
  * specs run serially and each creates what it needs.
  */
 import { test, expect } from '@playwright/test';
+import { SUBMIT_RSVPS } from '../shared/labels.js';
 
 /** Past the deliberate minimum splash. */
 async function ready(page) {
@@ -138,7 +139,7 @@ test('a guest can sign up, and the RSVP persists to the database', async ({ page
   await page.locator('.event-cell li').filter({ hasText: /^Available$/ }).first().click();
   await expect(page.locator('.event-cell li').filter({ hasText: /^Booked$/ })).toHaveCount(1);
 
-  await page.getByRole('button', { name: 'Submit RSVPs' }).click();
+  await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
   await expect(page.getByText('RSVP successfully submitted!')).toBeVisible();
 
   // This is the assertion the whole containerised stack exists for. On main it

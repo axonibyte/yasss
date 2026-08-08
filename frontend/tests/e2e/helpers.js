@@ -9,6 +9,9 @@
  * from each request rather than from remembered state, so every test is already
  * isolated by the data it creates.
  */
+import { expect } from '@playwright/test';
+
+import { SUBMIT_RSVPS } from '../shared/labels.js';
 
 /**
  * Seed users and events.
@@ -71,4 +74,17 @@ export async function logIn(page, { email, password = 'hunter2' }) {
   await page.getByLabel('Email Address').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Log In!' }).click();
+}
+
+/**
+ * Claim what is pending, and wait for the server to have said so.
+ *
+ * The button's accessible name carries the count, so the literal it used to be
+ * matched on no longer resolves once anything is pending. The click and the
+ * toast travel together because a click that reports nothing is exactly the
+ * failure this button was gated to prevent.
+ */
+export async function submitRsvps(page) {
+  await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
+  await expect(page.getByText('RSVP successfully submitted!')).toBeVisible();
 }

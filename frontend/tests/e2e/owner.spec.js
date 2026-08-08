@@ -8,6 +8,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { seed, seedSignedIn, signIn, waitForApp } from './helpers.js';
+import { SUBMIT_RSVPS } from '../shared/labels.js';
 
 /** Open an event as its owner. */
 async function asOwner(page, request, eventSpec = {}) {
@@ -97,25 +98,44 @@ test('the guest prompt is suppressed for a signed-in visitor', async ({ page, re
   await expect(page.getByLabel('Name')).toBeVisible();
 });
 
-test('a platform admin can still submit on an expired event', async ({ page, request }) => {
-  const expired = { activities: 1, windows: 1, expired: true };
+/**
+ * The admin exemption on an expired event, and how far it actually reaches.
+ *
+ * `EventSection.svelte:221` swaps the disabled "This event has expired." pill
+ * for the ordinary submit button when `session.isAdmin`. That is the whole
+ * exemption: `event.interactive` is `!expired` with no admin clause, so
+ * `canAddVolunteer` is false, `toggleRsvp` returns early (`rsvpActions.js:25`)
+ * and the grid ignores clicks. An admin here therefore has nothing to submit
+ * and the button stays disabled.
+ *
+ * So this asserts the discrimination that exists — admin gets the button,
+ * everyone else gets the pill — and deliberately does not claim the admin can
+ * submit, which the previous name did. `toBeVisible()` passes on a disabled
+ * button, so that assertion never proved it either.
+ */
+test('a platform admin gets the submit button where others get the expired pill',
+  async ({ page, request }) => {
+    const expired = { activities: 1, windows: 1, expired: true };
 
-  // Note this is the *platform* ADMIN access level, not event ownership —
-  // an owner without ADMIN gets the disabled pill like anyone else.
-  const admin = await seed(request, {
-    user: { accessLevel: 'ADMIN' }, event: { ...expired, admin: 'self' },
+    // Note this is the *platform* ADMIN access level, not event ownership —
+    // an owner without ADMIN gets the disabled pill like anyone else.
+    const admin = await seed(request, {
+      user: { accessLevel: 'ADMIN' }, event: { ...expired, admin: 'self' },
+    });
+    await signIn(page, { user: admin.user, session: admin.session });
+    await page.goto(`/?event=${admin.eventId}`);
+    await waitForApp(page);
+    await expect(page.getByRole('button', { name: SUBMIT_RSVPS })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'This event has expired.' }))
+      .toHaveCount(0);
+
+    const standard = await seed(request, { user: {}, event: { ...expired, admin: 'self' } });
+    await signIn(page, { user: standard.user, session: standard.session });
+    await page.goto(`/?event=${standard.eventId}`);
+    await waitForApp(page);
+    await expect(page.getByRole('button', { name: 'This event has expired.' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: SUBMIT_RSVPS })).toHaveCount(0);
   });
-  await signIn(page, { user: admin.user, session: admin.session });
-  await page.goto(`/?event=${admin.eventId}`);
-  await waitForApp(page);
-  await expect(page.getByRole('button', { name: 'Submit RSVPs' })).toBeVisible();
-
-  const standard = await seed(request, { user: {}, event: { ...expired, admin: 'self' } });
-  await signIn(page, { user: standard.user, session: standard.session });
-  await page.goto(`/?event=${standard.eventId}`);
-  await waitForApp(page);
-  await expect(page.getByRole('button', { name: 'This event has expired.' })).toBeDisabled();
-});
 
 test('the profile modal prefills the current address', async ({ page, request }) => {
   const { user } = await seedSignedIn(page, request);

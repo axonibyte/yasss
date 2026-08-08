@@ -13,6 +13,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { seed, signIn, waitForApp } from './helpers.js';
+import { SUBMIT_RSVPS } from '../shared/labels.js';
 
 /** An owned, published event with a full grid, opened in edit mode. */
 async function openEditor(page, request, eventSpec = {}) {
@@ -44,7 +45,7 @@ test('Modify Event swaps the whole surface', async ({ page, request }) => {
     'Add a Field', 'Close Event Editor']) {
     await expect(page.getByRole('button', { name })).toBeVisible();
   }
-  await expect(page.getByRole('button', { name: 'Submit RSVPs' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: SUBMIT_RSVPS })).toHaveCount(0);
 });
 
 test('slot cells show a count over cap, a branch reachable only in edit mode', async ({ page, request }) => {
