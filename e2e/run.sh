@@ -383,6 +383,14 @@ ensure_image docker.io/axllent/mailpit:latest
 ensure_image "${DRIVER_IMAGE}"
 { has_stage browser || has_stage journeys; } && ensure_image "${BROWSER_IMAGE}"
 
+# The journey handle names actors and events by id in a database that is about
+# to be replaced. journey-audit.spec.js skips itself when the file is absent,
+# which is right for an ordinary browser stage -- but the file outlives the
+# stack, so once any journey has ever run here, `--only browser` on a fresh
+# database drove the audit at rows that no longer existed and went red for it.
+# A new database is exactly what makes the handle meaningless, so it goes here.
+rm -f "${HERE}/journeys/handle.json"
+
 if [[ ${PUBLISH} -eq 1 ]]; then
   log "creating pod ${POD} (app published on host port ${APP_PORT})"
   pm pod create --name "${POD}" -p "${APP_PORT}:7455" -p "${MAIL_PORT}:8025" >/dev/null
