@@ -203,17 +203,17 @@ async function runJourney({ seed, iterations, actors, skip = new Set() }) {
     } catch (e) {
       problems.push(`action ${action.name} threw at step ${i}: ${e.message}`);
       trace.push({ i, actor: actor.name, action: action.name, note: `THREW ${e.message}` });
-      return { problems, trace, failedAt: i };
+      return { problems, trace, failedAt: i, world };
     }
     trace.push({ i, actor: actor.name, action: action.name, note });
 
-    if (problems.length) return { problems, trace, failedAt: i };
+    if (problems.length) return { problems, trace, failedAt: i, world };
 
     if (i % CHECK_EVERY === 0) {
       const found = await sweep(api, world, actors);
       if (found.length) {
         problems.push(...found);
-        return { problems, trace, failedAt: i };
+        return { problems, trace, failedAt: i, world };
       }
     }
   }

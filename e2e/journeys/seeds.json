@@ -11,8 +11,22 @@
     "remove."
   ],
   "fixed": [
-    { "seed": 20260807, "iterations": 120, "note": "general coverage" },
-    { "seed": 811, "iterations": 120, "note": "general coverage, different action mix" }
+    {
+      "seed": 20260807,
+      "iterations": 120,
+      "note": "general coverage. Verified against the build before 9991e50: fails at action 30 with `?volunteer=` returning an event twice for an account holding two signups on it."
+    },
+    {
+      "seed": 811,
+      "iterations": 120,
+      "note": "general coverage, different action mix. Catches the same duplicate at action 10."
+    }
+  ],
+  "_browserNote": [
+    "The browser audit is not seeded from here -- it reads whatever world the",
+    "engine last built. Verified against the build before 7c51719, where one",
+    "dashboard load issued 3457 requests to GET /v1/events and the audit's",
+    "rate check failed on it."
   ],
   "regressions": []
 }
