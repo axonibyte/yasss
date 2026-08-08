@@ -7,7 +7,7 @@
    * "helpfully" add a hamburger; that is a visible departure from main.
    */
   let {
-    loggedIn = false, onCreateEvent, onLogin, onAccount, onLogout, onHome,
+    loggedIn = false, onCreateEvent, onTutorial, onLogin, onAccount, onLogout, onHome,
   } = $props();
 
   /**
@@ -43,6 +43,14 @@
   </div>
   <div class="navbar-end">
     <a class="navbar-item" href="#create-event" onclick={act(onCreateEvent)}>Create Event</a>
+    <!--
+      A fourth item, and the note above about there being no burger applies: on
+      a phone these stack under the brand rather than collapsing. That is the
+      existing behaviour of this bar and this makes the stack one taller, which
+      is the price of the tutorial being reachable from an event page as well as
+      from the landing one.
+    -->
+    <a class="navbar-item" href="#tutorial" onclick={act(onTutorial)}>Tutorial</a>
     {#if loggedIn}
       <a class="navbar-item" href="#account" onclick={act(onAccount)}>Account</a>
       <a class="navbar-item" href="#logout" onclick={act(onLogout)}>Log Out</a>

@@ -40,6 +40,15 @@ export class EventModel {
   reminderLeadTime = $state(null);
   volunteersMaxed = $state(false);
   expired = $state(false);
+  /**
+   * A practice event, built by the tutorial and belonging to nobody.
+   *
+   * It carries an id so `mode` resolves to VIEW, which is the only way to show
+   * the volunteer surface -- and that id would otherwise authorise every write
+   * in the action layer to go out over the network. This is what says it must
+   * not. See `actions/remote.js` and `lib/tutorial/sandbox.js`.
+   */
+  sandbox = $state(false);
 
   activities = $state([]);
   windows = $state([]);
@@ -85,6 +94,10 @@ export class EventModel {
    * that is merely being looked at.
    */
   get hasUnsavedWork() {
+    // A practice event has nothing to lose: it was never going anywhere, and
+    // arming the unload guard over it would teach a first-time visitor that
+    // this app nags you for closing a tab.
+    if (this.sandbox) return false;
     if (this.volunteers.some((v) => !v.persisted)) return true;
     if (this.persisted) return false;
     return Boolean(this.title)
@@ -101,6 +114,7 @@ export class EventModel {
   reset() {
     this.id = null;
     this.admin = null;
+    this.sandbox = false;
     this.title = '';
     this.description = '';
     this.notifyOnSignup = true;

@@ -28,6 +28,8 @@
   import WindowModal from './components/modals/WindowModal.svelte';
   import DetailModal from './components/modals/DetailModal.svelte';
   import SlotModal from './components/modals/SlotModal.svelte';
+  import TutorialPanel from './components/TutorialPanel.svelte';
+  import TutorialChooser from './components/TutorialChooser.svelte';
 
   import { session, connectSessionToApi } from './state/session.svelte.js';
   import { route } from './state/route.svelte.js';
@@ -44,6 +46,8 @@
     deleteVolunteer, hasUnsavedWork, saveVolunteer, submitVolunteers,
   } from './state/actions/volunteerActions.js';
   import * as api from './lib/api/index.js';
+  import { tutorial, loadPracticeEvent } from './state/tutorial.svelte.js';
+  import { DEFAULT_COPY } from './lib/tutorial/defaults.js';
 
   let loading = $state(true);
   let modal = $state(null);
@@ -432,6 +436,58 @@
    * guard still fires for genuine navigation away; this path asks the same
    * question itself, because in-app navigation does not trigger it.
    */
+  // --- tutorial ------------------------------------------------------------
+
+  /**
+   * Open the track chooser.
+   *
+   * Guarded, because every entry point to this is live while the user may be
+   * halfway through building a real event -- the navbar item is on every
+   * screen. Starting the tutorial loads the practice event over whatever is in
+   * `currentEvent`, so this is exactly as destructive as "Create Event" is, and
+   * gets the same question.
+   */
+  function startTutorial() {
+    if (hasUnsavedWork(event)) {
+      confirmDestructive({
+        title: 'Start the tutorial?',
+        detail: 'You have unsaved work on this event. Starting the tutorial will lose it.',
+        confirmLabel: 'Start tutorial',
+        proceed: () => { modal = null; tutorial.open(); },
+      });
+      return;
+    }
+    tutorial.open();
+  }
+
+  function beginTutorial(track) {
+    loadPracticeEvent(event);
+    eventLoaded = true;
+    tutorial.begin(track, event, DEFAULT_COPY);
+  }
+
+  /**
+   * Leave the tutorial, taking the practice event with it.
+   *
+   * `event.reset()` clears `sandbox` along with everything else, so nothing of
+   * the practice event survives into whatever the user does next -- which
+   * matters more than usual here, because a stale `sandbox` flag on a real
+   * event would silently stop it saving.
+   */
+  function exitTutorial() {
+    tutorial.stop();
+    eventLoaded = false;
+    event.reset();
+    route.goHome();
+  }
+
+  // The panel is fixed to the bottom of the viewport, so the page needs room
+  // under its own content or the panel covers the button a step is pointing at.
+  $effect(() => {
+    document.body.classList.toggle('tutorial-running', tutorial.running);
+    return () => document.body.classList.remove('tutorial-running');
+  });
+
   function goHome() {
     if (hasUnsavedWork(event)
         && !window.confirm('You have unsaved work on this event. Leave it behind?')) {
@@ -481,6 +537,7 @@
 <NavBar
   loggedIn={session.loggedIn}
   onCreateEvent={startWizard}
+  onTutorial={startTutorial}
   onHome={goHome}
   onLogin={() => { modal = { kind: 'auth' }; }}
   onAccount={() => { modal = { kind: 'profile' }; }}
@@ -519,8 +576,26 @@
   {#if session.loggedIn}
     <DashboardSection onSelect={openEvent} />
   {:else}
-    <CoaSection onCreateEvent={startWizard} />
+    <CoaSection onCreateEvent={startWizard} onTutorial={startTutorial} />
   {/if}
+{/if}
+
+{#if tutorial.choosing}
+  <TutorialChooser onChoose={beginTutorial} onClose={() => tutorial.stop()} />
+{/if}
+
+{#if tutorial.running}
+  <TutorialPanel
+    html={tutorial.html}
+    position={tutorial.position}
+    total={tutorial.total}
+    anchor={tutorial.step?.anchor ?? null}
+    canGoBack={tutorial.index > 0}
+    atEnd={tutorial.atEnd}
+    onBack={() => tutorial.back(event)}
+    onNext={() => tutorial.next(event)}
+    onExit={exitTutorial}
+  />
 {/if}
 
 <Footer

@@ -9,8 +9,17 @@
  * to change the answer.
  */
 
-/** True once the event exists server-side and changes must be published. */
-export const isRemote = (event) => event.persisted;
+/**
+ * True once the event exists server-side and changes must be published.
+ *
+ * The sandbox clause is the tutorial's whole containment. Its practice event
+ * carries an id so the volunteer surface renders, and an id is what every write
+ * here gates on -- so without this, a learner clicking a practice tile would
+ * POST an RSVP against an event the server has never heard of. Being the one
+ * place that answers this question is what makes that a single clause rather
+ * than five.
+ */
+export const isRemote = (event) => event.persisted && !event.sandbox;
 
 /**
  * True when this volunteer's writes are the server's to record.

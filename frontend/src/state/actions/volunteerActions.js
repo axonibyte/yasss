@@ -14,7 +14,8 @@
 import * as api from '../../lib/api/index.js';
 import { toastDanger, toastError, toastInfo, toastSuccess } from '../toast.js';
 import { volunteerCreatePayload, volunteerUpdatePayload } from '../serialize/volunteerPayload.js';
-import { isRemoteVolunteer } from './remote.js';
+import { isRemote, isRemoteVolunteer } from './remote.js';
+import { mintKey } from '../../lib/keys.js';
 
 /** Volunteers that exist only in the browser. */
 export const pendingVolunteers = (event) => event.volunteers.filter((v) => !v.persisted);
@@ -29,8 +30,13 @@ export const pendingVolunteers = (event) => event.volunteers.filter((v) => !v.pe
 export const hasUnsavedWork = (event) => event.hasUnsavedWork;
 
 /**
- * Persist one volunteer and adopt the server's id, wiring their RSVPs into the
- * slot membership sets that only accept persisted ids.
+ * Persist one volunteer and adopt their id, wiring their RSVPs into the slot
+ * membership sets that only accept persisted ids.
+ *
+ * The payload is built either way, including for a practice volunteer who is
+ * going nowhere. That is deliberate: it means the tutorial exercises the same
+ * serialization the real submit does, so a bug in `volunteerCreatePayload`
+ * cannot hide behind a sandbox that skipped it.
  */
 async function createVolunteer(event, volunteer, account, captcha) {
   const payload = volunteerCreatePayload(volunteer, {
@@ -40,8 +46,17 @@ async function createVolunteer(event, volunteer, account, captcha) {
     account,
   });
 
-  const res = await api.addVolunteer(event.id, payload, captcha);
-  const id = res.volunteer?.id;
+  // A practice volunteer gets an id from here rather than from the server. Only
+  // the source of the id differs; everything below -- adopting it, wiring the
+  // slot membership, the counts -- is the same code, which is the point. A
+  // separate sandbox path is how the two would drift, and the learner would end
+  // up being taught a submit that behaves unlike the real one.
+  //
+  // Not a UUID, deliberately: every real volunteer id is one, so this string
+  // arriving at the API is unambiguously a leak. `checkNoSandboxLeak` looks.
+  const id = isRemote(event)
+    ? (await api.addVolunteer(event.id, payload, captcha)).volunteer?.id
+    : mintKey('tutorial-practice-volunteer-');
   if (!id) throw new Error('The server did not return a volunteer id.');
 
   volunteer.id = id;

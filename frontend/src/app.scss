@@ -154,3 +154,59 @@
     grid-template-columns: repeat(var(--bulma-grid-column-count), minmax(7.5rem, 1fr));
   }
 }
+
+// --- tutorial ---------------------------------------------------------------
+
+// The step panel is docked rather than floating over the middle of the page,
+// because the learner has to be able to see and click the thing it is talking
+// about. Nothing here covers the page: no scrim, no `inert`, no focus trap --
+// see TutorialPanel.svelte for why that is the whole design and not an
+// oversight.
+.tutorial-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30; // under Bulma's modal (40), so the chooser still wins
+  background-color: var(--bulma-scheme-main);
+  border-top: 2px solid var(--bulma-primary);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0.75rem 1rem;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.tutorial-panel-inner {
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+.tutorial-panel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  // Bulma gives `.buttons` a bottom margin meant for stacked blocks; inside a
+  // single flex row it just makes the panel taller than its contents.
+  .buttons {
+    margin-bottom: 0;
+  }
+}
+
+// The panel is fixed, so without this it sits on top of the last thing on the
+// page -- which, on the event view, is the Submit button one of the steps is
+// telling the learner to press.
+body.tutorial-running {
+  padding-bottom: 45vh;
+}
+
+// Outline rather than a background change: cells and cards already use colour
+// to mean something (available, booked, full), and repainting one to highlight
+// it would say something false about its state.
+.tutorial-anchor {
+  outline: 3px solid var(--bulma-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
