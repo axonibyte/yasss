@@ -39,8 +39,20 @@ function typo(rnd, text) {
   return text.slice(0, at) + text[at + 1] + text[at] + text.slice(at + 2);
 }
 
-/** Actors who hold an account. The anonymous one cannot own anything. */
-const identified = (ctx) => ctx.actors.filter((a) => a.account);
+/**
+ * The body fields that attach a write to an account.
+ *
+ * This API takes identity as an explicit field rather than inferring it from the
+ * session -- `POST /v1/events` reads `admin`, `POST .../volunteers` reads `user`
+ * -- because both flows are legitimately available anonymously. Omitting the
+ * field is therefore not an error: it silently produces an ownerless record,
+ * which then correctly fails to appear in any listing scoped to the actor. Both
+ * of this engine's first two false failures were that, so it goes through one
+ * helper rather than being remembered at each call site.
+ *
+ * Empty for the anonymous actor, which is exactly right for them.
+ */
+const owns = (ctx, field) => (ctx.actor.account ? { [field]: ctx.actor.account } : {});
 
 /** An event this actor knows about, if any. */
 function knownEvent(ctx) {
@@ -72,10 +84,13 @@ export const ACTIONS = [
     weight: 4,
     applicable: (ctx) => Boolean(ctx.actor.account) && ctx.world.events.size < 12,
     async run(ctx) {
-      const title = `Journey ${ctx.i} ${ctx.pick(NAMES)}`;
+      // Tagged with the run and the seed so that two events built by the same
+      // step of two different runs are still tellable apart on screen.
+      const title = `Journey ${ctx.runTag}.${ctx.seed}.${ctx.i} ${ctx.pick(NAMES)}`;
       const created = await createEvent(ctx.api, {
         title,
         auth: ctx.actor.session,
+        ...owns(ctx, 'admin'),
         windowCount: 1 + Math.floor(ctx.rnd() * 2),
         activities: [{ label: 'Setup' }],
         allowMultiUserSignups: true,
@@ -221,6 +236,7 @@ export const ACTIONS = [
       const res = await apiAddVolunteer(ctx.api, event.id, {
         name,
         auth: ctx.actor.session,
+        ...owns(ctx, 'user'),
         rsvps: wanted,
         details: [],
       });
@@ -566,6 +582,7 @@ export const ACTIONS = [
 
       const body = {
         name,
+        ...owns(ctx, 'user'),
         rsvps: [{ activity: chosen.activity.id, window: chosen.windowId }],
         details: [],
       };

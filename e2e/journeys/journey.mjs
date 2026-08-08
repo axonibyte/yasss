@@ -29,7 +29,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { makeApi, isUnhandled } from '../lib/api.mjs';
 import { check, finish } from '../lib/check.mjs';
 import { credentialFor } from '../lib/creds.mjs';
-import { waitForMail } from '../lib/mailpit.mjs';
+import { linkParams, messageBody, waitForMail } from '../lib/mailpit.mjs';
 import { genCreds } from '../../frontend/src/lib/crypto/creds.js';
 import {
   World, checkListing, checkEvent, checkVisibility, checkCorrections,
@@ -43,6 +43,18 @@ const ITERATIONS = Number(process.env.JOURNEY_ITERATIONS ?? 200);
 const ACTOR_COUNT = Number(process.env.JOURNEY_ACTORS ?? 4);
 const CHECK_EVERY = Number(process.env.JOURNEY_CHECK_EVERY ?? 10);
 const SEED = Number(process.env.JOURNEY_SEED ?? (Date.now() % 2 ** 31));
+
+/**
+ * Distinguishes this process's events from an earlier run's.
+ *
+ * The stack accumulates: replaying a seed builds a second set of events with
+ * the same shape, so titles derived from the seed and the step alone collide
+ * with the previous run's and anything reading the UI by title cannot tell them
+ * apart. Deliberately outside the seeded stream, so it changes nothing about
+ * which actions are chosen -- the action sequence stays identical on a replay,
+ * which is what reproducibility here means.
+ */
+const RUN_TAG = Date.now().toString(36).slice(-5);
 
 const rawApi = makeApi();
 
@@ -133,10 +145,13 @@ async function registerActor(api, name, password) {
   }
   const account = created.payload.user.id;
 
-  const mail = await waitForMail(email);
-  const match = mail?.match(/action=verify-user[^"'\s<>]*/);
-  if (!match) throw new Error(`no verification link arrived for ${email}`);
-  const link = Object.fromEntries(new URLSearchParams(match[0]));
+  // waitForMail answers the message, not its body -- and the link's separators
+  // arrive HTML-escaped, so linkParams is what turns it into parameters. Doing
+  // either by hand reads `amp;token` as a parameter name.
+  const message = await waitForMail(email);
+  if (!message) throw new Error(`no welcome email arrived for ${email}`);
+  const link = linkParams(await messageBody(message.ID), 'verify-user');
+  if (!link) throw new Error(`the welcome email for ${email} carried no verification link`);
 
   const verified = await api('PUT', `/v1/users/${link.user}`, { body: { token: link.token } });
   if (verified.status !== 200) {
@@ -172,7 +187,7 @@ async function runJourney({ seed, iterations, actors, skip = new Set() }) {
 
   for (let i = 1; i <= iterations; i += 1) {
     const actor = pick(actors);
-    const ctx = { api, world, actor, actors, rnd, pick, chance, i };
+    const ctx = { api, world, actor, actors, rnd, pick, chance, i, seed, runTag: RUN_TAG };
 
     const available = ACTIONS.filter((a) => !skip.has(a.name) && a.applicable(ctx));
     if (!available.length) continue;

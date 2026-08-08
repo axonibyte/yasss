@@ -111,19 +111,29 @@ describe('journey audit', () => {
       await page.goto('/');
       await ready(page);
 
-      // Both dashboard boxes. A duplicate id would already have thrown
-      // each_key_duplicate and been caught by the watchdog, so this is the
-      // weaker but more legible statement of the same thing.
-      const items = page.locator('#list-event-section li');
-      await expect(items.first()).toBeVisible({ timeout: 15_000 });
+      // Per box, not across the pair. The dashboard shows "Your Upcoming
+      // Events" and "Your Upcoming RSVPs" side by side, and an event you both
+      // organise and have signed up to belongs in each -- counting across the
+      // two reads that as a duplicate when it is the product working.
+      //
+      // A genuinely repeated id would already have thrown each_key_duplicate
+      // and been caught by the watchdog; this is the weaker but more legible
+      // statement of the same thing.
+      const lists = page.locator('#list-event-section ul');
+      await expect(lists.first()).toBeVisible({ timeout: 15_000 });
 
-      const titles = await items.allInnerTexts();
-      const counted = new Map();
-      for (const t of titles.map((s) => s.trim()).filter(Boolean)) {
-        counted.set(t, (counted.get(t) ?? 0) + 1);
+      for (let i = 0; i < await lists.count(); i += 1) {
+        const titles = await lists.nth(i).locator('li').allInnerTexts();
+        const counted = new Map();
+        for (const t of titles.map((s) => s.trim()).filter(Boolean)) {
+          counted.set(t, (counted.get(t) ?? 0) + 1);
+        }
+        const repeated = [...counted.entries()].filter(([, n]) => n > 1);
+        expect(
+          repeated,
+          `${actor.name} was shown an event more than once in list ${i + 1}`,
+        ).toEqual([]);
       }
-      const repeated = [...counted.entries()].filter(([, n]) => n > 1);
-      expect(repeated, `${actor.name} was shown an event more than once`).toEqual([]);
 
       await page.context().clearCookies();
     }
