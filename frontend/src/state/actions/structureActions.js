@@ -17,9 +17,7 @@ import {
 } from '../../lib/api/dto.js';
 import { Activity, Detail, EventWindow, Slot } from '../entities.svelte.js';
 import { toastDanger, toastError } from '../toast.js';
-
-/** True once the event exists server-side and changes must be published. */
-const isRemote = (event) => event.persisted;
+import { isRemote } from './remote.js';
 
 /**
  * Asserts that a write actually came back with an id.

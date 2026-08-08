@@ -14,6 +14,7 @@
 import * as api from '../../lib/api/index.js';
 import { toastDanger, toastError, toastInfo, toastSuccess } from '../toast.js';
 import { volunteerCreatePayload, volunteerUpdatePayload } from '../serialize/volunteerPayload.js';
+import { isRemoteVolunteer } from './remote.js';
 
 /** Volunteers that exist only in the browser. */
 export const pendingVolunteers = (event) => event.volunteers.filter((v) => !v.persisted);
@@ -100,7 +101,7 @@ export async function submitVolunteers(event, { account, captcha }) {
 
 /** Push a rename or changed answers for an already-persisted volunteer. */
 export async function saveVolunteer(event, volunteer) {
-  if (!volunteer.persisted) return true;
+  if (!isRemoteVolunteer(event, volunteer)) return true;
   try {
     await api.updateVolunteer(
       event.id,
@@ -116,7 +117,7 @@ export async function saveVolunteer(event, volunteer) {
 
 /** Delete a volunteer, server-side if they got that far. */
 export async function deleteVolunteer(event, volunteer) {
-  if (volunteer.persisted) {
+  if (isRemoteVolunteer(event, volunteer)) {
     try {
       await api.removeVolunteer(event.id, volunteer.id);
     } catch (e) {
