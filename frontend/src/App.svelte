@@ -206,7 +206,7 @@
     if (route.tutorial !== null && !eventLoaded) {
       const track = route.tutorial;
       route.clearTutorial();
-      if (track === 'organiser' || track === 'volunteer') await beginTutorial(track);
+      if (track === 'organizer' || track === 'volunteer') await beginTutorial(track);
       // A bare `?tutorial`, or a track nobody recognises: ask rather than guess.
       else tutorial.open();
     }

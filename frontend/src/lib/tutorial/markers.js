@@ -12,7 +12,7 @@
  * passing while hunting for a string nobody writes any more, from the first time
  * somebody renames the bake sale.
  *
- * Distinctive on purpose: `PRACTICE_TITLE` has to be something no real organiser
+ * Distinctive on purpose: `PRACTICE_TITLE` has to be something no real organizer
  * would type, because the check that matters is "does this appear anywhere on
  * the server", and a common word would make that question unanswerable.
  */

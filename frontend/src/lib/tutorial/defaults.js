@@ -13,7 +13,7 @@
  * these should not have to reverse-engineer the formatting.
  */
 export const DEFAULT_COPY = {
-  // --- organiser -----------------------------------------------------------
+  // --- organizer -----------------------------------------------------------
   welcome: `## Welcome to Yasss!
 
 This is a **practice event**. It only exists in this browser tab — nothing here
@@ -79,9 +79,9 @@ enough.
 If you are signing up other people as well as yourself, you can add each of them
 separately.`,
 
-  'v-fields': `## Answering the organiser's questions
+  'v-fields': `## Answering the organizer's questions
 
-Organisers can ask for extra details — what you are bringing, a phone number,
+Organizers can ask for extra details — what you are bringing, a phone number,
 whatever the event needs. Required ones have to be filled in before you can
 submit.
 
@@ -105,6 +105,6 @@ The button counts what is waiting, and greys out when there is nothing to send.`
 You can come back to the same link later to change your answers or give up a
 square.
 
-If the organiser asked for your email, you can also have a reminder sent before
+If the organizer asked for your email, you can also have a reminder sent before
 the event starts.`,
 };

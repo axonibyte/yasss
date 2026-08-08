@@ -98,14 +98,25 @@ describe('visibleActivities', () => {
 describe('slot cell matrix', () => {
   const base = { enabled: true, editing: false, hasRsvp: false, atCapacity: false };
 
+  it('distinguishes editing from available, which the classes do not', () => {
+    // Both carry `is-outlined is-primary`, so anything picking a cell out of the
+    // grid by appearance cannot tell them apart -- and the labels are display
+    // text that has been reworded before. `state` is the part that is safe to
+    // match on.
+    const editing = slotCell({ ...base, editing: true, rsvpCount: 0, cap: 2 });
+    const available = slotCell(base);
+    expect(editing.aesthetics).toBe(available.aesthetics);
+    expect(editing.state).not.toBe(available.state);
+  });
+
   it('disabled -> Unavailable, outranking every other condition', () => {
     expect(slotCell({ ...base, enabled: false, editing: true, hasRsvp: true, atCapacity: true }))
-      .toEqual({ label: 'Unavailable', aesthetics: 'is-outlined is-light' });
+      .toEqual({ label: 'Unavailable', aesthetics: 'is-outlined is-light', state: 'unavailable' });
   });
 
   it('editing -> count / cap', () => {
     expect(slotCell({ ...base, editing: true, rsvpCount: 3, cap: 10 }))
-      .toEqual({ label: '3 / 10', aesthetics: 'is-outlined is-primary' });
+      .toEqual({ label: '3 / 10', aesthetics: 'is-outlined is-primary', state: 'editing' });
   });
 
   it('editing outranks hasRsvp and atCapacity', () => {
@@ -115,17 +126,17 @@ describe('slot cell matrix', () => {
 
   it('hasRsvp -> Booked, outranking atCapacity', () => {
     expect(slotCell({ ...base, hasRsvp: true, atCapacity: true }))
-      .toEqual({ label: 'Booked', aesthetics: 'is-outlined is-warning' });
+      .toEqual({ label: 'Booked', aesthetics: 'is-outlined is-warning', state: 'booked' });
   });
 
   it('atCapacity -> At Capacity', () => {
     expect(slotCell({ ...base, atCapacity: true }))
-      .toEqual({ label: 'At Capacity', aesthetics: 'is-outlined is-light' });
+      .toEqual({ label: 'At Capacity', aesthetics: 'is-outlined is-light', state: 'full' });
   });
 
   it('otherwise -> Available', () => {
     expect(slotCell(base))
-      .toEqual({ label: 'Available', aesthetics: 'is-outlined is-primary' });
+      .toEqual({ label: 'Available', aesthetics: 'is-outlined is-primary', state: 'available' });
   });
 
   it('renders an unlimited cap as 0 in edit mode, as the legacy did', () => {

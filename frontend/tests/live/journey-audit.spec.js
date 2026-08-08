@@ -196,7 +196,7 @@ describe('the tutorial, over an accumulated world', () => {
     const actor = handle.actors[0];
     test.skip(!actor, 'no actor with an account in this world');
 
-    for (const track of ['organiser', 'volunteer']) {
+    for (const track of ['organizer', 'volunteer']) {
       const counts = countApiCalls(page);
       await signInAs(page, baseURL, actor);
       await page.goto(`/?tutorial=${track}`);
@@ -263,7 +263,7 @@ describe('the tutorial, over an accumulated world', () => {
       .find(([k]) => k === 'v-welcome' || k === 'welcome') ?? [];
     test.skip(!id, 'the deployed deck covers neither opening step');
 
-    const track = id === 'welcome' ? 'organiser' : 'volunteer';
+    const track = id === 'welcome' ? 'organizer' : 'volunteer';
     await page.goto(`/?tutorial=${track}`);
     await ready(page);
 

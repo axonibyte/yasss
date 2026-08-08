@@ -77,7 +77,7 @@ test('the chooser offers both tracks and starts neither on its own', async ({ pa
   await waitForApp(page);
   await page.getByTestId('tutorial-start').click();
 
-  await expect(page.getByTestId('tutorial-track-organiser')).toBeVisible();
+  await expect(page.getByTestId('tutorial-track-organizer')).toBeVisible();
   await expect(page.getByTestId('tutorial-track-volunteer')).toBeVisible();
   // Nothing has begun yet: the panel appears only once a track is chosen.
   await expect(page.getByTestId('tutorial-step')).toHaveCount(0);
@@ -92,7 +92,7 @@ test('the chooser offers both tracks and starts neither on its own', async ({ pa
  * click nothing, and would pass with the sandbox clause deleted. That claim is
  * the next test's, which is the one to look at when this file is edited.
  */
-for (const track of ['organiser', 'volunteer']) {
+for (const track of ['organizer', 'volunteer']) {
   test(`the ${track} track steps from end to end without fetching anything`,
     async ({ page }) => {
       const calls = await watchRequests(page);
@@ -190,7 +190,7 @@ test('the practice event does not arm the unload guard', async ({ page }) => {
 test('exiting puts the visitor back where they started', async ({ page }) => {
   await page.goto('/');
   await waitForApp(page);
-  await startTutorial(page, 'organiser');
+  await startTutorial(page, 'organizer');
   await expect(page.getByTestId('event-title')).toBeVisible();
 
   await page.getByRole('button', { name: 'Exit tutorial' }).click();
@@ -218,7 +218,7 @@ test('the panel does not trap focus, because the learner has to click the page',
     expect(inPanel).toBe(false);
   });
 
-test('a signed-in organiser is warned before losing real work', async ({ page, request }) => {
+test('a signed-in organizer is warned before losing real work', async ({ page, request }) => {
   const { user, session } = await seed(request, { user: {} });
   await signIn(page, { user, session });
   await page.goto('/');
@@ -315,12 +315,12 @@ test.describe('the ?tutorial link', () => {
     for (const url of ['/?tutorial', '/?tutorial=nonsense']) {
       await page.goto(url);
       await waitForApp(page);
-      await expect(page.getByTestId('tutorial-track-organiser')).toBeVisible();
+      await expect(page.getByTestId('tutorial-track-organizer')).toBeVisible();
     }
   });
 
   test('takes itself out of the URL, so exiting does not restart it', async ({ page }) => {
-    await page.goto('/?tutorial=organiser');
+    await page.goto('/?tutorial=organizer');
     await waitForApp(page);
     await expect(page.getByTestId('tutorial-step')).toBeVisible();
     expect(new URL(page.url()).searchParams.has('tutorial')).toBe(false);
@@ -338,7 +338,7 @@ test.describe('the ?tutorial link', () => {
     const { eventId } = await seed(request, {
       event: { activities: 1, windows: 1, title: 'A real event' },
     });
-    await page.goto(`/?event=${eventId}&tutorial=organiser`);
+    await page.goto(`/?event=${eventId}&tutorial=organizer`);
     await waitForApp(page);
 
     await expect(page.getByTestId('event-title')).toHaveText('A real event');

@@ -34,7 +34,7 @@ function parse(search = window.location.search) {
     // through email clients that mangle it (app.js:2752).
     token: params.get('token')?.replace(/ /g, '+') ?? null,
     share: params.has('share'),
-    // `?tutorial`, `?tutorial=organiser`, `?tutorial=volunteer`. The bare form
+    // `?tutorial`, `?tutorial=organizer`, `?tutorial=volunteer`. The bare form
     // opens the chooser. Linkable on purpose: it is the only entry point that
     // can be *sent* to somebody, and the people who most need the volunteer
     // track arrive from a shared link and never see the landing page the other

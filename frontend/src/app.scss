@@ -107,6 +107,130 @@
   color: var(--bulma-primary-on-scheme);
 }
 
+// The third instance of the same problem, and the worst of the three.
+//
+// The muted slot tiles -- "At Capacity" and "Unavailable" -- take their text
+// colour from `is-light`, which is hsl(221, 14%, 96%): near-white text on a
+// near-white page, about 1.05:1. Not "below the 4.5:1 threshold" but genuinely
+// unreadable; the label is there and you cannot see it.
+//
+// It went unnoticed because the axe sweep only ever scanned grids where every
+// slot was enabled and empty, so every tile was "Available" and no muted tile
+// was ever in a scanned page. The tutorial's practice event renders all four
+// states on one screen on purpose, and that is what surfaced it.
+//
+// `text-weak` rather than `text`: these tiles are meant to read as inactive, and
+// the muted appearance survives in the border, which stays `is-light`. Same
+// reasoning as above -- a 1px rule is not text.
+.event-cell ul.block-list.is-light.is-outlined > li,
+.event-cell ul.block-list.is-light li.is-outlined {
+  color: var(--bulma-text-weak);
+}
+
+// Links sitting inside a paragraph were distinguishable from the text around
+// them by colour alone, which is invisible to a reader who cannot separate the
+// two. Nav items, buttons and block-list entries are excluded: they read as
+// controls from their position and surroundings, and WCAG 1.4.1 is about links
+// embedded in prose.
+.content a,
+.footer a {
+  text-decoration: underline;
+}
+
+// ---------------------------------------------------------------------------
+// The entirety of the legacy custom stylesheet (public/assets/css/style.css).
+// Both rules are load-bearing; see docs/legacy/02-aesthetics.md §4.
+// ---------------------------------------------------------------------------
+
+// Grid cells stretch to the tallest row member but the inner block-list <li>
+// does not, so outlined slot tiles ended shorter than the solid header tiles
+// and the grid looked ragged. 94% rather than 100% leaves room for the
+// block-list's own border and margin. Targets only .is-outlined lists — i.e.
+// slot tiles, not the solid activity/window headers.
+.event-cell ul.is-outlined li {
+  height: 94%;
+}
+
+// ---------------------------------------------------------------------------
+// Narrow viewports.
+// ---------------------------------------------------------------------------
+
+// The grid is a matrix: a cell means "this activity, at this window", so it
+// cannot reflow to fewer columns without losing what it says. `has-5-cols`
+// therefore holds at every width, which on a phone gave roughly 65px per tile
+// -- legible to nobody.
+//
+// Floor the column width and let the grid scroll sideways instead. A two-column
+// grid still fills the screen, because the floor is a minimum rather than a
+// fixed width; only a grid too wide to fit starts scrolling.
+@media screen and (max-width: 768px) {
+  #view-event-table .fixed-grid {
+    overflow-x: auto;
+    // Room for the scrollbar, so it never sits on top of the last row.
+    padding-bottom: 0.5rem;
+  }
+
+  #view-event-table .fixed-grid > .grid {
+    grid-template-columns: repeat(var(--bulma-grid-column-count), minmax(7.5rem, 1fr));
+  }
+}
+
+// --- tutorial ---------------------------------------------------------------
+
+// The step panel is docked rather than floating over the middle of the page,
+// because the learner has to be able to see and click the thing it is talking
+// about. Nothing here covers the page: no scrim, no `inert`, no focus trap --
+// see TutorialPanel.svelte for why that is the whole design and not an
+// oversight.
+.tutorial-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30; // under Bulma's modal (40), so the chooser still wins
+  background-color: var(--bulma-scheme-main);
+  border-top: 2px solid var(--bulma-primary);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0.75rem 1rem;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.tutorial-panel-inner {
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+.tutorial-panel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  // Bulma gives `.buttons` a bottom margin meant for stacked blocks; inside a
+  // single flex row it just makes the panel taller than its contents.
+  .buttons {
+    margin-bottom: 0;
+  }
+}
+
+// The panel is fixed, so without this it sits on top of the last thing on the
+// page -- which, on the event view, is the Submit button one of the steps is
+// telling the learner to press.
+body.tutorial-running {
+  padding-bottom: 45vh;
+}
+
+// Outline rather than a background change: cells and cards already use colour
+// to mean something (available, booked, full), and repainting one to highlight
+// it would say something false about its state.
+.tutorial-anchor {
+  outline: 3px solid var(--bulma-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 // Links sitting inside a paragraph were distinguishable from the text around
 // them by colour alone, which is invisible to a reader who cannot separate the
 // two. Nav items, buttons and block-list entries are excluded: they read as

@@ -8,7 +8,7 @@
  * every step carries a built-in default so a deployment with no file configured
  * still teaches somebody something.
  *
- * There are two tracks because there are two newcomers. The organiser is the
+ * There are two tracks because there are two newcomers. The organizer is the
  * person on the landing page; the volunteer arrived from a link somebody sent
  * them and has never seen it. They share one practice event: the organiser
  * track ends by looking at what its volunteers will see, and the volunteer
@@ -19,7 +19,7 @@ import { Volunteer } from './entities.svelte.js';
 import { PRACTICE_ANSWER, PRACTICE_VOLUNTEER } from '../lib/tutorial/markers.js';
 import { Mode } from './event.svelte.js';
 
-/** @typedef {'organiser'|'volunteer'} Track */
+/** @typedef {'organizer'|'volunteer'} Track */
 
 /**
  * One step.
@@ -34,25 +34,28 @@ import { Mode } from './event.svelte.js';
  * have their work undone by revisiting the step that described it.
  */
 const STEPS = [
-  // --- organiser -----------------------------------------------------------
+  // --- organizer -----------------------------------------------------------
   {
     id: 'welcome',
-    track: 'organiser',
+    track: 'organizer',
     anchor: null,
   },
   {
     id: 'grid',
-    track: 'organiser',
+    track: 'organizer',
     anchor: '#view-event-table',
   },
   {
     id: 'cells',
-    track: 'organiser',
-    anchor: '#view-event-section .event-cell',
+    track: 'organizer',
+    // A claimable square, not the blank corner -- which is the first
+    // `.event-cell` in document order and the one thing on the grid that
+    // cannot be clicked.
+    anchor: '#view-event-table [data-slot-state="available"]',
   },
   {
     id: 'structure',
-    track: 'organiser',
+    track: 'organizer',
     anchor: '#view-event-section',
     enter(event) {
       // Back out of edit mode if the learner wandered into it, so the step
@@ -62,12 +65,12 @@ const STEPS = [
   },
   {
     id: 'share',
-    track: 'organiser',
+    track: 'organizer',
     anchor: '[data-testid="event-title"]',
   },
   {
     id: 'as-a-volunteer',
-    track: 'organiser',
+    track: 'organizer',
     anchor: '#view-event-volunteer',
   },
 
@@ -99,7 +102,10 @@ const STEPS = [
   {
     id: 'v-claim',
     track: 'volunteer',
-    anchor: '#view-event-section .event-cell',
+    // A claimable square, not the blank corner -- which is the first
+    // `.event-cell` in document order and the one thing on the grid that
+    // cannot be clicked.
+    anchor: '#view-event-table [data-slot-state="available"]',
   },
   {
     id: 'v-submit',
@@ -185,7 +191,7 @@ export const tutorial = new Tutorial();
  * Load the practice event into the app's event model.
  *
  * One event for both tracks, not two. The volunteer track starts partway into
- * the organiser's world -- already built, already shared, which is what a
+ * the organizer's world -- already built, already shared, which is what a
  * volunteer is handed -- so the tracks differ in where the tour begins and not
  * in what it is about.
  *

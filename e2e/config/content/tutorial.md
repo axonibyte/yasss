@@ -70,7 +70,7 @@ You are looking at what needs doing. Fixture wording.
 A name is enough; no account needed. Fixture wording.
 
 <!-- step: v-fields -->
-## Fixture: the organiser's questions
+## Fixture: the organizer's questions
 
 Required answers block submission. Fixture wording.
 
@@ -82,7 +82,7 @@ Click to take one, click again to let it go. Fixture wording.
 <!-- step: v-submit -->
 ## Fixture: send it
 
-Submit is what tells the organiser. Fixture wording.
+Submit is what tells the organizer. Fixture wording.
 
 <!-- step: nonexistent-step -->
 ## Fixture: a step nobody declares

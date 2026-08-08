@@ -57,6 +57,13 @@ export function visibleActivities(activities, step) {
  * The condition order is normative — a disabled slot reads "Unavailable" even
  * when it would also be at capacity. See docs/legacy/02-aesthetics.md §3.1.
  *
+ * `state` names the same thing the label does, for anything that needs to find a
+ * cell by what it *is* rather than by what it says. The label is display text:
+ * it is localizable, it has been reworded before, and matching on it is how a
+ * renamed button turned into ten minutes of CI timeouts. `aesthetics` cannot
+ * stand in for it either — an editing cell and an available one share
+ * `is-outlined is-primary`.
+ *
  * @param {object} args
  * @param {boolean} args.enabled
  * @param {boolean} args.editing     grid is in edit mode
@@ -66,11 +73,15 @@ export function visibleActivities(activities, step) {
  * @param {number}  args.cap         0 means unlimited
  */
 export function slotCell({ enabled, editing, hasRsvp, atCapacity, rsvpCount = 0, cap = 0 }) {
-  if (!enabled) return { label: 'Unavailable', aesthetics: 'is-outlined is-light' };
-  if (editing) return { label: `${rsvpCount} / ${cap}`, aesthetics: 'is-outlined is-primary' };
-  if (hasRsvp) return { label: 'Booked', aesthetics: 'is-outlined is-warning' };
-  if (atCapacity) return { label: 'At Capacity', aesthetics: 'is-outlined is-light' };
-  return { label: 'Available', aesthetics: 'is-outlined is-primary' };
+  if (!enabled) {
+    return { label: 'Unavailable', aesthetics: 'is-outlined is-light', state: 'unavailable' };
+  }
+  if (editing) {
+    return { label: `${rsvpCount} / ${cap}`, aesthetics: 'is-outlined is-primary', state: 'editing' };
+  }
+  if (hasRsvp) return { label: 'Booked', aesthetics: 'is-outlined is-warning', state: 'booked' };
+  if (atCapacity) return { label: 'At Capacity', aesthetics: 'is-outlined is-light', state: 'full' };
+  return { label: 'Available', aesthetics: 'is-outlined is-primary', state: 'available' };
 }
 
 /** The full `ul` class string for a cell, in the legacy's order. */

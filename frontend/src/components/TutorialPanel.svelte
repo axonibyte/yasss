@@ -77,7 +77,15 @@
         Step {position} of {total}
       </p>
       <div class="buttons are-small">
-        <button class="button" onclick={onExit}>Exit tutorial</button>
+        <!--
+          On the last step Finish and Exit did the same thing, side by side,
+          which asks the reader to work out the difference between two buttons
+          that have none. Exit is for leaving early; once there is nothing left
+          to leave, Finish is the only sensible word for it.
+        -->
+        {#if !atEnd}
+          <button class="button" onclick={onExit}>Exit tutorial</button>
+        {/if}
         <button class="button" disabled={!canGoBack} onclick={onBack}>Back</button>
         <button class="button is-primary" onclick={atEnd ? onExit : onNext}>
           {atEnd ? 'Finish' : 'Next'}
