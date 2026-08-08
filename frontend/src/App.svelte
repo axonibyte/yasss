@@ -46,8 +46,9 @@
     deleteVolunteer, hasUnsavedWork, saveVolunteer, submitVolunteers,
   } from './state/actions/volunteerActions.js';
   import * as api from './lib/api/index.js';
-  import { tutorial, loadPracticeEvent } from './state/tutorial.svelte.js';
+  import { tutorial, loadPracticeEvent, stepIds } from './state/tutorial.svelte.js';
   import { DEFAULT_COPY } from './lib/tutorial/defaults.js';
+  import { copyFor } from './lib/tutorial/deck.js';
 
   let loading = $state(true);
   let modal = $state(null);
@@ -196,6 +197,19 @@
     }
 
     await handleRouteAction();
+
+    // Last, and only when nothing else claimed the page. `?event=...&tutorial`
+    // is a link somebody could plausibly build by hand, and in that case the
+    // event they were pointed at is the thing they came for -- starting a tour
+    // over the top of it would be the tutorial overriding the user's intent
+    // rather than serving it.
+    if (route.tutorial !== null && !eventLoaded) {
+      const track = route.tutorial;
+      route.clearTutorial();
+      if (track === 'organiser' || track === 'volunteer') await beginTutorial(track);
+      // A bare `?tutorial`, or a track nobody recognises: ask rather than guess.
+      else tutorial.open();
+    }
 
     // Back and Forward move within our own history once anything has pushed an
     // entry, so the app has to follow the URL rather than assume it only ever
@@ -460,10 +474,22 @@
     tutorial.open();
   }
 
-  function beginTutorial(track) {
+  async function beginTutorial(track) {
     loadPracticeEvent(event);
     eventLoaded = true;
-    tutorial.begin(track, event, DEFAULT_COPY);
+
+    // The deck is optional in the strongest sense: `PublicTextEndpoint` logs and
+    // carries on when a text is unconfigured, so *every* deployment is in this
+    // state until somebody writes the file. A failed fetch therefore is not an
+    // error worth reporting to a learner -- it is the default, and the built-in
+    // copy is what it falls back to. Same shape as CoaSection's.
+    let deck = null;
+    try {
+      deck = await api.getText('tutorial');
+    } catch {
+      /* no deck configured, or unreachable; the defaults carry it */
+    }
+    tutorial.begin(track, event, copyFor(stepIds, DEFAULT_COPY, deck));
   }
 
   /**

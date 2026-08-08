@@ -129,7 +129,7 @@ function operations(ctx) {
 
   return [
     ['GET', () => '/v1'],
-    ['GET', () => `/v1/texts/${pick(['coa', 'terms', 'privacy', 'nope', '', '../x'])}`],
+    ['GET', () => `/v1/texts/${pick(['coa', 'terms', 'privacy', 'tutorial', 'nope', '', '../x'])}`],
 
     ['GET', () => `/v1/events?${new URLSearchParams({
       admin: String(id()), volunteer: String(id()),

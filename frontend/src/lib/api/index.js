@@ -18,7 +18,7 @@ export const getApiInfo = (opts) => get('', opts);
 
 // --- texts -----------------------------------------------------------------
 
-/** @param {'coa'|'terms'|'privacy'} id */
+/** @param {'coa'|'terms'|'privacy'|'tutorial'} id */
 export async function getText(id) {
   // Public content: send no credentials to an endpoint that does not read them.
   const res = await requestRaw(`/texts/${id}`, { accept: 'text/markdown', anonymous: true });

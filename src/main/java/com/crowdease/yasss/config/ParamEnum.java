@@ -282,6 +282,16 @@ public enum ParamEnum {
    * Path to the "privacy policy" markdown file.
    */
   TEXTS_PRIVACY_POLICY(new Param("texts.privacyPolicy")),
+
+  /**
+   * Path to the guided tutorial's copy deck.
+   *
+   * <p>Optional, and optional in a stronger sense than the other three: the
+   * tutorial ships with built-in copy for every step and falls back to it per
+   * step, so a deployment that never sets this still has a working tutorial.
+   * What the file buys is being able to reword it without a deploy.
+   */
+  TEXTS_TUTORIAL(new Param("texts.tutorial")),
   
   /**
    * How far either side of the server's clock a v2 credential's timestamp may sit, in
