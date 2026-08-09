@@ -59,7 +59,7 @@ public final class ExpiringToken {
    *        outstanding
    * @param expires the epoch millisecond at which it lapses, or {@code null} for
    *        a token that does not expire. Null is what every token minted before
-   *        migration 022 has, and it is honoured rather than treated as expired:
+   *        migration 022 has, and it is honored rather than treated as expired:
    *        retrofitting a deadline onto links already sitting in inboxes would
    *        break them at upgrade time and buy nothing
    * @param supplied the token from the request, which may be {@code null} or

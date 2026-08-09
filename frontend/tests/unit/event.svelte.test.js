@@ -146,7 +146,7 @@ describe('mode', () => {
  *
  * This reported only unsubmitted volunteers for a long time, which left the
  * larger case uncovered: until an event is published nothing about it is
- * remote, so an organiser who had built activities, windows and custom fields
+ * remote, so an organizer who had built activities, windows and custom fields
  * but added no volunteers could close the tab and be asked nothing at all.
  */
 describe('hasUnsavedWork', () => {

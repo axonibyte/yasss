@@ -44,7 +44,7 @@ export class EventModel {
    * A practice event, built by the tutorial and belonging to nobody.
    *
    * It carries an id so `mode` resolves to VIEW, which is the only way to show
-   * the volunteer surface -- and that id would otherwise authorise every write
+   * the volunteer surface -- and that id would otherwise authorize every write
    * in the action layer to go out over the network. This is what says it must
    * not. See `actions/remote.js` and `lib/tutorial/sandbox.js`.
    */
@@ -86,7 +86,7 @@ export class EventModel {
    * one this reported — which left the larger case uncovered. Until an event is
    * published nothing about it is remote: activities, windows, custom fields
    * and slots are all local state, and the whole graph goes to the server in a
-   * single POST at publish. So an organiser fifteen minutes into building an
+   * single POST at publish. So an organizer fifteen minutes into building an
    * event, with no volunteers on it at all, could close the tab and be asked
    * nothing.
    *
@@ -266,7 +266,7 @@ export class EventModel {
         id: raw.id,
         name: raw.name ?? '',
         remindersEnabled: Boolean(raw.remindersEnabled),
-        // The address itself is deliberately never sent back, so an organiser
+        // The address itself is deliberately never sent back, so an organizer
         // reading the event cannot harvest volunteers' contact details.
         reminderConfirmed: Boolean(raw.reminderConfirmed),
         user: raw.user ?? null,

@@ -24,18 +24,18 @@
     const account = session.account;
     if (!account) return;
 
-    let cancelled = false;
+    let canceled = false;
     const now = Date.now();
 
     api.listEvents({ admin: account, earliest: now })
-      .then((r) => { if (!cancelled) owned = r.events ?? []; })
-      .catch(() => { if (!cancelled) owned = []; });
+      .then((r) => { if (!canceled) owned = r.events ?? []; })
+      .catch(() => { if (!canceled) owned = []; });
 
     api.listEvents({ volunteer: account, earliest: now })
-      .then((r) => { if (!cancelled) rsvped = r.events ?? []; })
-      .catch(() => { if (!cancelled) rsvped = []; });
+      .then((r) => { if (!canceled) rsvped = r.events ?? []; })
+      .catch(() => { if (!canceled) rsvped = []; });
 
-    return () => { cancelled = true; };
+    return () => { canceled = true; };
   });
 </script>
 

@@ -281,7 +281,7 @@ Written by the operator, [with a link](https://example.invalid/x).
     await waitForApp(page);
     await startTutorial(page, 'volunteer');
 
-    // The deck covers v-welcome only. Its neighbours must still teach something
+    // The deck covers v-welcome only. Its neighbors must still teach something
     // rather than rendering an empty panel.
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('tutorial-step')).toContainText('Add yourself');
@@ -311,7 +311,7 @@ test.describe('the ?tutorial link', () => {
     await expect(page.getByTestId('tutorial-step')).toContainText('Somebody sent you a link');
   });
 
-  test('asks which one for a bare link, or an unrecognised track', async ({ page }) => {
+  test('asks which one for a bare link, or an unrecognized track', async ({ page }) => {
     for (const url of ['/?tutorial', '/?tutorial=nonsense']) {
       await page.goto(url);
       await waitForApp(page);

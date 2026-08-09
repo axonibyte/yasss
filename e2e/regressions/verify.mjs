@@ -264,12 +264,12 @@ console.log('\nan anonymous viewer sees how full a slot is, but not who is in it
     `got ${(seen.payload?.event?.volunteers ?? []).length} volunteers`,
   );
 
-  // The organiser still sees everything.
+  // The organizer still sees everything.
   const owned = await api('GET', `/v1/events/${event.id}`, { auth });
   const ownedSlot = owned.payload?.event?.activities?.[0]?.slots?.[0];
   check(
     (ownedSlot?.rsvps ?? []).length === 1,
-    'the organiser still sees the ids',
+    'the organizer still sees the ids',
     `got ${JSON.stringify(ownedSlot?.rsvps)}`,
   );
 }

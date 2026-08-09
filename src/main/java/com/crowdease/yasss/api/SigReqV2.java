@@ -40,7 +40,7 @@ import org.json.JSONObject;
  *
  * <p>So the server <b>rebuilds</b> the signed bytes from the values it parsed, and verifies
  * over its own reconstruction. The signature then covers exactly the values that are acted
- * on, by construction rather than by the parser's good behaviour.
+ * on, by construction rather than by the parser's good behavior.
  *
  * <p>To be clear about one case, because it is the obvious one to reach for: the
  * {@code org.json} in use here <em>refuses</em> a duplicate key outright rather than

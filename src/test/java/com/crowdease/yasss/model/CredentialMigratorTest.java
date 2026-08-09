@@ -33,7 +33,7 @@ import org.testng.annotations.Test;
  *
  * <p>The SQL needs a database and the e2e suite exercises that; what is tested here is
  * the classification, which is where every interesting case lives and where a mistake is
- * expensive. Getting {@link Decision#UNREADABLE} wrong loses somebody's MFA enrolment;
+ * expensive. Getting {@link Decision#UNREADABLE} wrong loses somebody's MFA enrollment;
  * getting {@link Decision#PLAINTEXT} wrong adopts a corrupt ciphertext as a secret.
  *
  * @author Caleb L. Power
@@ -65,7 +65,7 @@ public class CredentialMigratorTest {
         Decision.CURRENT);
   }
 
-  @Test public void aLegacyRecordIsRecognised() throws Exception {
+  @Test public void aLegacyRecordIsRecognized() throws Exception {
     UUID id = UUID.randomUUID();
     byte[] legacy = legacyEncrypt(id, secretBytes(), SECRET);
 
@@ -90,7 +90,7 @@ public class CredentialMigratorTest {
     assertEquals(CredentialMigrator.classify(probe(id), legacy), Decision.UNREADABLE);
   }
 
-  @Test public void anUnencryptedSecretIsRecognisedAsPlaintext() {
+  @Test public void anUnencryptedSecretIsRecognizedAsPlaintext() {
     // The recovery path for a deployment that ran with no ticket.globalSecret at all,
     // back when the library returned credential material unchanged. Those secrets sit in
     // the database in the clear and would otherwise be stranded permanently.
@@ -106,7 +106,7 @@ public class CredentialMigratorTest {
     //
     // What that costs: twenty bytes of corruption get adopted and re-encrypted as if they
     // were a TOTP secret. Which costs nothing real, because a blob that decrypts as
-    // nothing is an enrolment that already does not work; the alternative is to strand it
+    // nothing is an enrollment that already does not work; the alternative is to strand it
     // and every genuinely-plaintext secret alongside it. The safety comes from the length
     // being unreachable by any ciphertext -- see the test below.
     UUID id = UUID.randomUUID();

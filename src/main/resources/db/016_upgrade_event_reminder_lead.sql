@@ -6,7 +6,7 @@
  * evening before, a week-long festival wants notice a week out.
  *
  * NULL means "use the global", which is what every existing event does -- so
- * this changes no behaviour on its own.
+ * this changes no behavior on its own.
  *
  * INT UNSIGNED rather than SMALLINT: 65535 minutes is only 45 days, and a lead
  * time measured in months is a reasonable thing to want. The endpoint bounds it

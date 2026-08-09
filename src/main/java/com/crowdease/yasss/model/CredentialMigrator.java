@@ -228,7 +228,7 @@ public final class CredentialMigrator {
           default -> {
             logger.warn(
                 "MFA secret for {} could not be read and was left untouched. That account "
-                + "cannot use multi-factor authentication until it re-enrols; see "
+                + "cannot use multi-factor authentication until it re-enrolls; see "
                 + "docs/upstream-axb-lib-auth.md.",
                 row.id());
             failed++;

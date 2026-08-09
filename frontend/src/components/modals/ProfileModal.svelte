@@ -51,7 +51,7 @@
     try {
       const options = await api.beginPasskeyRegistration(session.account);
       const created = await createPasskey(options);
-      // Cancelled. Not an error, and not worth a toast.
+      // Canceled. Not an error, and not worth a toast.
       if (!created) return;
       await api.finishPasskeyRegistration(session.account, created);
       toastSuccess('Passkey added.');
@@ -77,11 +77,11 @@
   }
 
   $effect(() => {
-    let cancelled = false;
+    let canceled = false;
     api.getUser(session.account)
-      .then((res) => { if (!cancelled) currentEmail = res.user?.email ?? ''; })
+      .then((res) => { if (!canceled) currentEmail = res.user?.email ?? ''; })
       .catch(() => { /* the placeholder just stays empty */ });
-    return () => { cancelled = true; };
+    return () => { canceled = true; };
   });
 
   const clearError = (f) => { if (errors[f]) errors = { ...errors, [f]: undefined }; };

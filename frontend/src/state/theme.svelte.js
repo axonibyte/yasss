@@ -27,7 +27,7 @@ const LABELS = {
 /**
  * Read the stored choice.
  *
- * Anything unrecognised becomes 'system' rather than throwing: this is
+ * Anything unrecognized becomes 'system' rather than throwing: this is
  * localStorage, which any extension or an older build of this app may have
  * written to, and a theme is not worth an error boundary.
  */

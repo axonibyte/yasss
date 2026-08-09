@@ -208,7 +208,7 @@ test.describe('volunteers', () => {
 
     test('an optional checkbox records a deliberate no', async ({ page }) => {
       // As the owner, because a volunteer is disclosed on read only to their
-      // own account or to the event's organiser -- an anonymous signup is
+      // own account or to the event's organizer -- an anonymous signup is
       // invisible even to the browser that made it, so there would be nothing
       // to read back.
       await page.goto('/');
@@ -261,7 +261,7 @@ test.describe('volunteers', () => {
     }
   });
 
-  test('an internationalised address is normalised by the browser', async ({ page }) => {
+  test('an internationalised address is normalized by the browser', async ({ page }) => {
     await publishMinimalEvent(page, 'Idn');
     await openVolunteerForm(page);
     await page.locator('#vol-name').fill('Ada');
@@ -302,7 +302,7 @@ test.describe('RSVPs', () => {
 
   test('a claimed slot survives being submitted and reloaded', async ({ page }) => {
     // Signed in, because the reload has to see the volunteer to see their
-    // claim, and only the organiser or the volunteer's own account is told
+    // claim, and only the organizer or the volunteer's own account is told
     // about them.
     await page.goto('/');
     await ready(page);
@@ -410,7 +410,7 @@ test.describe('RSVPs', () => {
     });
 
     // A fresh, anonymous visitor gets an empty picker: the read endpoint
-    // discloses a volunteer only to their own account or to the organiser.
+    // discloses a volunteer only to their own account or to the organizer.
     await page.context().clearCookies();
     await visitEvent(page, id);
     await expect(page.getByLabel('Select a volunteer')).toBeDisabled();

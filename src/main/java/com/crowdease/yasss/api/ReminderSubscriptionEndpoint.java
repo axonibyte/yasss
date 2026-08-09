@@ -138,7 +138,7 @@ public final class ReminderSubscriptionEndpoint extends APIEndpoint {
             "info",
             Mode.CONFIRM == mode
                 ? "reminder subscription confirmed"
-                : "reminder subscription cancelled");
+                : "reminder subscription canceled");
   }
 
   /**

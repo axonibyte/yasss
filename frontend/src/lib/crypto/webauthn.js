@@ -26,7 +26,7 @@ export function isSupported() {
 /**
  * Whether the device has a built-in authenticator (Touch ID, Windows Hello, a phone).
  *
- * Used only to decide how prominently to offer enrolment. It can reject rather than
+ * Used only to decide how prominently to offer enrollment. It can reject rather than
  * resolve false on some browsers, hence the catch — a capability probe must never be the
  * thing that breaks a page.
  */
@@ -46,10 +46,10 @@ const fromBuffer = (buf) => bytesToBase64(new Uint8Array(buf));
 export class PasskeyError extends Error {}
 
 /**
- * Enrols a credential.
+ * Enrolls a credential.
  *
  * @param {object} options as returned by `POST /v1/users/:user/passkeys/challenge`
- * @returns {Promise<object|null>} the fields to post back, or null if the user cancelled
+ * @returns {Promise<object|null>} the fields to post back, or null if the user canceled
  */
 export async function register(options) {
   let credential;
@@ -72,7 +72,7 @@ export async function register(options) {
         ],
         authenticatorSelection: {
           // Discoverable, so that signing in needs no email. 'preferred' rather than
-          // 'required' so a security key with no free slot can still enrol.
+          // 'required' so a security key with no free slot can still enroll.
           residentKey: 'preferred',
           userVerification: 'preferred',
         },
@@ -114,7 +114,7 @@ export async function register(options) {
  * @param {object} options as returned by `POST /v1/passkeys/challenge`
  * @param {object} [extra]
  * @param {AbortSignal} [extra.signal] for conditional UI, so the modal can call it off
- * @returns {Promise<object|null>} the fields to post back, or null if cancelled
+ * @returns {Promise<object|null>} the fields to post back, or null if canceled
  */
 export async function authenticate(options, { signal, mediation } = {}) {
   let assertion;

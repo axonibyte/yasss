@@ -159,8 +159,8 @@ public final class AddVolunteerEndpoint extends APIEndpoint {
         // frontend input fuzzer.
         String value = bounded(
             req,
-            // Normalised before validating: an EMAIL custom field's pattern is
-            // lowercase-only, so a capitalised answer was refused outright.
+            // Normalized before validating: an EMAIL custom field's pattern is
+            // lowercase-only, so a capitalized answer was refused outright.
             detail.getType().normalize(
                 detailDeserializer.getString("value").strip()),
             "details[].value");

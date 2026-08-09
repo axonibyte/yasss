@@ -160,7 +160,7 @@ public final class PasskeyRegistrationEndpoint extends APIEndpoint {
     var claim = PasskeyChallenge.claim(challenge, PasskeyChallenge.Ceremony.REGISTRATION, now);
 
     if(!claim.claimed())
-      throw new EndpointException(req, "challenge not recognised", 403);
+      throw new EndpointException(req, "challenge not recognized", 403);
     if(!claim.usable())
       throw new EndpointException(req, "challenge expired", 410);
     // A challenge issued for one account cannot be finished onto another.

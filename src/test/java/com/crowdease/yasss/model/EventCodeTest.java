@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 /**
  * Short event codes.
  *
- * <p>The normalisation is the whole feature: a code is meant to survive being
+ * <p>The normalization is the whole feature: a code is meant to survive being
  * read aloud, written on a whiteboard and typed back in, so every spelling a
  * human might produce has to resolve to the same eight symbols. If it does not,
  * someone is sent to the wrong event or to none at all.
@@ -79,7 +79,7 @@ public class EventCodeTest {
     assertNull(EventCode.normalize("ABCDEFG"));
     assertNull(EventCode.normalize("ABCDEFGHJ"));
     assertNull(EventCode.normalize(null));
-    // A UUID normalises to far more than eight, so the two can never collide.
+    // A UUID normalizes to far more than eight, so the two can never collide.
     assertNull(EventCode.normalize("f81d4fae-7dec-11d0-a765-00a0c91e6bf6"));
   }
 
@@ -96,7 +96,7 @@ public class EventCodeTest {
   // --- the shared corpus -----------------------------------------------------
 
   /**
-   * Each row is a spelling and what it must normalise to. Keep in step with
+   * Each row is a spelling and what it must normalize to. Keep in step with
    * {@code frontend/tests/unit/eventCode.test.js}.
    */
   @DataProvider(name = "corpus")

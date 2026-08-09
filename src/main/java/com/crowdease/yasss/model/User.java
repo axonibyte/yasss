@@ -562,7 +562,7 @@ public class User extends Credentialed implements Comparable<User> {
    * phone away from an account nobody can reach.
    *
    * <p>Email recovery exists regardless, but it is a fallback rather than a plan -- and an
-   * account gets here only by holding a verified address, since enrolment requires one.
+   * account gets here only by holding a verified address, since enrollment requires one.
    *
    * @return {@code true} if the password may be turned off
    * @throws SQLException if a database malfunction occurs

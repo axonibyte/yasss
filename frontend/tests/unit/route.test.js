@@ -42,7 +42,7 @@ describe('parseRoute', () => {
 
   describe('the tutorial parameter', () => {
     it('reads a named track', () => {
-      expect(parseRoute('?tutorial=organiser').tutorial).toBe('organiser');
+      expect(parseRoute('?tutorial=organizer').tutorial).toBe('organizer');
       expect(parseRoute('?tutorial=volunteer').tutorial).toBe('volunteer');
     });
 
@@ -55,7 +55,7 @@ describe('parseRoute', () => {
       expect(parseRoute('?event=abc').tutorial).toBeNull();
     });
 
-    it('passes an unrecognised track through for the caller to reject', () => {
+    it('passes an unrecognized track through for the caller to reject', () => {
       // Validated where it is used rather than here: `parse` reports the URL,
       // and deciding that 'nonsense' means "ask which track" is App's business.
       expect(parseRoute('?tutorial=nonsense').tutorial).toBe('nonsense');

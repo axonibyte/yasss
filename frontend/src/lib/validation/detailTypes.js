@@ -45,7 +45,7 @@ export const DETAIL_TYPES = {
     // ...but "not ticked" is a real answer, not an absent one. Serialization
     // used isBlank too, so an OPTIONAL checkbox answered `false` was dropped
     // and an explicit "no" became indistinguishable from "never answered" in
-    // the organiser's data. A boolean is never omittable.
+    // the organizer's data. A boolean is never omittable.
     isOmittable: () => false,
   },
   INTEGER: {

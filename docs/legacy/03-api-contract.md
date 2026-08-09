@@ -167,7 +167,7 @@ when payments are enabled and the actor is not ADMIN.
 - `expired` = the earliest window's `begin_time` is in the past.
 - `reminderConfirmed` (*added by the rewrite*) says whether a confirmed reminder address
   exists. **The address itself is never emitted**, on any endpoint, to any caller — an
-  organiser reading their own event learns that a volunteer will be reminded, not where.
+  organizer reading their own event learns that a volunteer will be reminded, not where.
 - `timezone` (*added by the rewrite*) is the IANA zone the event takes place in, or `null`
   for events created before the column existed. Window times travel as epoch milliseconds and
   are therefore unambiguous; this says which zone to *render* them in. A client should render

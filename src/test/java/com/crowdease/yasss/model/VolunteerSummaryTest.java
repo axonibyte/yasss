@@ -166,7 +166,7 @@ public class VolunteerSummaryTest {
   // --- escaping -------------------------------------------------------------
   //
   // Both of these fragments are built from text a volunteer chose and are then
-  // dropped into an HTML email body. An organiser reading their signup alert is
+  // dropped into an HTML email body. An organizer reading their signup alert is
   // the target, and they have no way to tell markup they are being shown from
   // markup the platform wrote.
 

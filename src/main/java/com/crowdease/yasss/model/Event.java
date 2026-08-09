@@ -1140,7 +1140,7 @@ public class Event {
    * request and the reverse in another is a deadlock.
    *
    * <p>Only taken when the cap actually applies. Locking here unconditionally
-   * would serialise every signup on an event that permits several, which is the
+   * would serialize every signup on an event that permits several, which is the
    * ordinary case and the one that most wants to be parallel.
    *
    * @param con the {@link Connection} running the transaction
@@ -1437,7 +1437,7 @@ public class Event {
   /**
    * Sets this event's short code.
    *
-   * <p>Normalised on the way in so that a value read back from an older row, or
+   * <p>Normalized on the way in so that a value read back from an older row, or
    * supplied by a caller, is stored in exactly one form.
    *
    * @param code the code, in any spelling
@@ -1451,7 +1451,7 @@ public class Event {
   /**
    * Retrieves an event by its short code.
    *
-   * <p>The argument is normalised first, so any spelling a user might produce
+   * <p>The argument is normalized first, so any spelling a user might produce
    * resolves: lowercase, hyphenated, spaced, or with stray punctuation.
    *
    * @param rawCode the code, in any spelling

@@ -448,7 +448,7 @@ public class Activity implements Comparable<Activity> {
     // into a TreeSet, so any two activities this call reports equal become one.
     // An event created with both "Setup" and "setup" silently came back with a
     // single activity -- accepted on the way in, unreachable ever after, and
-    // invisible to the organiser until they went looking. Ordering is unchanged
+    // invisible to the organizer until they went looking. Ordering is unchanged
     // for everything that was already distinct.
     return compareIDs(getID(), activity.getID());
   }

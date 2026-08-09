@@ -60,7 +60,7 @@
    * The clamp runs on input, but the input is not bound — so when clamping
    * leaves `capped` where it already was (typing `0` into a field showing the
    * minimum, say) Svelte sees no change and leaves the box displaying what was
-   * typed. The number went out as 1 and the organiser was looking at 0.
+   * typed. The number went out as 1 and the organizer was looking at 0.
    *
    * Done on change rather than on input so it does not fight someone midway
    * through typing a longer number.

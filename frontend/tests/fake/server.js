@@ -27,7 +27,7 @@ import { normalizeCode } from '../../src/lib/eventCode.js';
  * Resolve an `:event` path parameter by id or by short code.
  *
  * Mirrors `APIEndpoint.resolveEvent`: the id first, since that is what every
- * existing link carries, then the code. The normaliser is imported from the app
+ * existing link carries, then the code. The normalizer is imported from the app
  * rather than reimplemented, so the fake cannot drift from what the real server
  * will accept.
  */
@@ -220,7 +220,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
 
   app.post('/v1/users/:user/passkeys', async (c) => {
     const body = await c.req.json().catch(() => ({}));
-    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognised'), 403);
+    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognized'), 403);
     return c.json(ok('passkey enrolled'), 201);
   });
 
@@ -238,10 +238,10 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     const body = await c.req.json().catch(() => ({}));
     // Single-use, asserted by deletion rather than by lookup: presenting the same
     // assertion twice must fail the second time.
-    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognised'), 403);
+    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognized'), 403);
 
     const user = [...store.users.values()][0];
-    if (!user) return c.json(err('credential not recognised'), 403);
+    if (!user) return c.json(err('credential not recognized'), 403);
 
     c.header('AXB-ACCOUNT', user.id);
     c.header('AXB-ACCESS-LEVEL', user.accessLevel ?? 'STANDARD');
@@ -676,7 +676,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
       // domains get blocklisted.
       if (volunteer.reminderEmail) store.suppressed.add(volunteer.reminderEmail);
     }
-    return c.json(ok('reminder subscription cancelled'));
+    return c.json(ok('reminder subscription canceled'));
   });
 
   app.patch('/v1/events/:id/volunteers/:volunteer', async (c) => {

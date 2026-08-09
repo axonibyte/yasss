@@ -19,7 +19,7 @@ describe('EventListBox', () => {
     expect(listOf(container).getAttribute('class')).toBe('block-list is-centered');
   });
 
-  it('centres an empty list', () => {
+  it('centers an empty list', () => {
     const { container } = render(EventListBox, { props: { heading: 'H', events: [] } });
     expect(screen.getByText('No events.')).toBeInTheDocument();
     expect(listOf(container).getAttribute('class')).toBe('block-list is-centered');

@@ -8,7 +8,7 @@
  * lexical order within a single boot.
  *
  * NULL is the right resolution rather than deletion: an anonymous volunteer is
- * a first-class state in this schema, and the organiser still needs the RSVP.
+ * a first-class state in this schema, and the organizer still needs the RSVP.
  *
  * Idempotent by construction -- once no orphans remain it matches nothing.
  *

@@ -5,7 +5,7 @@ import { CODE_LENGTH, formatCode, isCode, normalizeCode } from '../../src/lib/ev
  * The mirror of `EventCodeTest.java`.
  *
  * The corpus below is the same table, row for row. Two implementations of one
- * normalisation rule is a drift hazard, and the failure mode is nasty in both
+ * normalization rule is a drift hazard, and the failure mode is nasty in both
  * directions: the client refusing a code the server would resolve, or accepting
  * one it then cannot find.
  */
@@ -36,8 +36,8 @@ const CORPUS = [
   ['f81d4fae-7dec-11d0-a765-00a0c91e6bf6', null],
 ];
 
-describe('event code normalisation', () => {
-  it.each(CORPUS)('normalises %j', (spelling, canonical) => {
+describe('event code normalization', () => {
+  it.each(CORPUS)('normalizes %j', (spelling, canonical) => {
     expect(normalizeCode(spelling)).toBe(canonical);
   });
 

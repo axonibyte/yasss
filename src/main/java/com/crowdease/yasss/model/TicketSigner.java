@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
  * <p>Two properties of {@link Credentialed} govern everything here, and both are
  * covered by {@code TicketSignerCodecTest}. <b>Both changed at
  * {@code axb-lib-auth-java} 0.1.0</b>, and the old statements of them are kept below
- * because rows written under the old behaviour are still in the table:
+ * because rows written under the old behavior are still in the table:
  *
  * <ol>
  *   <li>The private key is AES-GCM encrypted under {@code ticket.globalSecret} with a

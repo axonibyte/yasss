@@ -3,13 +3,13 @@
  *
  * Each action decides for itself whether it applies to the actor it is handed,
  * performs one step, and updates the shadow world to match. Weights are rough
- * frequencies, not probabilities -- the engine normalises across whatever is
+ * frequencies, not probabilities -- the engine normalizes across whatever is
  * applicable at the time.
  *
  * The chaos actions at the bottom are not separate machinery. They are ordinary
  * actions that happen to do the wrong thing on purpose, so they interleave with
  * everything else and accumulate history alongside it, which is the whole point:
- * a cancelled edit is only interesting once something else has happened on top
+ * a canceled edit is only interesting once something else has happened on top
  * of it.
  */
 import { createEvent, addVolunteer as apiAddVolunteer } from '../lib/fixtures.mjs';
@@ -416,7 +416,7 @@ export const ACTIONS = [
       ctx.actor.absorb(bad);
       if (bad.status < 400) event.title = wrong;
 
-      // Sometimes the organiser fixes their own typo; sometimes a platform
+      // Sometimes the organizer fixes their own typo; sometimes a platform
       // administrator does it for them, which exercises authority over another
       // account's data.
       const fixer = ctx.chance(0.3)
@@ -450,7 +450,7 @@ export const ACTIONS = [
    *
    * At this tier that is an entity created and immediately dropped, or one
    * created and never referred to again. The browser audit covers the other
-   * half -- a modal opened and cancelled -- because that is where it exists.
+   * half -- a modal opened and canceled -- because that is where it exists.
    */
   {
     name: 'abandon-activity',

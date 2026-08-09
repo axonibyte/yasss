@@ -212,7 +212,7 @@
       const track = route.tutorial;
       route.clearTutorial();
       if (track === 'organizer' || track === 'volunteer') await beginTutorial(track);
-      // A bare `?tutorial`, or a track nobody recognises: ask rather than guess.
+      // A bare `?tutorial`, or a track nobody recognizes: ask rather than guess.
       else tutorial.open();
     }
 
@@ -298,7 +298,7 @@
       for (const [k, val] of v.values) volunteer.values.set(k, val);
     };
 
-    // Snapshotted because `saveVolunteer` serialises the entity itself, so the
+    // Snapshotted because `saveVolunteer` serializes the entity itself, so the
     // new values have to be on it before the request goes out. What this did
     // was write them and then close the modal unconditionally — so a failed
     // save left the new name on screen against the old server state, with the

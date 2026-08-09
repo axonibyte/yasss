@@ -65,7 +65,7 @@ public class CreateUserAccessLevelTest {
   }
 
   /**
-   * A permitted request is honoured. The endpoint only reaches this with a
+   * A permitted request is honored. The endpoint only reaches this with a
    * requested level once it has confirmed the caller is an ADMIN.
    */
   @Test
@@ -78,7 +78,7 @@ public class CreateUserAccessLevelTest {
         AccessLevel.ADMIN);
   }
 
-  /** An unrecognised level is a verdict of null, which the endpoint makes a 400. */
+  /** An unrecognized level is a verdict of null, which the endpoint makes a 400. */
   @Test
   public void anUnknownLevelIsRejected() {
     assertNull(CreateUserEndpoint.resolveAccessLevel(false, "SUPERUSER"));

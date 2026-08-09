@@ -7,7 +7,7 @@
  * fixed inside the package and not something we can trim from here.
  *
  * What *is* under our control is when it loads. It backs exactly one modal, the
- * window editor, which only an organiser building or editing an event ever
+ * window editor, which only an organizer building or editing an event ever
  * opens; a volunteer signing up for a bake sale used to download all of it to
  * never see it.
  *

@@ -68,7 +68,7 @@ describe('validateSummary', () => {
     });
   });
 
-  it('keeps a recognised time zone and refuses one the engine does not know', () => {
+  it('keeps a recognized time zone and refuses one the engine does not know', () => {
     expect(validateSummary({ title: 'T', timezone: 'America/Chicago' }).values.timezone)
       .toBe('America/Chicago');
     // A blank zone is a real value -- the event renders in each viewer's own --
@@ -146,7 +146,7 @@ describe('validateSlot', () => {
 
   it('refuses an empty or zero cap while the switch is off', () => {
     // Reading a blank box as "unlimited" granted the opposite of what the
-    // organiser had just clicked.
+    // organizer had just clicked.
     for (const cap of [0, null, undefined, '']) {
       expect(validateSlot({ enabled: true, unlimited: false, cap }).ok, String(cap))
         .toBe(false);

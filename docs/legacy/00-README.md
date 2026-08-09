@@ -5,7 +5,7 @@ deleted. They are the specification for the Svelte 5 rewrite on `release/framewo
 
 | File | What it is |
 |---|---|
-| `01-behavior.md` | Exhaustive behavioral inventory of `app.js` — every flow, the event-grid rendering model, every validation rule, auth mechanics, all 34 API calls, and a catalogue of ~26 bugs and dead-code sites |
+| `01-behavior.md` | Exhaustive behavioral inventory of `app.js` — every flow, the event-grid rendering model, every validation rule, auth mechanics, all 34 API calls, and a catalog of ~26 bugs and dead-code sites |
 | `02-aesthetics.md` | Markup and visual inventory — page sections, all twelve modals, Bulma plugin usage, the two custom CSS rules, theme and color semantics, responsive behavior |
 | `03-api-contract.md` | Backend contract the frontend codes against — endpoints, request/response shapes, server-side validation, the `AXB-SIG-REQ` auth scheme, the signing algorithm, static-file serving, and the DB schema |
 | `creds-golden-vectors.json` | Credential-derivation test vectors, produced by the legacy signing bundle and independently confirmed against `node:crypto` |
@@ -14,7 +14,7 @@ deleted. They are the specification for the Svelte 5 rewrite on `release/framewo
 
 **Requirement (c) of the rewrite is "perfectly duplicates the *intended* functionality."**
 That word does the work: where legacy behavior and legacy intent diverge, these documents record
-both and the rewrite follows intent. `01-behavior.md` §6 catalogues the divergences; the plan at
+both and the rewrite follows intent. `01-behavior.md` §6 catalogs the divergences; the plan at
 `~/.claude/plans/snappy-beaming-quail.md` carries the disposition for each.
 
 Line references point at `frontend/public/assets/js/app.js` (still on disk during the port) and

@@ -6,7 +6,7 @@
    * surface that makes it worth reading down a telephone or printing on a
    * flyer.
    *
-   * Validation is local and immediate: the code either normalises to eight
+   * Validation is local and immediate: the code either normalizes to eight
    * symbols or it does not, and saying so at the field is far better than a
    * round trip that ends in "event not found". Whether the event *exists* is
    * still the server's answer.

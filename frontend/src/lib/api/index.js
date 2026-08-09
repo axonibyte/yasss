@@ -1,7 +1,7 @@
 /**
  * The API surface, one function per server endpoint.
  *
- * Grouped by resource; all 34 calls catalogued in
+ * Grouped by resource; all 34 calls cataloged in
  * docs/legacy/01-behavior.md §5 are represented here.
  */
 import { get, post, patch, put, del, requestRaw } from './client.js';
@@ -44,10 +44,10 @@ export const applyPasswordReset = (id, token, pubkey, captcha) =>
 
 // --- passkeys ---------------------------------------------------------------
 
-/** Begin enrolment. Authenticated as the account itself. */
+/** Begin enrollment. Authenticated as the account itself. */
 export const beginPasskeyRegistration = (id) => post(`/users/${id}/passkeys/challenge`, {});
 
-/** Finish enrolment with what the authenticator produced. */
+/** Finish enrollment with what the authenticator produced. */
 export const finishPasskeyRegistration = (id, body) => post(`/users/${id}/passkeys`, body);
 
 /** The account's enrolled passkeys. */

@@ -21,7 +21,7 @@ import java.util.UUID;
  * Renders a volunteer's signup as HTML fragments for email.
  *
  * <p>Extracted from {@code AddVolunteerEndpoint}, which built these inline for
- * the organiser's signup alert. The reminder daemon needs the same fragments,
+ * the organizer's signup alert. The reminder daemon needs the same fragments,
  * and two copies of this logic would drift.
  *
  * <p>The interesting half is deliberately pure. The overload taking collections

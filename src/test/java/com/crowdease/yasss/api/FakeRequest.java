@@ -24,7 +24,7 @@ import spark.Request;
  * null {@code HttpServletRequest} underneath.
  *
  * <p>Only what the tests need is overridden. Anything else will throw, which is
- * the desired behaviour: a test reaching for an unmodelled part of the request
+ * the desired behavior: a test reaching for an unmodelled part of the request
  * should fail loudly rather than quietly see a default.
  *
  * @author Caleb L. Power

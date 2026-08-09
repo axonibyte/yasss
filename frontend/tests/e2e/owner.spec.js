@@ -62,7 +62,7 @@ test('an anonymous visitor never sees Modify Event', async ({ page, request }) =
 
 test('the one-signup cap does not apply to the owner', async ({ page, request }) => {
   // A volunteer already exists and multi-user signups are off, so a stranger is
-  // capped — but the organiser must still be able to add people.
+  // capped — but the organizer must still be able to add people.
   const spec = { allowMultiUserSignups: false, volunteers: [{ name: 'Existing' }] };
 
   await asOwner(page, request, spec);

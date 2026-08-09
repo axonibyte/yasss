@@ -129,7 +129,7 @@ public enum ParamEnum {
    * read a response. This governs which origin a ceremony was performed at, and a wildcard
    * here would accept one performed at any site that could reach a browser holding the
    * user's passkey -- precisely the attack WebAuthn's origin binding prevents. A
-   * {@code *} is discarded rather than honoured.
+   * {@code *} is discarded rather than honored.
    *
    * <p>Local development needs two, because the Vite dev server and the API are different
    * origins. The RP ID covers both, since ports do not enter into it; the origin check is

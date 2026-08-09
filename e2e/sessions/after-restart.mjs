@@ -7,7 +7,7 @@
  *
  *   - **A session survives a restart.** This is the whole point of persisting
  *     the ticket signers, and it is invisible to any single-process test: the
- *     signers were in memory, so the previous behaviour was that a deploy signed
+ *     signers were in memory, so the previous behavior was that a deploy signed
  *     out every user on the platform. If the stored private key is decrypted
  *     under the wrong id, or `ticket.globalSecret` is unset so persistence is
  *     refused, this is what says so.

@@ -31,7 +31,7 @@ import spark.Response;
  * <h2>Why this exists</h2>
  *
  * <p>Email is this application's recovery root. An account that has turned password
- * sign-in off and then lost every passkey has nothing else left, and "enrol a second
+ * sign-in off and then lost every passkey has nothing else left, and "enroll a second
  * passkey" is advice, not a guarantee — devices get dropped in rivers.
  *
  * <p>It is also the sign-in path for a browser with no WebAuthn support, once an account
@@ -43,7 +43,7 @@ import spark.Response;
  * <h2>What it is not</h2>
  *
  * <p>It does not clear {@code password_login_disabled}. Getting signed in is enough — from
- * there the account holder can enrol a passkey or turn the password back on, deliberately,
+ * there the account holder can enroll a passkey or turn the password back on, deliberately,
  * from a screen that says what it is doing. {@code ResetUserEndpoint} clears the flag,
  * because installing a new public key is an explicit statement that a password is wanted.
  *

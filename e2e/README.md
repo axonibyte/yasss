@@ -262,7 +262,7 @@ Three things make this non-trivial:
 The stage also carries the checks for edges that need no fixture of their own: the length
 bound counted in code points rather than UTF-16 units, an over-long title on `PATCH`, a
 token-less password reset, and that a volunteer named `<img src=x onerror=...>` reaches the
-organiser's printable report escaped.
+organizer's printable report escaped.
 
 ## The concurrency stage
 
@@ -275,6 +275,6 @@ Eight scenarios, 16 simultaneous requests each, five rounds apiece against a fre
 event: a race that passes once has proved nothing. The oracle is the event's own `rsvpCount`
 read back afterwards, because counting `201`s alone would miss a fix that answers correctly
 and stores wrongly. Scenario E exists to catch the opposite mistake — an uncapped activity
-must still admit all sixteen rather than being serialised into spurious rejections.
+must still admit all sixteen rather than being serialized into spurious rejections.
 
 Scenario H is a known gap rather than a regression test; see `docs/remaining-work.md`.

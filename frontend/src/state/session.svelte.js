@@ -187,14 +187,14 @@ class Session {
    * rather than a 401. Everything after the sign-in is identical: the same session ticket,
    * rotated the same way, in the same cookie.
    *
-   * @returns {Promise<this|null>} null if the user cancelled, which is not an error
+   * @returns {Promise<this|null>} null if the user canceled, which is not an error
    */
   async loginWithPasskey() {
     if (!isSupported()) throw new Error('This browser does not support passkeys.');
 
     const challenge = await api.beginPasskeyAuth();
     const assertion = await authenticate(challenge);
-    // Cancelled or timed out. The two are indistinguishable and neither is worth a
+    // Canceled or timed out. The two are indistinguishable and neither is worth a
     // message, so the caller shows nothing.
     if (!assertion) return null;
 
@@ -234,7 +234,7 @@ class Session {
     if (!this.loggedIn) return false;
     try {
       // GET /v1 authenticates, so it answers the question directly: an account
-      // header means the server still recognises this token. Nothing else does
+      // header means the server still recognizes this token. Nothing else does
       // -- a missing header on an arbitrary response only means that endpoint
       // does not authenticate, or that the request failed before it could.
       const res = await api.getApiInfo();

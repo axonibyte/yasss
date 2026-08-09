@@ -36,14 +36,14 @@
    *
    * The only thing "Submit RSVPs" writes. A volunteer who already exists
    * server-side has their slot toggles saved the moment they are made
-   * (`rsvpActions.toggleRsvp`), so for an organiser looking at their own event,
+   * (`rsvpActions.toggleRsvp`), so for an organizer looking at their own event,
    * or for anyone revising a submission they already made, the button had
    * nothing left to do and said so with a success toast -- which reads as
    * confirmation of a save that never happened.
    *
    * Counting *pending* rather than checking a role is what makes this right for
-   * an organiser too: they are shown every volunteer on the event
-   * (RetrieveEventEndpoint authorises the list), but all of those are persisted,
+   * an organizer too: they are shown every volunteer on the event
+   * (RetrieveEventEndpoint authorizes the list), but all of those are persisted,
    * so none of them count here. An unpersisted volunteer has no id and exists
    * only in this tab, so this can only ever mean "work you have not saved".
    */
@@ -51,14 +51,14 @@
 
   // Warm the date picker's chunk as soon as an editing surface appears. It is a
   // megabyte, and the only people who reach this are the ones about to need it,
-  // so fetching it now costs a volunteer nothing and spares an organiser the
+  // so fetching it now costs a volunteer nothing and spares an organizer the
   // wait when they open the window editor.
   $effect(() => {
     if (editingLayout) loadCalendar().catch(() => {});
   });
 
   /**
-   * Whether this viewer is the event's organiser.
+   * Whether this viewer is the event's organizer.
    *
    * The null check is load-bearing rather than defensive. An event published
    * anonymously has a null `admin`, and an anonymous viewer has a null
@@ -94,7 +94,7 @@
 
   /**
    * Whether another volunteer may be added. Mirrors the server's cap: with
-   * multi-user signups off, one entry per identity — the organiser excepted,
+   * multi-user signups off, one entry per identity — the organizer excepted,
    * since they are signing other people up rather than themselves.
    */
   const canAddVolunteer = $derived(

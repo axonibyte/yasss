@@ -155,7 +155,7 @@ check(stillHere.account === alice.id, 'which still works', `got ${stillHere.acco
 const bob = await newUser('bob', PASSWORD);
 // Bob signs in and acts with the resulting ticket. Presenting his credential directly
 // would now be refused for a different reason than the one under test, and the check
-// would pass while proving nothing about authorisation.
+// would pass while proving nothing about authorization.
 const bobTicket = (await api('GET', '/v1', { auth: await bob.credential() })).session;
 const meddling = await api('DELETE', `/v1/users/${alice.id}/sessions`, { session: bobTicket });
 check(meddling.status === 403, "a stranger cannot revoke another account's sessions",

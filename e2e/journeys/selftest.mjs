@@ -9,7 +9,7 @@
  * that leaves everyone believing they are covered.
  *
  * So this feeds the checks in model.mjs the responses a *broken* server would
- * send, and asserts each one complains. The responses are modelled on the two
+ * send, and asserts each one complains. The responses are modeled on the two
  * defects that prompted this whole stage:
  *
  *   - `?volunteer=` returning an event once per signup, because the query
@@ -187,9 +187,9 @@ console.log('\nthe visibility oracle');
 }
 
 {
-  // The organiser is shown everybody, by design.
+  // The organizer is shown everybody, by design.
   const problems = await checkVisibility(answering(goodEvent()), world, owner, 'E1');
-  check(problems.length === 0, 'the organiser seeing everyone is not a complaint', JSON.stringify(problems));
+  check(problems.length === 0, 'the organizer seeing everyone is not a complaint', JSON.stringify(problems));
 }
 
 console.log('\ndeterminism');

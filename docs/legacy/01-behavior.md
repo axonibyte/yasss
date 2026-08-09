@@ -23,7 +23,7 @@
 | `userData` | 3 | `null` or `{account, session, accessLevel, ownedEvents?}` |
 | `urlParams` | 4 | `URLSearchParams`, assigned only in `loadSite` (2791) |
 | `maxTableCols` | 6 | `const 5` |
-| `eventTableData` | 8 | initialised by `clearTable()` at line 9 |
+| `eventTableData` | 8 | initialized by `clearTable()` at line 9 |
 | `eventChanges` | 11 | **declared, never read or written — dead** |
 | `viewTableSliderOutput` | 317 | detached `<output for="view-event-slider">`, hidden |
 | `captchaCallback` | 2722 | one-shot CAPTCHA continuation |
@@ -58,7 +58,7 @@ The whole app is a single page toggling three `<section>`s: `#coa-section` (mark
 ### 1.1 Boot sequence (3201–3223)
 1. `toast_setToast_Defaults({duration:5000, position:'top-center', closeOnClick:true})` (3202).
 2. `JSON.parse(Cookies.get('user'))` inside `try` → on success set `userData` and `toggleAuthUI(true)`; on throw (no cookie / bad JSON) `logDebug('no auth cookie detected')` + `toggleAuthUI(false)` (3208–3217).
-3. `refreshUserSession(userData?.session ?? null, loadSite)` (3219–3221) — `loadSite` runs as the `saveSession` success **and** failure continuation, so the site always initialises.
+3. `refreshUserSession(userData?.session ?? null, loadSite)` (3219–3221) — `loadSite` runs as the `saveSession` success **and** failure continuation, so the site always initializes.
 4. `loadSite` ends with `setTimeout(() => $('.pageloader').removeClass('is-active'), 1000)` (3196–3198) — a hard-coded 1 s splash.
 5. Independently, Google reCAPTCHA's `onload=loadCAPTCHA` fires `loadCAPTCHA()` (2724).
 
@@ -627,7 +627,7 @@ for(let i = Object.keys(volObj.details).length - 1; i >= 0; i--) {
 If the event has **no details**, the loop body never executes and `id` + `user` are sent in the PATCH body. Also `Object.keys(arr).length` instead of `arr.length`.
 
 ### 6.19 Required-BOOLEAN details can never fail validation (1124–1125)
-The required check compares `'' === deetVals[i].value`, but BOOLEAN details store `true`/`false`. An unchecked required checkbox passes. (Worse: if a detail's `type` is unrecognised, `renderVolEditModal` `continue`s at 815 and never creates an input, so `deetVals[i]` stays `undefined` and line 1125 throws → `validateVolEditModal` returns `null` with **no toast at all** — a silently unsubmittable form.)
+The required check compares `'' === deetVals[i].value`, but BOOLEAN details store `true`/`false`. An unchecked required checkbox passes. (Worse: if a detail's `type` is unrecognized, `renderVolEditModal` `continue`s at 815 and never creates an input, so `deetVals[i]` stays `undefined` and line 1125 throws → `validateVolEditModal` returns `null` with **no toast at all** — a silently unsubmittable form.)
 
 ### 6.20 `renderEventWindowModal` typo and aliasing (599–605)
 - `'' == win.startTime` (599) — `startTime` is never a property of a window object (it's `startDate`/`endDate`). Harmless but wrong; it was presumably meant to be `win.endDate`.

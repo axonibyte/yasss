@@ -95,10 +95,10 @@ Nothing is sent yet — you can change your mind as much as you like first.`,
 
   'v-submit': `## Send it
 
-**Submit** is what actually tells the organiser. Until you press it, everything
+**Submit** is what actually tells the organizer. Until you press it, everything
 you have picked is only on this page.
 
-The button counts what is waiting, and greys out when there is nothing to send.`,
+The button counts what is waiting, and grays out when there is nothing to send.`,
 
   'v-done': `## That is all of it
 

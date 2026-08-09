@@ -3,7 +3,7 @@
    * The tutorial's docked step panel.
    *
    * **Deliberately not a modal.** Every other overlay in this app is a
-   * `Modal.svelte`, which claims `aria-modal` and honours it with a real focus
+   * `Modal.svelte`, which claims `aria-modal` and honors it with a real focus
    * trap. That is right for a dialog and wrong for this: the whole method here
    * is that the learner clicks the thing being described, so trapping focus in
    * the panel would make the tutorial the one surface where you cannot do what

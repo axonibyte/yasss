@@ -61,7 +61,7 @@ test('the whitespace model matches the server’s, in both directions', () => {
  * What the *browser* path can be expected to store, which is not the same as
  * what the API path stores.
  *
- * Two normalisations happen before the server ever sees the value, and both are
+ * Two normalizations happen before the server ever sees the value, and both are
  * correct:
  *
  *   - a single-line `<input>` cannot hold a line break, so the browser replaces
@@ -98,14 +98,14 @@ test('a published title comes back exactly as it was stored', async ({ page }) =
     const rendered = await page.locator('[data-testid="event-title"]')
       // `textContent`, never `innerText`: the latter applies CSS whitespace
       // collapsing, so a value with inner runs of spaces or a newline comes back
-      // normalised and the comparison fails for reasons that have nothing to do
+      // normalized and the comparison fails for reasons that have nothing to do
       // with storage.
       .evaluate((el) => el.textContent);
     expect(rendered.trim(), `DOM fidelity for ${c.name}`).toBe(throughBrowser(c.sent).trim());
   }
 });
 
-test('a line break typed into the title is normalised by the input, not lost',
+test('a line break typed into the title is normalized by the input, not lost',
   async ({ page }) => {
     // Worth pinning rather than leaving implicit: the value the server receives
     // is not the value the test typed, and the difference is the browser's

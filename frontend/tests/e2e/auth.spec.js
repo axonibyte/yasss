@@ -80,7 +80,7 @@ test('a session survives a reload', async ({ page, request }) => {
   await expect(page.getByRole('link', { name: 'Log Out' })).toBeVisible();
 });
 
-test('a session the server no longer recognises is dropped at boot', async ({ page }) => {
+test('a session the server no longer recognizes is dropped at boot', async ({ page }) => {
   // A token that decodes to nothing the server knows. Passing a *valid* token
   // with a bogus account id would not test this: the server resolves the
   // caller from the token, not from whatever the cookie claims alongside it.

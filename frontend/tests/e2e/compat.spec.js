@@ -24,7 +24,7 @@ test.describe('cross-engine', { tag: '@compat' }, () => {
   /**
    * Bulma hides the real checkbox and draws its label on top, so the label is
    * the only thing clickable. Whether that click reaches the input, and whether
-   * the resulting `change` fires, is browser behaviour — and every switch in
+   * the resulting `change` fires, is browser behavior — and every switch in
    * the product, plus `toggleSwitch` in the live harness, depends on it. A
    * silent failure here would make a great many other tests meaningless.
    */
@@ -92,7 +92,7 @@ test.describe('cross-engine', { tag: '@compat' }, () => {
 
     await page.getByRole('link', { name: 'Log In' }).click();
     // Clicked near the corner: the backdrop spans the viewport but the card
-    // sits over its centre, which is where a plain click would land.
+    // sits over its center, which is where a plain click would land.
     await page.locator('.modal-background').click({ position: { x: 5, y: 5 } });
     await expect(page.locator('.modal-card')).toHaveCount(0);
   });

@@ -117,7 +117,7 @@ describe('journey audit', () => {
 
       // Per box, not across the pair. The dashboard shows "Your Upcoming
       // Events" and "Your Upcoming RSVPs" side by side, and an event you both
-      // organise and have signed up to belongs in each -- counting across the
+      // organize and have signed up to belongs in each -- counting across the
       // two reads that as a duplicate when it is the product working.
       //
       // A genuinely repeated id would already have thrown each_key_duplicate

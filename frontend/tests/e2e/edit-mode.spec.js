@@ -136,7 +136,7 @@ test('a window added to a live event starts with disabled slots', async ({ page,
   await page.getByRole('button', { name: 'Add a Window' }).click();
   await page.getByRole('button', { name: 'Save Window' }).click();
 
-  // The counterpart of the wizard's behaviour, where new slots ARE enabled.
+  // The counterpart of the wizard's behavior, where new slots ARE enabled.
   // These two branches diverging is exactly the legacy failure.
   const event = await readEvent(page, eventId);
   expect(event.activities[0].slots).toHaveLength(1);

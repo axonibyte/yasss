@@ -10,7 +10,7 @@
  *
  * There are two tracks because there are two newcomers. The organizer is the
  * person on the landing page; the volunteer arrived from a link somebody sent
- * them and has never seen it. They share one practice event: the organiser
+ * them and has never seen it. They share one practice event: the organizer
  * track ends by looking at what its volunteers will see, and the volunteer
  * track starts there.
  */

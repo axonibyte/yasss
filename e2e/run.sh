@@ -167,7 +167,7 @@ if [[ -z "${AXB_E2E_LOCK_HELD:-}" ]]; then
       || printf '\n\033[1;33m warn\033[0m another e2e suite holds %s; waiting\n' "${E2E_LOCK}" >&2
     exec_locked lockf -k -t "${E2E_LOCK_WAIT}"
   else
-    printf '\n\033[1;33m warn\033[0m neither flock nor lockf found; running unserialised.\n' >&2
+    printf '\n\033[1;33m warn\033[0m neither flock nor lockf found; running unserialized.\n' >&2
     printf '        If another e2e suite runs concurrently, both may fail in ways\n' >&2
     printf '        that look like application bugs.\n' >&2
   fi
@@ -466,7 +466,7 @@ fi
 # Nothing below should see a 500 from a healthy server; a crash here is a real
 # finding rather than a flaky environment.
 # A relying party that cannot be resolved disables passkeys with an error and lets
-# everything else carry on -- which is the right behaviour and exactly the kind of thing
+# everything else carry on -- which is the right behavior and exactly the kind of thing
 # that goes unnoticed. api.host must be a hostname, not the shipped IP literal, or no
 # browser will perform a ceremony; nothing else in this suite can catch that, because
 # Playwright's virtual authenticator does not enforce the rule.
@@ -703,7 +703,7 @@ if has_stage journeys; then
   log "simulating users over a long run"
 
   # An explicit seed means one run of exactly that seed, so the fixed set is only
-  # requested when there is no seed to honour. Written as an `if` rather than
+  # requested when there is no seed to honor. Written as an `if` rather than
   # `[[ ... ]] && ...` because a false test there is a non-zero status, and this
   # script runs under `set -e`.
   DRIVE_ENV=()

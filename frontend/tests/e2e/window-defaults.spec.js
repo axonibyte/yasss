@@ -3,9 +3,9 @@
  *
  * `tomorrowAt` builds the default 08:00–17:00 window with `setDate` and
  * `setHours`, which are local-wall-clock operations. The resulting *instant*
- * therefore depends entirely on the organiser's zone — and the whole suite ran
+ * therefore depends entirely on the organizer's zone — and the whole suite ran
  * pinned to UTC, so nothing ever noticed. That is a gap rather than a bug: the
- * intent is "8am where the organiser is", and these assert the intent rather
+ * intent is "8am where the organizer is", and these assert the intent rather
  * than a fixed epoch, so they hold in every zone.
  *
  * The zone pair is chosen to be 25 hours apart. Anything that accidentally
@@ -41,7 +41,7 @@ function hourIn(epochMillis, timeZone) {
 }
 
 for (const zone of ['Pacific/Kiritimati', 'Pacific/Niue', 'UTC']) {
-  test.describe(`an organiser in ${zone}`, () => {
+  test.describe(`an organizer in ${zone}`, () => {
     test.use({ timezoneId: zone });
 
     test('gets a default window that starts at 8am their time', async ({ page, request }) => {

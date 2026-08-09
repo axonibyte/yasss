@@ -354,7 +354,7 @@ public abstract class APIEndpoint extends JSONEndpoint {
    *
    * <p>Tries the UUID first, since that is what every existing link carries,
    * and falls back to the code. There is no ambiguity between the two: a
-   * normalised code is eight characters and a UUID is thirty-six, so a string
+   * normalized code is eight characters and a UUID is thirty-six, so a string
    * cannot be both.
    *
    * <p>Every endpoint taking {@code :event} goes through this, which is what

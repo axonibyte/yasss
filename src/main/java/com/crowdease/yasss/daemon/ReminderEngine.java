@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Sends volunteers a reminder before their event begins.
  *
- * <p>Modelled on {@link TicketEngine} for thread lifecycle, with three
+ * <p>Modeled on {@link TicketEngine} for thread lifecycle, with three
  * deliberate differences, each earned:
  *
  * <ul>

@@ -146,7 +146,7 @@ public final class ModifyUserEndpoint extends APIEndpoint {
         if(disable && !user.mayDisablePasswordLogin())
           throw new EndpointException(
               req,
-              "enrol a second passkey, or one that syncs to your other devices, before "
+              "enroll a second passkey, or one that syncs to your other devices, before "
               + "turning off password sign-in -- otherwise losing this device loses the "
               + "account",
               409);

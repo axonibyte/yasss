@@ -4,7 +4,7 @@
  * Built entirely in the browser and never sent anywhere. It carries a synthetic
  * id so `EventModel.mode` resolves to VIEW -- the volunteer half of the tour
  * needs the surface that only a published event shows -- and `sandbox`, which is
- * what stops every write that id would otherwise authorise from leaving the
+ * what stops every write that id would otherwise authorize from leaving the
  * page. See `state/actions/remote.js`.
  *
  * The content is chosen so that one screen shows every cell state a learner will

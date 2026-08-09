@@ -61,13 +61,13 @@
     begin = options.startDate;
     end = options.endDate;
 
-    let cancelled = false;
+    let canceled = false;
     let instance = null;
     /** The container bulma-calendar generates and owns; see the teardown. */
     let container = null;
 
     loadCalendar().then((bulmaCalendar) => {
-      if (cancelled) return;
+      if (canceled) return;
       [instance] = bulmaCalendar.attach(element, options);
       container = document.getElementById(instance.id);
 
@@ -84,7 +84,7 @@
     // Returned synchronously, so Svelte always has a teardown even if the
     // effect re-runs before the loader resolves.
     return () => {
-      cancelled = true;
+      canceled = true;
       // Clears the emitter's own subscriptions ('select'/'save'), not any DOM
       // listener -- despite the name.
       instance?.removeListeners?.();

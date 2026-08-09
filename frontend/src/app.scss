@@ -4,18 +4,18 @@
 // then our overrides last so they win at equal specificity.
 //
 // bulma-calendar is deliberately NOT here. It is a megabyte of JavaScript for
-// one modal only an organiser opens, so it and its overrides load on demand
+// one modal only an organizer opens, so it and its overrides load on demand
 // from src/lib/calendar.js. See docs/legacy/02-aesthetics.md §3.2.
 
 // Bulma, assembled from the modules this app actually uses.
 //
 // The full stylesheet is 678 KB, and two of its parts dominate that. The
-// `helpers/color` matrix -- every colour crossed with 21 lightness steps -- is
+// `helpers/color` matrix -- every color crossed with 21 lightness steps -- is
 // 181 KB on its own, of which exactly one rule is used, hand-written below.
 // And `themes/_index` emits the entire variable set five times: `:root`, both
 // `prefers-color-scheme` blocks, `.theme-light` and `.theme-dark`. Two of those
 // are all that is needed -- light into `:root` and dark behind the media query
-// -- which is 185 KB down to about 120, and honours the reader's OS setting.
+// -- which is 185 KB down to about 120, and honors the reader's OS setting.
 // The `.theme-*` class variants stay dropped, but the document *can* now pin a
 // theme: `[data-theme]` blocks below emit the two sets a toggle needs, under our
 // own selector rather than Bulma's class names. Same cost as the variants would
@@ -106,25 +106,25 @@
 // hsl(171, 100%, 41%), which as *text* on the near-white page background is
 // about 1.8:1 — well under the 4.5:1 WCAG asks for, and genuinely hard to read
 // rather than merely non-compliant. It was the only serious finding in the axe
-// sweep, and it covered every link and every emphasised word on the intro page,
+// sweep, and it covered every link and every emphasized word on the intro page,
 // the call to action and the dashboard.
 //
 // The `-on-scheme` variants exist for exactly this: same hue, same saturation,
 // lightness corrected against the current scheme (21% in light, 41% in dark).
-// The brand colour is unchanged everywhere it is used as a *background* —
+// The brand color is unchanged everywhere it is used as a *background* —
 // buttons, tags, the grid's solid tiles — so this darkens text only.
 .has-text-primary {
   color: var(--bulma-primary-on-scheme) !important;
 }
 
-// Same problem, same fix, for the surfaces that draw brand-coloured text on a
+// Same problem, same fix, for the surfaces that draw brand-colored text on a
 // white background rather than the other way round: outlined primary buttons
 // and the grid's outlined slot tiles. Restricted to the resting state, because
 // hover and focus invert to white-on-primary and are already fine.
 // Selectors deliberately at least as specific as Bulma's own
 // (`.block-list.is-primary.is-outlined > li`, `.button.is-primary.is-outlined`),
 // since this is overriding them rather than adding to them. The border keeps
-// the brand colour: it is a 1px rule, not text, and legibility is the point
+// the brand color: it is a 1px rule, not text, and legibility is the point
 // here.
 .button.is-primary.is-outlined:not(:hover):not(:focus):not(:active),
 .event-cell ul.block-list.is-primary.is-outlined > li,
@@ -135,7 +135,7 @@
 // The third instance of the same problem, and the worst of the three.
 //
 // The muted slot tiles -- "At Capacity" and "Unavailable" -- take their text
-// colour from `is-light`, which is hsl(221, 14%, 96%): near-white text on a
+// color from `is-light`, which is hsl(221, 14%, 96%): near-white text on a
 // near-white page, about 1.05:1. Not "below the 4.5:1 threshold" but genuinely
 // unreadable; the label is there and you cannot see it.
 //
@@ -153,7 +153,7 @@
 }
 
 // Links sitting inside a paragraph were distinguishable from the text around
-// them by colour alone, which is invisible to a reader who cannot separate the
+// them by color alone, which is invisible to a reader who cannot separate the
 // two. Nav items, buttons and block-list entries are excluded: they read as
 // controls from their position and surroundings, and WCAG 1.4.1 is about links
 // embedded in prose.
@@ -247,7 +247,7 @@ body.tutorial-running {
   padding-bottom: 45vh;
 }
 
-// Outline rather than a background change: cells and cards already use colour
+// Outline rather than a background change: cells and cards already use color
 // to mean something (available, booked, full), and repainting one to highlight
 // it would say something false about its state.
 .tutorial-anchor {
@@ -259,14 +259,14 @@ body.tutorial-running {
 // --- scrollbars -------------------------------------------------------------
 
 // Two syntaxes, because neither is universal yet: `scrollbar-width`/`-color` is
-// the standard and is what Firefox honours, `::-webkit-scrollbar` is what
+// the standard and is what Firefox honors, `::-webkit-scrollbar` is what
 // Chromium and Safari still do. They are not equivalent -- the standard one has
 // no way to say "narrower on hover" and the WebKit one has no way to say "thin"
 // -- so each is written for what it can express rather than one being a
 // fallback for the other.
 //
-// Colours come from Bulma's variables, so these follow the theme without
-// knowing which one is on. That matters more than it sounds: a hard-coded grey
+// Colors come from Bulma's variables, so these follow the theme without
+// knowing which one is on. That matters more than it sounds: a hard-coded gray
 // track is invisible in light mode and a bright stripe in dark.
 //
 // Deliberately not applied to `*`. A scrollbar the reader has to hunt for is
@@ -333,8 +333,8 @@ html {
 
 // --- theme toggle -----------------------------------------------------------
 
-// `is-ghost` is a link-styled button, so it inherits the link colour rather
-// than the navbar's text colour and sits oddly among the items beside it.
+// `is-ghost` is a link-styled button, so it inherits the link color rather
+// than the navbar's text color and sits oddly among the items beside it.
 .theme-toggle {
   color: inherit;
   text-decoration: none;

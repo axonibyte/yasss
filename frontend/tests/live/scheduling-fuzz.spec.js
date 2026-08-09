@@ -4,13 +4,13 @@
  * Scheduling is where the edge cases live, because it is the only part of the
  * app where the client holds a whole graph in memory and hands it to the server
  * in one go. A value the client accepts and the server refuses is not a
- * cosmetic problem here — it surfaces at publish time, after the organiser has
+ * cosmetic problem here — it surfaces at publish time, after the organizer has
  * built the entire event, as a toast with no field attached to it.
  *
  * Most of the fuzzing runs in CREATE mode on purpose. Nothing is persisted
  * until publish, so a case costs a modal open and close rather than a round
  * trip, and the client's own validators are exactly what is under test. The
- * round-trip behaviour gets its own describe block at the bottom, where the
+ * round-trip behavior gets its own describe block at the bottom, where the
  * server is the thing being asked.
  */
 import {
@@ -208,7 +208,7 @@ test.describe('windows', () => {
     await page.getByRole('button', { name: 'Add a Window' }).click();
     await openPicker(page);
 
-    // The date cells normalise start against end, but the two clocks do not:
+    // The date cells normalize start against end, but the two clocks do not:
     // winding the end hour back past the start is a range a user can really
     // produce, and the server answers 500 for it rather than 400.
     await nudgeTime(page, 'end', 'hours', -12);
@@ -397,7 +397,7 @@ test.describe('round trip against the server', () => {
 
   test('a title the client accepts survives publish', async ({ page }) => {
     // The interesting half of the corpus: everything the client says yes to
-    // has to be something the server also says yes to, or the organiser loses
+    // has to be something the server also says yes to, or the organizer loses
     // the whole event at the last step.
     for (const c of REQUIRED_TEXT_SHORT.filter((x) => x.expect === 'accepted')) {
       await startWizard(page, c.value);
@@ -419,7 +419,7 @@ test.describe('round trip against the server', () => {
 
   test('an over-long title is caught at the field, not at publish', async ({ page }) => {
     // The point of catching it here is that the alternative is catching it
-    // after the organiser has built activities, windows and slots on top of a
+    // after the organizer has built activities, windows and slots on top of a
     // title that was never going to save.
     await startWizard(page);
     await addActivity(page, 'Setup');

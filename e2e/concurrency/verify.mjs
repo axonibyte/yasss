@@ -23,7 +23,7 @@
  * the identity cap applies) and then activity rows in id order.
  *
  * The oracle throughout is the event's own `rsvpCount`, read back through
- * `GET /v1/events/:id`. That is the number the organiser sees and the number
+ * `GET /v1/events/:id`. That is the number the organizer sees and the number
  * the cap is about, so it is the one worth asserting on -- counting 201s alone
  * would miss a fix that answers correctly and stores wrongly.
  *
@@ -31,7 +31,7 @@
  *
  * Every scenario runs `ROUNDS` times against a freshly built event. A race that
  * passes once has proved nothing: the failure mode is a timing window, and a
- * single green run is as likely to mean the requests happened to serialise as
+ * single green run is as likely to mean the requests happened to serialize as
  * it is to mean they cannot overlap.
  *
  * Env: YASSS_API, YASSS_ADMIN_EMAIL, YASSS_ADMIN_PASSWORD.
@@ -68,7 +68,7 @@ function noneCrashed(results, what) {
 /** Fires `n` requests built by `make` as simultaneously as one process can. */
 function stampede(n, make) {
   // Built in one synchronous loop so every request is in flight before any
-  // `await` yields; awaiting inside the loop would serialise them and the
+  // `await` yields; awaiting inside the loop would serialize them and the
   // whole stage would prove nothing.
   return Promise.all(Array.from({ length: n }, (_, i) => make(i)));
 }
@@ -215,7 +215,7 @@ for (let round = 0; round < ROUNDS; round++) {
   const event = await fixture(`D${round}`);
 
   // Split across both windows on purpose: a fix that locks the slot rather
-  // than the activity serialises each window independently and lets this
+  // than the activity serializes each window independently and lets this
   // through at two per window rather than two per activity.
   const results = await stampede(N, (i) => addVolunteer(api, event.id, {
     auth,
@@ -232,7 +232,7 @@ for (let round = 0; round < ROUNDS; round++) {
   check(total === 2, `D${round}: the activity holds exactly two RSVPs`, `holds ${total}`);
 }
 
-// --- E: an uncapped activity must not be serialised into false rejections ---
+// --- E: an uncapped activity must not be serialized into false rejections ---
 
 console.log(`\nE: ${N} simultaneous signups against an uncapped activity, x${ROUNDS}`);
 

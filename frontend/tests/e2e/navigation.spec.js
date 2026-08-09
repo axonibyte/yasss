@@ -5,7 +5,7 @@
  * test because nothing in a happy path goes backwards:
  *
  *   - the unload guard asked only whether there were unsubmitted *volunteers*,
- *     so an organiser fifteen minutes into building an event — activities,
+ *     so an organizer fifteen minutes into building an event — activities,
  *     windows, custom fields, none of it yet sent anywhere — could close the tab
  *     and be asked nothing at all; and
  *
@@ -23,7 +23,7 @@ import { seed, waitForApp } from './helpers.js';
  *
  * Playwright can be made to surface a real beforeunload prompt, but only via
  * `page.close({ runBeforeUnload: true })`, only after a user gesture, and with
- * behaviour that differs per engine. Registering a second listener and reading
+ * behavior that differs per engine. Registering a second listener and reading
  * `defaultPrevented` asks the same question of the same handler and answers it
  * deterministically. The app binds its listener at mount, well before this runs,
  * so ours observes the result of theirs.

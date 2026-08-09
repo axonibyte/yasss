@@ -15,11 +15,11 @@
   let html = $state('');
 
   $effect(() => {
-    let cancelled = false;
+    let canceled = false;
     getText('coa')
-      .then((src) => { if (!cancelled) html = renderMarkdownWithPrimaryLinks(src); })
+      .then((src) => { if (!canceled) html = renderMarkdownWithPrimaryLinks(src); })
       .catch(() => { /* the section still renders with its CTA */ });
-    return () => { cancelled = true; };
+    return () => { canceled = true; };
   });
 </script>
 

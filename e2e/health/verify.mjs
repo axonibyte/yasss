@@ -50,7 +50,7 @@ check(
 );
 
 // A relying party that cannot be resolved disables passkeys with an error and lets
-// everything else carry on -- correct behaviour, and exactly the kind of thing that goes
+// everything else carry on -- correct behavior, and exactly the kind of thing that goes
 // unnoticed. Asserted positively rather than by grepping the boot log for the absence of
 // an error, which would also hold if the server had never started.
 //

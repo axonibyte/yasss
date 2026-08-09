@@ -4,7 +4,7 @@
  * Mailpit stands in for an SMTP server and exposes everything it caught over
  * HTTP, which is the only way to verify the half of a feature that happens
  * after the API has already answered 200 -- verification links, reminder
- * bodies, the organiser's signup alert.
+ * bodies, the organizer's signup alert.
  */
 import { sleep } from './check.mjs';
 

@@ -11,7 +11,7 @@
  *
  * Keyed on the begin time of the event's earliest window rather than a window
  * id, for two reasons: the finder derives that time with MIN()..GROUP BY and so
- * never holds the id, and if an organiser reschedules the event the volunteer
+ * never holds the id, and if an organizer reschedules the event the volunteer
  * genuinely warrants a fresh reminder, because the body quotes a date.
  *
  * `delivered` is diagnostic only -- it lets an operator spot claimed-but-unsent
