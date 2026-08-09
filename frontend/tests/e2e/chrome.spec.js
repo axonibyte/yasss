@@ -68,6 +68,43 @@ test.describe('the theme toggle', () => {
     await expect(toggle).toHaveAccessibleName(/Dark/);
   });
 
+  test('wears the navbar\'s color, not the link blue', async ({ page }) => {
+    await page.goto('/');
+    await waitForApp(page);
+
+    // `is-ghost` takes its color from `--bulma-button-ghost-color`, which
+    // resolves to Bulma's link hue -- so the toggle arrived as the one blue
+    // thing on the bar. The first fix declared `color` on `.theme-toggle` and
+    // lost silently to `.button.is-ghost` on specificity, which is why this
+    // compares against a neighbour rather than asserting a literal: a hex here
+    // would have passed for the wrong reason in one theme and failed in the
+    // other.
+    const colorOf = (selector) => page.locator(selector)
+      .evaluate((el) => getComputedStyle(el).color);
+
+    for (const theme of ['system', 'light', 'dark']) {
+      if (theme !== 'system') await page.getByTestId('theme-toggle').click();
+
+      // Retried rather than read once after a sleep. Three things move
+      // underneath this and each produced a wrong answer while it was being
+      // written: the pointer resting on the button reports the hover color, a
+      // read in the same tick as a theme change reports the previous one, and
+      // Bulma transitions `color`, so an immediate read lands mid-fade —
+      // rgb(62,71,84) on its way to rgb(64,70,84), which is a failure that
+      // looks like a real mismatch and is not.
+      //
+      // `toPass` waits for the truth to settle without asserting how long that
+      // takes, and still fails if the two genuinely differ.
+      await expect(async () => {
+        await page.mouse.move(0, 400);
+        expect(
+          await colorOf('.theme-toggle'),
+          `the toggle does not match its neighbours in ${theme}`,
+        ).toBe(await colorOf('.navbar-item[href="#create-event"]'));
+      }).toPass({ timeout: 5000 });
+    }
+  });
+
   test('actually repaints the page, not just the attribute', async ({ page }) => {
     // The attribute is the mechanism; this is the thing the reader sees. Without
     // the [data-theme] blocks in app.scss the attribute would be set and nothing

@@ -347,17 +347,27 @@ html {
 
 // --- theme toggle -----------------------------------------------------------
 
-// `is-ghost` is a link-styled button, so it inherits the link color rather
-// than the navbar's text color and sits oddly among the items beside it.
+// `is-ghost` is a link-styled button: its color comes from
+// `--bulma-button-ghost-color`, which resolves to `--bulma-link-text`. That is
+// Bulma's link hue, so the toggle sat in the navbar as the one blue thing on
+// the bar, next to items that take `--bulma-navbar-item-color`.
+//
+// Set through Bulma's own variables rather than by declaring `color` again.
+// The first attempt did the latter and lost silently: `.theme-toggle` is one
+// class and `.button.is-ghost` is two, so Bulma won on specificity and the
+// override did nothing at all. Overriding the variable sidesteps the contest
+// entirely -- and unlike a more specific selector, it keeps the value
+// theme-derived, so this follows light and dark without restating either.
+//
+// Same lesson the `.has-text-primary` block above records: when overriding
+// Bulma, match how it sets the thing, not just where.
 .theme-toggle {
-  color: inherit;
-  text-decoration: none;
-  gap: 0.4rem;
+  --bulma-button-ghost-color: var(--bulma-navbar-item-color);
+  --bulma-button-ghost-hover-color: var(--bulma-primary-on-scheme);
+  --bulma-button-ghost-decoration: none;
+  --bulma-button-ghost-hover-decoration: none;
 
-  &:hover {
-    color: var(--bulma-primary-on-scheme);
-    text-decoration: none;
-  }
+  gap: 0.4rem;
 }
 
 // The word is useful in the stacked mobile menu, where there is room and no
