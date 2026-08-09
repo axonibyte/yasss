@@ -54,6 +54,7 @@ ORIG_ARGS=("$@")
 
 KEEP=0
 SKIP_BUILD=0
+PROVIDED_JAR=
 STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,journeys,browser,health"
 
 usage() {
@@ -62,6 +63,15 @@ usage: e2e/run.sh [options]
 
   --keep           leave the stack running after the suite finishes
   --skip-build     reuse the existing jar and image
+  --jar PATH       test a jar built elsewhere instead of building one here.
+                   The image build and every check below still run: a jar that
+                   arrived from another CI step has been through an artifact
+                   upload and download, and nothing else on the way would notice
+                   a truncated or substituted file. This is what a pipeline
+                   should use, so that the jar the suite proves is the jar that
+                   gets published -- building a second one here would mean the
+                   most thorough tests in the repo validating something nobody
+                   ships.
   --only STAGES    comma-separated subset of:
                    fuzz,accounts,sessions,reminders,text,concurrency,regressions,
                    journeys,browser,health
@@ -105,6 +115,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --keep) KEEP=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
+    # Plain echo rather than `die`, which is not defined until after this loop.
+    --jar)
+      [[ -n "${2:-}" ]] || { echo "--jar needs a path" >&2; usage >&2; exit 2; }
+      PROVIDED_JAR="$2"; shift 2 ;;
     --only) STAGES="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -327,15 +341,31 @@ ensure_image() {
 
 # --- build ------------------------------------------------------------------
 
-if [[ ${SKIP_BUILD} -eq 0 ]]; then
-  log "building the shadow jar (this also runs the Vite build)"
-  # The frontend is served from the jar's classpath, so this is what guarantees
-  # the browser tests exercise the same bundle a deployment would serve.
-  ( cd "${ROOT}" && ./gradlew --quiet shadowJar ) || die "gradle build failed"
+if [[ -n "${PROVIDED_JAR}" && ${SKIP_BUILD} -eq 1 ]]; then
+  die "--jar and --skip-build contradict each other; --jar already skips the build"
+fi
 
-  jar="$(ls -1 "${ROOT}"/build/libs/*.jar 2>/dev/null | head -1)"
-  [[ -n "${jar}" ]] || die "no jar produced in build/libs"
-  cp "${jar}" "${HERE}/yasss.jar"
+if [[ ${SKIP_BUILD} -eq 0 ]]; then
+  if [[ -n "${PROVIDED_JAR}" ]]; then
+    # Built upstream, so the suite proves the artefact that ships rather than a
+    # second one built from the same tree. The two would not even be comparable
+    # today: the jar is reproducible, so an identical tree gives identical
+    # bytes, and that is what lets the queue's verdict carry to the jar `main`
+    # publishes -- but only if what was tested is what was built.
+    [[ -f "${PROVIDED_JAR}" ]] || die "no jar at ${PROVIDED_JAR}"
+    log "using the jar built upstream ($(basename "${PROVIDED_JAR}"))"
+    cp "${PROVIDED_JAR}" "${HERE}/yasss.jar"
+    echo "  sha256 $(sha256sum "${HERE}/yasss.jar" | awk '{print $1}')"
+  else
+    log "building the shadow jar (this also runs the Vite build)"
+    # The frontend is served from the jar's classpath, so this is what guarantees
+    # the browser tests exercise the same bundle a deployment would serve.
+    ( cd "${ROOT}" && ./gradlew --quiet shadowJar ) || die "gradle build failed"
+
+    jar="$(ls -1 "${ROOT}"/build/libs/*.jar 2>/dev/null | head -1)"
+    [[ -n "${jar}" ]] || die "no jar produced in build/libs"
+    cp "${jar}" "${HERE}/yasss.jar"
+  fi
 
   # The shadow jar merges META-INF/services rather than letting one file win.
   # gRPC discovers its name resolvers and load balancers there, and reCAPTCHA
