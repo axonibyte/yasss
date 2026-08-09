@@ -99,21 +99,20 @@ test('the guest prompt is suppressed for a signed-in visitor', async ({ page, re
 });
 
 /**
- * The admin exemption on an expired event, and how far it actually reaches.
+ * The admin exemption on an expired event.
  *
- * `EventSection.svelte:221` swaps the disabled "This event has expired." pill
- * for the ordinary submit button when `session.isAdmin`. That is the whole
- * exemption: `event.interactive` is `!expired` with no admin clause, so
- * `canAddVolunteer` is false, `toggleRsvp` returns early (`rsvpActions.js:25`)
- * and the grid ignores clicks. An admin here therefore has nothing to submit
- * and the button stays disabled.
+ * It used to reach exactly as far as the button: the expired branch swapped the
+ * "This event has expired." pill for the submit control when the viewer was a
+ * platform admin, and nothing else knew. `interactive` was `!expired` with no
+ * admin clause, so `canAddVolunteer` was false, the grid ignored clicks and
+ * `toggleRsvp` returned early — the admin got a button with no possible way to
+ * put anything behind it, and `toBeVisible()` on a permanently disabled control
+ * was happy to call that a passing test.
  *
- * So this asserts the discrimination that exists — admin gets the button,
- * everyone else gets the pill — and deliberately does not claim the admin can
- * submit, which the previous name did. `toBeVisible()` passes on a disabled
- * button, so that assertion never proved it either.
+ * So this drives the whole exemption rather than its first step: add somebody,
+ * claim a square, and submit it, on an event that has already been and gone.
  */
-test('a platform admin gets the submit button where others get the expired pill',
+test('a platform admin can still sign somebody up for an expired event',
   async ({ page, request }) => {
     const expired = { activities: 1, windows: 1, expired: true };
 
@@ -125,9 +124,23 @@ test('a platform admin gets the submit button where others get the expired pill'
     await signIn(page, { user: admin.user, session: admin.session });
     await page.goto(`/?event=${admin.eventId}`);
     await waitForApp(page);
-    await expect(page.getByRole('button', { name: SUBMIT_RSVPS })).toBeVisible();
     await expect(page.getByRole('button', { name: 'This event has expired.' }))
       .toHaveCount(0);
+
+    // The part that was missing. Every one of these is a separate gate that
+    // `interactive` closes, and each was shut for the admin too.
+    await page.getByRole('button', { name: 'Add Volunteer' }).click();
+    await page.getByLabel('Name').fill('Late Addition');
+    await page.getByRole('button', { name: 'Save Volunteer' }).click();
+
+    await page.locator('.event-cell li').filter({ hasText: /^Available$/ }).first().click();
+    await expect(page.locator('.event-cell li').filter({ hasText: /^Booked$/ }))
+      .toHaveCount(1);
+
+    const submit = page.getByRole('button', { name: SUBMIT_RSVPS });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page.getByText('RSVP successfully submitted!')).toBeVisible();
 
     const standard = await seed(request, { user: {}, event: { ...expired, admin: 'self' } });
     await signIn(page, { user: standard.user, session: standard.session });
@@ -135,6 +148,8 @@ test('a platform admin gets the submit button where others get the expired pill'
     await waitForApp(page);
     await expect(page.getByRole('button', { name: 'This event has expired.' })).toBeDisabled();
     await expect(page.getByRole('button', { name: SUBMIT_RSVPS })).toHaveCount(0);
+    // And the gates stay shut for them: no way in at all, not merely no button.
+    await expect(page.getByRole('button', { name: 'Add Volunteer' })).toHaveCount(0);
   });
 
 test('the profile modal prefills the current address', async ({ page, request }) => {

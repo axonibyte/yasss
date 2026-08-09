@@ -620,7 +620,18 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
       if (!answered) return c.json(err('missing required detail'), 400);
     }
 
-    if (event.expired) return c.json(err('event expired'), 412);
+    // A platform admin outranks the expiry, exactly as the real server does:
+    // `AddVolunteerEndpoint.java` reads
+    // `if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())`.
+    //
+    // The fake refused unconditionally, which made it *stricter* than the thing
+    // it models -- the failure mode its own header warns about, "faithful where
+    // I knew to make it faithful, which is exactly its limit". It went unnoticed
+    // because the client never reached this call on an expired event: the
+    // affordances to do so were shut for everybody, admin included.
+    if (event.expired && c.get('actor')?.accessLevel !== 'ADMIN') {
+      return c.json(err('event expired'), 412);
+    }
 
     const volunteer = {
       id: nextId(store, 'volunteer'),

@@ -49,6 +49,29 @@ export class EventModel {
    * not. See `actions/remote.js` and `lib/tutorial/sandbox.js`.
    */
   sandbox = $state(false);
+  /**
+   * Whether the viewer outranks this event's expiry.
+   *
+   * Set from outside, for the same reason `sandbox` is: this model describes
+   * the event and knows nothing about who is looking at it, and importing
+   * session state here would point the dependency the wrong way round.
+   *
+   * Deliberately *not* cleared by `reset()`, which is the one thing that
+   * separates it from `sandbox`. `sandbox` describes the event and goes when the
+   * event does; this describes who is looking, and they are still the same
+   * person after loading a different event. Clearing it here looked harmless and
+   * silently undid the whole exemption: the effect that sets it only re-runs
+   * when the access level changes, so `reset()` wrote false and nothing wrote
+   * true again.
+   *
+   * It exists because the exemption at `EventSection.svelte`'s expired branch
+   * was only half wired. That branch swaps the "This event has expired." pill
+   * for the submit button when the viewer is a platform admin -- but
+   * `interactive` was `!expired` with no admin clause, so `canAddVolunteer` was
+   * false, the grid ignored clicks and `toggleRsvp` returned early. The admin
+   * got a button and no possible way to put anything behind it.
+   */
+  expiryOverride = $state(false);
 
   activities = $state([]);
   windows = $state([]);
@@ -109,7 +132,7 @@ export class EventModel {
   maxStep = $derived(maxStep(this.activities.length));
 
   /** True when the viewer may act on cells at all. */
-  interactive = $derived(!this.expired);
+  interactive = $derived(!this.expired || this.expiryOverride);
 
   reset() {
     this.id = null;

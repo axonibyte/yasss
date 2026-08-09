@@ -512,6 +512,13 @@
     route.goHome();
   }
 
+  // A platform admin outranks an event's expiry. Kept in an effect rather than
+  // set once at load: the access level arrives from `session.refresh()` after
+  // the event may already be on screen, and it changes again on log out.
+  $effect(() => {
+    event.expiryOverride = session.isAdmin;
+  });
+
   // The panel is fixed to the bottom of the viewport, so the page needs room
   // under its own content or the panel covers the button a step is pointing at.
   $effect(() => {

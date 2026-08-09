@@ -117,6 +117,20 @@
   color: var(--bulma-primary-on-scheme) !important;
 }
 
+// The second rule from helpers/color, and it was needed all along.
+//
+// `ProfileModal` marks the "synced"/"this device only" note on each passkey with
+// `has-text-grey`, which this build has never defined -- the whole 181 KB
+// matrix is excluded and only `has-text-primary` was written back. So the note
+// has been rendering in the body color, indistinguishable from the passkey
+// label beside it, which is the one thing it is there not to be.
+//
+// Found by a spelling sweep renaming it to `has-text-gray`: the class it was
+// renamed *from* turned out not to exist either.
+.has-text-grey {
+  color: var(--bulma-text-weak) !important;
+}
+
 // Same problem, same fix, for the surfaces that draw brand-colored text on a
 // white background rather than the other way round: outlined primary buttons
 // and the grid's outlined slot tiles. Restricted to the resting state, because

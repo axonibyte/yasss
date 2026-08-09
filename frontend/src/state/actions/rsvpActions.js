@@ -23,7 +23,10 @@ export async function toggleRsvp(event, activity, win) {
   const volunteer = event.selectedVolunteer;
   const slot = event.slot(activity, win);
   if (!volunteer || !slot || !slot.enabled) return false;
-  if (event.expired) return false;
+  // `interactive`, not `expired`: an expired event is closed to everyone except
+  // a platform admin, and that exemption is the model's to state rather than
+  // this module's to re-derive.
+  if (!event.interactive) return false;
 
   const held = event.hasRsvp(slot);
   if (!held && event.atCapacity(activity, slot)) return false;
