@@ -55,6 +55,7 @@ ORIG_ARGS=("$@")
 KEEP=0
 SKIP_BUILD=0
 PROVIDED_JAR=
+ENGINE_FLAG=
 STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,journeys,browser,health"
 
 usage() {
@@ -63,6 +64,11 @@ usage: e2e/run.sh [options]
 
   --keep           leave the stack running after the suite finishes
   --skip-build     reuse the existing jar and image
+  --engine NAME    podman or docker. Defaults to podman when it is installed,
+                   otherwise docker; `YASSS_E2E_ENGINE` does the same for a
+                   whole shell. Worth setting explicitly on a machine that has
+                   both -- autodetection picking the one you did not mean is a
+                   confusing way to spend twenty minutes.
   --jar PATH       test a jar built elsewhere instead of building one here.
                    The image build and every check below still run: a jar that
                    arrived from another CI step has been through an artifact
@@ -119,6 +125,11 @@ while [[ $# -gt 0 ]]; do
     --jar)
       [[ -n "${2:-}" ]] || { echo "--jar needs a path" >&2; usage >&2; exit 2; }
       PROVIDED_JAR="$2"; shift 2 ;;
+    --engine)
+      case "${2:-}" in
+        podman|docker) ENGINE_FLAG="$2"; shift 2 ;;
+        *) echo "--engine takes podman or docker" >&2; usage >&2; exit 2 ;;
+      esac ;;
     --only) STAGES="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -199,12 +210,40 @@ fi
 #      run -- via the linuxulator -- but only if asked for by platform.
 #   3. Running as root means containers write into the repo as root, so the
 #      drivers get the invoking user's ids.
-PODMAN=(podman)
+#
+# Which engine, and how the shared network namespace is made.
+#
+# The suite's whole topology is one namespace: every container reaches the
+# others on 127.0.0.1, which is what the application's own config names for the
+# database. Podman expresses that as a pod. Docker has no pods, so a placeholder
+# container owns the namespace and everything else joins it with
+# `--network container:`. That is the only difference between the two engines,
+# and it is confined to the four helpers below.
+#
+# Docker matters because Bitbucket Pipelines offers a docker service and not
+# podman -- and running the suite in CI is only worth doing if it is the same
+# suite, not a second definition that can drift from this one.
+ENGINE="${ENGINE_FLAG:-${YASSS_E2E_ENGINE:-}}"
+if [[ -z "${ENGINE}" ]]; then
+  if command -v podman >/dev/null 2>&1; then ENGINE=podman
+  elif command -v docker >/dev/null 2>&1; then ENGINE=docker
+  else die "neither podman nor docker is on PATH"; fi
+elif [[ "${ENGINE}" != podman && "${ENGINE}" != docker ]]; then
+  die "unknown engine '${ENGINE}'; expected podman or docker"
+fi
+
+# Asked for by name and missing is a different mistake from none installed, and
+# deserves to say so rather than failing later inside `pm`.
+command -v "${ENGINE}" >/dev/null 2>&1 \
+  || die "${ENGINE} was requested but is not on PATH"
+log "container engine: ${ENGINE}"
+
+PODMAN=("${ENGINE}")
 PLATFORM_ARGS=()
 DB_USER_ARGS=()
 DRIVER_USER_ARGS=()
 
-if [[ "$(uname -s)" == FreeBSD ]]; then
+if [[ "${ENGINE}" == podman && "$(uname -s)" == FreeBSD ]]; then
   PODMAN=(sudo -n podman)
   PLATFORM_ARGS=(--os linux --arch amd64)
   DRIVER_USER_ARGS=(--user "$(id -u):$(id -g)")
@@ -215,6 +254,23 @@ if [[ "$(uname -s)" == FreeBSD ]]; then
 fi
 
 pm() { "${PODMAN[@]}" "$@"; }
+
+if [[ "${ENGINE}" == podman ]]; then
+  NET_ATTACH=(--pod "${POD}")
+  net_create() { pm pod create --name "${POD}" "$@" >/dev/null; }
+  net_exists() { pm pod exists "${POD}" 2>/dev/null; }
+  net_destroy() { pm pod rm -f "${POD}" >/dev/null 2>&1 || true; }
+  NET_HINT="${PODMAN[*]} pod rm -f ${POD}"
+else
+  NET_ATTACH=(--network "container:${POD}")
+  # The namespace holder is DRIVER_IMAGE rather than a dedicated pause image:
+  # it is pulled for the drivers anyway, so this costs no extra pull and no
+  # extra cache entry.
+  net_create() { pm run -d --name "${POD}" "$@" "${DRIVER_IMAGE}" sleep infinity >/dev/null; }
+  net_exists() { pm container inspect "${POD}" >/dev/null 2>&1; }
+  net_destroy() { pm rm -f "${POD}" >/dev/null 2>&1 || true; }
+  NET_HINT="${PODMAN[*]} rm -f ${POD} ${DB_CTR} ${APP_CTR} ${MAIL_CTR}"
+fi
 
 if [[ -n "${YASSS_E2E_PUBLISH:-}" ]]; then
   PUBLISH="${YASSS_E2E_PUBLISH}"
@@ -232,15 +288,17 @@ teardown() {
   # this twice -- once for the signal, once for the exit it causes.
   trap - EXIT INT TERM
   if [[ ${KEEP} -eq 1 ]]; then
-    log "leaving the stack up (--keep); tear down with: ${PODMAN[*]} pod rm -f ${POD}"
+    log "leaving the stack up (--keep); tear down with: ${NET_HINT}"
     return
   fi
 
   log "tearing down"
-  # The pod owns every container, so removing it is enough; the individual
-  # removals are belt and braces for a partially-created stack.
-  pm pod rm -f "${POD}" >/dev/null 2>&1 || true
+  # Containers first, then the namespace they are attached to. Under podman the
+  # pod owns them and either order works; under docker the holder owns nothing,
+  # so removing it first leaves three containers running against a namespace
+  # that has gone -- and the next run then collides on their names.
   pm rm -f "${DB_CTR}" "${APP_CTR}" "${MAIL_CTR}" >/dev/null 2>&1 || true
+  net_destroy
 
   if [[ ${code} -ne 0 ]]; then
     printf '\033[1;31m==> suite failed (exit %s)\033[0m\n' "${code}" >&2
@@ -298,7 +356,7 @@ drive() {
   fi
   DRIVE_ENV=()
 
-  pm run --rm --pod "${POD}" "${PLATFORM_ARGS[@]}" "${DRIVER_USER_ARGS[@]}" \
+  pm run --rm "${NET_ATTACH[@]}" "${PLATFORM_ARGS[@]}" "${DRIVER_USER_ARGS[@]}" \
     -v "${ROOT}:/repo" -w "${workdir}" "${env_args[@]}" "${image}" "$@"
 }
 
@@ -308,9 +366,10 @@ command -v "${PODMAN[-1]}" >/dev/null || die "podman is not installed"
 pm info >/dev/null 2>&1 || die "podman is installed but cannot run; try: ${PODMAN[*]} info"
 
 # A stale stack from an interrupted run would silently shadow this one.
-if pm pod exists "${POD}" 2>/dev/null; then
+if net_exists; then
   warn "removing a stale ${POD} pod from a previous run"
-  pm pod rm -f "${POD}" >/dev/null
+  pm rm -f "${DB_CTR}" "${APP_CTR}" "${MAIL_CTR}" >/dev/null 2>&1 || true
+  net_destroy
 fi
 
 # Counted rather than `grep -q`: under pipefail, grep exiting at the first match
@@ -423,13 +482,13 @@ rm -f "${HERE}/journeys/handle.json"
 
 if [[ ${PUBLISH} -eq 1 ]]; then
   log "creating pod ${POD} (app published on host port ${APP_PORT})"
-  pm pod create --name "${POD}" -p "${APP_PORT}:7455" -p "${MAIL_PORT}:8025" >/dev/null
+  net_create -p "${APP_PORT}:7455" -p "${MAIL_PORT}:8025"
 else
   # A pod with no network still has a loopback its containers share, which is
   # everything the suite needs. Podman publishes ports by writing pf rules, so
   # asking for them on a FreeBSD host without pf(4) fails the pod outright.
   log "creating pod ${POD} (no published ports)"
-  pm pod create --name "${POD}" --network none >/dev/null
+  net_create --network none
 fi
 
 log "starting mariadb"
@@ -442,7 +501,7 @@ log "starting mariadb"
 # this suite passed by accident and proved nothing about a server configured any
 # other way -- which, before MariaDB 11.6, is every server. Starting latin1 makes
 # migration 017 and the charset assertions below actually load-bearing.
-pm run -d --pod "${POD}" --name "${DB_CTR}" "${PLATFORM_ARGS[@]}" "${DB_USER_ARGS[@]}" \
+pm run -d "${NET_ATTACH[@]}" --name "${DB_CTR}" "${PLATFORM_ARGS[@]}" "${DB_USER_ARGS[@]}" \
   -e MARIADB_ROOT_PASSWORD="${DB_ROOT_PW}" \
   -e MARIADB_DATABASE="${DB_NAME}" \
   -e MARIADB_USER="${DB_USER}" \
@@ -466,7 +525,7 @@ done
 log "starting the mail sink"
 # Reminders are only verifiable if the mail goes somewhere inspectable. Mailpit
 # accepts SMTP on 1025 and exposes what it caught over HTTP on 8025.
-pm run -d --pod "${POD}" --name "${MAIL_CTR}" "${PLATFORM_ARGS[@]}" \
+pm run -d "${NET_ATTACH[@]}" --name "${MAIL_CTR}" "${PLATFORM_ARGS[@]}" \
   docker.io/axllent/mailpit:latest >/dev/null
 
 log "starting the application"
@@ -482,7 +541,7 @@ log "starting the application"
 # pin works. If it is ever removed, every stored instant shifts by this offset
 # and the time assertions across the text, reminders and browser stages fail.
 # A container that happened to be UTC would prove nothing at all.
-pm run -d --pod "${POD}" --name "${APP_CTR}" \
+pm run -d "${NET_ATTACH[@]}" --name "${APP_CTR}" \
   -e TZ=America/Chicago \
   "${APP_IMAGE}" >/dev/null
 
