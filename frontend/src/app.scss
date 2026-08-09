@@ -67,14 +67,40 @@
 //
 // The `prefers-color-scheme: light` block upstream emits is skipped: it repeats
 // what :root already says, so it is a whole variable set for nothing.
+// How light the wordmark is drawn, per theme.
+//
+// `--bulma-primary-on-scheme-l` is 21% in light, chosen for body text and links.
+// On the wordmark that reads as a muddy green rather than the brand's
+// turquoise. 24% is the lightest it can go: 4.70:1, which clears the 4.5 that
+// applies to 16px text -- the wordmark is *under* WCAG's large-text threshold,
+// so the stricter bar is the one in force.
+//
+// Measured against #f0f2f4, not against white. That distinction is the whole
+// reason this is 24 and not 25: 25% is 4.88:1 on white and would look correct
+// by hand, but axe resolves the effective background the navbar sits on and
+// gets 4.35:1 -- a fail. Do not re-derive this with a pencil; let the axe pass
+// in a11y.spec.js be the arbiter.
+//
+// The brand turquoise itself (41%) is 1.74:1 here and is not reachable at this
+// size by any amount of tuning. Making the wordmark large text -- 18.66px at
+// weight 700 -- would drop the bar to 3:1 and allow 31%, which is the only real
+// lever if it needs to be brighter than this.
+//
+// Dark keeps Bulma's 41%: on the dark navbar that is 9.28:1 and is already the
+// brand turquoise, so there is nothing to fix there.
+$brand-l-light: 24%;
+$brand-l-dark: 41%;
+
 #{iv.$variables-host} {
   @include light.light-theme;
   @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-light};
 }
 
 @include cv.system-theme($name: 'dark') {
   @include dark.dark-theme;
   @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-dark};
 }
 
 // An explicit choice, which beats the OS preference.
@@ -93,11 +119,13 @@
 [data-theme='dark'] {
   @include dark.dark-theme;
   @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-dark};
 }
 
 [data-theme='light'] {
   @include light.light-theme;
   @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-light};
 }
 
 // The one rule used from helpers/color, which costs 181 KB to import whole.
@@ -343,6 +371,43 @@ html {
 
 .tutorial-panel {
   @extend %thin-scrollbar;
+}
+
+// The wordmark takes the lighter value by redeclaring the color variable on the
+// element itself, not by redeclaring `color`. `.has-text-primary` carries an
+// `!important`, so a `color` here would need one too plus a specificity contest;
+// giving the element its own value of the variable that rule reads leaves the
+// rule untouched and still winning.
+//
+// It has to be `--bulma-primary-on-scheme` and not the `-l` it is built from.
+// Custom properties substitute at computed-value time *on the element that
+// declares them*, so Bulma's `:root` declaration has already resolved its own
+// lightness by the time this element inherits it -- overriding the input on a
+// descendant changes nothing, which is exactly what the first attempt did.
+.navbar-brand strong {
+  --bulma-primary-on-scheme: hsl(
+    var(--bulma-primary-h),
+    var(--bulma-primary-s),
+    var(--yasss-brand-l)
+  );
+}
+
+// Bulma draws the burger in `--bulma-link`, which was the last genuinely blue
+// thing on the page -- found by walking every rendered element and looking for a
+// blue channel dominating the other two. It belongs with the items it sits
+// beside.
+//
+// Both the bars and the hover tint, which come from different variables: the
+// bars follow `--bulma-navbar-burger-color`, while
+// `.navbar-burger:hover` paints `hsla(var(--bulma-burger-h), ..., .1)` straight
+// from the burger triplet. Setting only the first left a 10% blue wash that
+// appeared on touch and stayed there, which is the version of this bug most
+// likely to be seen and least likely to be reported.
+.navbar {
+  --bulma-navbar-burger-color: var(--bulma-navbar-item-color);
+  --bulma-burger-h: var(--bulma-navbar-h);
+  --bulma-burger-s: var(--bulma-navbar-s);
+  --bulma-burger-l: var(--bulma-navbar-item-color-l);
 }
 
 // --- theme toggle -----------------------------------------------------------
