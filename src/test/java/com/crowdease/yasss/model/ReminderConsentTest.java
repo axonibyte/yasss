@@ -110,7 +110,7 @@ public class ReminderConsentTest {
 
   @Test public void resolve_normalizesCaseAndWhitespace() {
     // The server's EMAIL pattern has no CASE_INSENSITIVE flag, so an address
-    // that arrives capitalised fails validation unless it is folded first.
+    // that arrives capitalized fails validation unless it is folded first.
     var decision = ReminderConsent.resolve("  Ada@Example.COM ", null, false, null, null);
     assertNull(decision.error());
     assertEquals(decision.email(), ACCOUNT);

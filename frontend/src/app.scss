@@ -4,20 +4,22 @@
 // then our overrides last so they win at equal specificity.
 //
 // bulma-calendar is deliberately NOT here. It is a megabyte of JavaScript for
-// one modal only an organiser opens, so it and its overrides load on demand
+// one modal only an organizer opens, so it and its overrides load on demand
 // from src/lib/calendar.js. See docs/legacy/02-aesthetics.md §3.2.
 
 // Bulma, assembled from the modules this app actually uses.
 //
 // The full stylesheet is 678 KB, and two of its parts dominate that. The
-// `helpers/color` matrix -- every colour crossed with 21 lightness steps -- is
+// `helpers/color` matrix -- every color crossed with 21 lightness steps -- is
 // 181 KB on its own, of which exactly one rule is used, hand-written below.
 // And `themes/_index` emits the entire variable set five times: `:root`, both
 // `prefers-color-scheme` blocks, `.theme-light` and `.theme-dark`. Two of those
 // are all that is needed -- light into `:root` and dark behind the media query
-// -- which is 185 KB down to about 120, and honours the reader's OS setting.
-// The `.theme-*` class variants stay dropped: nothing toggles a theme by class,
-// and the document no longer pins one.
+// -- which is 185 KB down to about 120, and honors the reader's OS setting.
+// The `.theme-*` class variants stay dropped, but the document *can* now pin a
+// theme: `[data-theme]` blocks below emit the two sets a toggle needs, under our
+// own selector rather than Bulma's class names. Same cost as the variants would
+// have been, and it keeps the three states distinguishable -- see there.
 //
 // Two things this list must not lose, because neither is visible to a grep of
 // the markup: `elements/notification`, which bulma-toast injects at runtime,
@@ -65,14 +67,65 @@
 //
 // The `prefers-color-scheme: light` block upstream emits is skipped: it repeats
 // what :root already says, so it is a whole variable set for nothing.
+// How light the wordmark is drawn, per theme.
+//
+// `--bulma-primary-on-scheme-l` is 21% in light, chosen for body text and links.
+// On the wordmark that reads as a muddy green rather than the brand's
+// turquoise. 24% is the lightest it can go: 4.70:1, which clears the 4.5 that
+// applies to 16px text -- the wordmark is *under* WCAG's large-text threshold,
+// so the stricter bar is the one in force.
+//
+// Measured against #f0f2f4, not against white. That distinction is the whole
+// reason this is 24 and not 25: 25% is 4.88:1 on white and would look correct
+// by hand, but axe resolves the effective background the navbar sits on and
+// gets 4.35:1 -- a fail. Do not re-derive this with a pencil; let the axe pass
+// in a11y.spec.js be the arbiter.
+//
+// The brand turquoise itself (41%) is 1.74:1 here and is not reachable at this
+// size by any amount of tuning. Making the wordmark large text -- 18.66px at
+// weight 700 -- would drop the bar to 3:1 and allow 31%, which is the only real
+// lever if it needs to be brighter than this.
+//
+// Dark keeps Bulma's 41%: on the dark navbar that is 9.28:1 and is already the
+// brand turquoise, so there is nothing to fix there.
+$brand-l-light: 24%;
+$brand-l-dark: 41%;
+
 #{iv.$variables-host} {
   @include light.light-theme;
   @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-light};
 }
 
 @include cv.system-theme($name: 'dark') {
   @include dark.dark-theme;
   @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-dark};
+}
+
+// An explicit choice, which beats the OS preference.
+//
+// Three states, not two, and the distinction is the whole design: no attribute
+// means "follow the system", and the two attribute values mean "I said so". A
+// two-state toggle has to guess an initial value, and guesses wrong for every
+// reader whose OS is already set the way they want it.
+//
+// `[data-theme='light']` is not redundant with `:root`. Without it, a reader on
+// a dark-preferring OS who asks for light gets `:root`'s light values and then
+// the media query above overwrites them again.
+//
+// This costs two more full variable sets -- roughly what the note above measured
+// per set. That is the price of the feature, paid knowingly.
+[data-theme='dark'] {
+  @include dark.dark-theme;
+  @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-dark};
+}
+
+[data-theme='light'] {
+  @include light.light-theme;
+  @include setup.setup-theme;
+  --yasss-brand-l: #{$brand-l-light};
 }
 
 // The one rule used from helpers/color, which costs 181 KB to import whole.
@@ -81,25 +134,39 @@
 // hsl(171, 100%, 41%), which as *text* on the near-white page background is
 // about 1.8:1 — well under the 4.5:1 WCAG asks for, and genuinely hard to read
 // rather than merely non-compliant. It was the only serious finding in the axe
-// sweep, and it covered every link and every emphasised word on the intro page,
+// sweep, and it covered every link and every emphasized word on the intro page,
 // the call to action and the dashboard.
 //
 // The `-on-scheme` variants exist for exactly this: same hue, same saturation,
 // lightness corrected against the current scheme (21% in light, 41% in dark).
-// The brand colour is unchanged everywhere it is used as a *background* —
+// The brand color is unchanged everywhere it is used as a *background* —
 // buttons, tags, the grid's solid tiles — so this darkens text only.
 .has-text-primary {
   color: var(--bulma-primary-on-scheme) !important;
 }
 
-// Same problem, same fix, for the surfaces that draw brand-coloured text on a
+// The second rule from helpers/color, and it was needed all along.
+//
+// `ProfileModal` marks the "synced"/"this device only" note on each passkey with
+// `has-text-grey`, which this build has never defined -- the whole 181 KB
+// matrix is excluded and only `has-text-primary` was written back. So the note
+// has been rendering in the body color, indistinguishable from the passkey
+// label beside it, which is the one thing it is there not to be.
+//
+// Found by a spelling sweep renaming it to `has-text-gray`: the class it was
+// renamed *from* turned out not to exist either.
+.has-text-grey {
+  color: var(--bulma-text-weak) !important;
+}
+
+// Same problem, same fix, for the surfaces that draw brand-colored text on a
 // white background rather than the other way round: outlined primary buttons
 // and the grid's outlined slot tiles. Restricted to the resting state, because
 // hover and focus invert to white-on-primary and are already fine.
 // Selectors deliberately at least as specific as Bulma's own
 // (`.block-list.is-primary.is-outlined > li`, `.button.is-primary.is-outlined`),
 // since this is overriding them rather than adding to them. The border keeps
-// the brand colour: it is a 1px rule, not text, and legibility is the point
+// the brand color: it is a 1px rule, not text, and legibility is the point
 // here.
 .button.is-primary.is-outlined:not(:hover):not(:focus):not(:active),
 .event-cell ul.block-list.is-primary.is-outlined > li,
@@ -107,8 +174,28 @@
   color: var(--bulma-primary-on-scheme);
 }
 
+// The third instance of the same problem, and the worst of the three.
+//
+// The muted slot tiles -- "At Capacity" and "Unavailable" -- take their text
+// color from `is-light`, which is hsl(221, 14%, 96%): near-white text on a
+// near-white page, about 1.05:1. Not "below the 4.5:1 threshold" but genuinely
+// unreadable; the label is there and you cannot see it.
+//
+// It went unnoticed because the axe sweep only ever scanned grids where every
+// slot was enabled and empty, so every tile was "Available" and no muted tile
+// was ever in a scanned page. The tutorial's practice event renders all four
+// states on one screen on purpose, and that is what surfaced it.
+//
+// `text-weak` rather than `text`: these tiles are meant to read as inactive, and
+// the muted appearance survives in the border, which stays `is-light`. Same
+// reasoning as above -- a 1px rule is not text.
+.event-cell ul.block-list.is-light.is-outlined > li,
+.event-cell ul.block-list.is-light li.is-outlined {
+  color: var(--bulma-text-weak);
+}
+
 // Links sitting inside a paragraph were distinguishable from the text around
-// them by colour alone, which is invisible to a reader who cannot separate the
+// them by color alone, which is invisible to a reader who cannot separate the
 // two. Nav items, buttons and block-list entries are excluded: they read as
 // controls from their position and surroundings, and WCAG 1.4.1 is about links
 // embedded in prose.
@@ -152,5 +239,207 @@
 
   #view-event-table .fixed-grid > .grid {
     grid-template-columns: repeat(var(--bulma-grid-column-count), minmax(7.5rem, 1fr));
+  }
+}
+
+// --- tutorial ---------------------------------------------------------------
+
+// The step panel is docked rather than floating over the middle of the page,
+// because the learner has to be able to see and click the thing it is talking
+// about. Nothing here covers the page: no scrim, no `inert`, no focus trap --
+// see TutorialPanel.svelte for why that is the whole design and not an
+// oversight.
+.tutorial-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30; // under Bulma's modal (40), so the chooser still wins
+  background-color: var(--bulma-scheme-main);
+  border-top: 2px solid var(--bulma-primary);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0.75rem 1rem;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.tutorial-panel-inner {
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+.tutorial-panel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  // Bulma gives `.buttons` a bottom margin meant for stacked blocks; inside a
+  // single flex row it just makes the panel taller than its contents.
+  .buttons {
+    margin-bottom: 0;
+  }
+}
+
+// The panel is fixed, so without this it sits on top of the last thing on the
+// page -- which, on the event view, is the Submit button one of the steps is
+// telling the learner to press.
+body.tutorial-running {
+  padding-bottom: 45vh;
+}
+
+// Outline rather than a background change: cells and cards already use color
+// to mean something (available, booked, full), and repainting one to highlight
+// it would say something false about its state.
+.tutorial-anchor {
+  outline: 3px solid var(--bulma-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+// --- scrollbars -------------------------------------------------------------
+
+// Two syntaxes, because neither is universal yet: `scrollbar-width`/`-color` is
+// the standard and is what Firefox honors, `::-webkit-scrollbar` is what
+// Chromium and Safari still do. They are not equivalent -- the standard one has
+// no way to say "narrower on hover" and the WebKit one has no way to say "thin"
+// -- so each is written for what it can express rather than one being a
+// fallback for the other.
+//
+// Colors come from Bulma's variables, so these follow the theme without
+// knowing which one is on. That matters more than it sounds: a hard-coded gray
+// track is invisible in light mode and a bright stripe in dark.
+//
+// Deliberately not applied to `*`. A scrollbar the reader has to hunt for is
+// worse than a plain one, so these are the four surfaces that actually scroll
+// and where a default bar was loud enough to notice.
+%thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bulma-border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 0.55rem;
+    height: 0.55rem;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--bulma-border);
+    border-radius: 999px;
+    // An inset border rather than a margin: it keeps the thumb clear of the
+    // track edges without shrinking the hit target, which on a touchpad is the
+    // difference between grabbing it and grabbing the page.
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background-color: var(--bulma-text-weak);
+  }
+
+  // Chromium draws a pair of stepper buttons on some platforms; they are not
+  // reachable by keyboard and duplicate what the track already does.
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  // Where two scrollable areas meet, the untouched square between them.
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+html {
+  @extend %thin-scrollbar;
+}
+
+// The modal's own scroller. `.modal-card-body` is the part that overflows --
+// the card header and footer are pinned -- so styling `.modal` would decorate
+// something that never scrolls.
+.modal-card-body {
+  @extend %thin-scrollbar;
+}
+
+// The grid's sideways scroller on narrow screens, added with the column floor.
+#view-event-table .fixed-grid {
+  @extend %thin-scrollbar;
+}
+
+.tutorial-panel {
+  @extend %thin-scrollbar;
+}
+
+// The wordmark takes the lighter value by redeclaring the color variable on the
+// element itself, not by redeclaring `color`. `.has-text-primary` carries an
+// `!important`, so a `color` here would need one too plus a specificity contest;
+// giving the element its own value of the variable that rule reads leaves the
+// rule untouched and still winning.
+//
+// It has to be `--bulma-primary-on-scheme` and not the `-l` it is built from.
+// Custom properties substitute at computed-value time *on the element that
+// declares them*, so Bulma's `:root` declaration has already resolved its own
+// lightness by the time this element inherits it -- overriding the input on a
+// descendant changes nothing, which is exactly what the first attempt did.
+.navbar-brand strong {
+  --bulma-primary-on-scheme: hsl(
+    var(--bulma-primary-h),
+    var(--bulma-primary-s),
+    var(--yasss-brand-l)
+  );
+}
+
+// Bulma draws the burger in `--bulma-link`, which was the last genuinely blue
+// thing on the page -- found by walking every rendered element and looking for a
+// blue channel dominating the other two. It belongs with the items it sits
+// beside.
+//
+// Both the bars and the hover tint, which come from different variables: the
+// bars follow `--bulma-navbar-burger-color`, while
+// `.navbar-burger:hover` paints `hsla(var(--bulma-burger-h), ..., .1)` straight
+// from the burger triplet. Setting only the first left a 10% blue wash that
+// appeared on touch and stayed there, which is the version of this bug most
+// likely to be seen and least likely to be reported.
+.navbar {
+  --bulma-navbar-burger-color: var(--bulma-navbar-item-color);
+  --bulma-burger-h: var(--bulma-navbar-h);
+  --bulma-burger-s: var(--bulma-navbar-s);
+  --bulma-burger-l: var(--bulma-navbar-item-color-l);
+}
+
+// --- theme toggle -----------------------------------------------------------
+
+// `is-ghost` is a link-styled button: its color comes from
+// `--bulma-button-ghost-color`, which resolves to `--bulma-link-text`. That is
+// Bulma's link hue, so the toggle sat in the navbar as the one blue thing on
+// the bar, next to items that take `--bulma-navbar-item-color`.
+//
+// Set through Bulma's own variables rather than by declaring `color` again.
+// The first attempt did the latter and lost silently: `.theme-toggle` is one
+// class and `.button.is-ghost` is two, so Bulma won on specificity and the
+// override did nothing at all. Overriding the variable sidesteps the contest
+// entirely -- and unlike a more specific selector, it keeps the value
+// theme-derived, so this follows light and dark without restating either.
+//
+// Same lesson the `.has-text-primary` block above records: when overriding
+// Bulma, match how it sets the thing, not just where.
+.theme-toggle {
+  --bulma-button-ghost-color: var(--bulma-navbar-item-color);
+  --bulma-button-ghost-hover-color: var(--bulma-primary-on-scheme);
+  --bulma-button-ghost-decoration: none;
+  --bulma-button-ghost-hover-decoration: none;
+
+  gap: 0.4rem;
+}
+
+// The word is useful in the stacked mobile menu, where there is room and no
+// other label; beside the other items on a wide screen the icon carries it and
+// the word is noise.
+@media screen and (min-width: 1024px) {
+  .theme-toggle-label {
+    display: none;
   }
 }

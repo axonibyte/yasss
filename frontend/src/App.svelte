@@ -28,6 +28,8 @@
   import WindowModal from './components/modals/WindowModal.svelte';
   import DetailModal from './components/modals/DetailModal.svelte';
   import SlotModal from './components/modals/SlotModal.svelte';
+  import TutorialPanel from './components/TutorialPanel.svelte';
+  import TutorialChooser from './components/TutorialChooser.svelte';
 
   import { session, connectSessionToApi } from './state/session.svelte.js';
   import { route } from './state/route.svelte.js';
@@ -44,6 +46,10 @@
     deleteVolunteer, hasUnsavedWork, saveVolunteer, submitVolunteers,
   } from './state/actions/volunteerActions.js';
   import * as api from './lib/api/index.js';
+  import { theme } from './state/theme.svelte.js';
+  import { tutorial, loadPracticeEvent, stepIds } from './state/tutorial.svelte.js';
+  import { DEFAULT_COPY } from './lib/tutorial/defaults.js';
+  import { copyFor } from './lib/tutorial/deck.js';
 
   let loading = $state(true);
   let modal = $state(null);
@@ -162,6 +168,10 @@
   }
 
   async function boot() {
+    // First, and before any await: the stored choice has to be on the document
+    // before the first paint or the reader sees a flash of the other theme.
+    theme.start();
+
     // The legacy loaded reCAPTCHA unconditionally and read `debug` here too;
     // the site key decides whether the CAPTCHA machinery is used at all.
     try {
@@ -192,6 +202,19 @@
     }
 
     await handleRouteAction();
+
+    // Last, and only when nothing else claimed the page. `?event=...&tutorial`
+    // is a link somebody could plausibly build by hand, and in that case the
+    // event they were pointed at is the thing they came for -- starting a tour
+    // over the top of it would be the tutorial overriding the user's intent
+    // rather than serving it.
+    if (route.tutorial !== null && !eventLoaded) {
+      const track = route.tutorial;
+      route.clearTutorial();
+      if (track === 'organizer' || track === 'volunteer') await beginTutorial(track);
+      // A bare `?tutorial`, or a track nobody recognizes: ask rather than guess.
+      else tutorial.open();
+    }
 
     // Back and Forward move within our own history once anything has pushed an
     // entry, so the app has to follow the URL rather than assume it only ever
@@ -275,7 +298,7 @@
       for (const [k, val] of v.values) volunteer.values.set(k, val);
     };
 
-    // Snapshotted because `saveVolunteer` serialises the entity itself, so the
+    // Snapshotted because `saveVolunteer` serializes the entity itself, so the
     // new values have to be on it before the request goes out. What this did
     // was write them and then close the modal unconditionally — so a failed
     // save left the new name on screen against the old server state, with the
@@ -432,6 +455,77 @@
    * guard still fires for genuine navigation away; this path asks the same
    * question itself, because in-app navigation does not trigger it.
    */
+  // --- tutorial ------------------------------------------------------------
+
+  /**
+   * Open the track chooser.
+   *
+   * Guarded, because every entry point to this is live while the user may be
+   * halfway through building a real event -- the navbar item is on every
+   * screen. Starting the tutorial loads the practice event over whatever is in
+   * `currentEvent`, so this is exactly as destructive as "Create Event" is, and
+   * gets the same question.
+   */
+  function startTutorial() {
+    if (hasUnsavedWork(event)) {
+      confirmDestructive({
+        title: 'Start the tutorial?',
+        detail: 'You have unsaved work on this event. Starting the tutorial will lose it.',
+        confirmLabel: 'Start tutorial',
+        proceed: () => { modal = null; tutorial.open(); },
+      });
+      return;
+    }
+    tutorial.open();
+  }
+
+  async function beginTutorial(track) {
+    loadPracticeEvent(event);
+    eventLoaded = true;
+
+    // The deck is optional in the strongest sense: `PublicTextEndpoint` logs and
+    // carries on when a text is unconfigured, so *every* deployment is in this
+    // state until somebody writes the file. A failed fetch therefore is not an
+    // error worth reporting to a learner -- it is the default, and the built-in
+    // copy is what it falls back to. Same shape as CoaSection's.
+    let deck = null;
+    try {
+      deck = await api.getText('tutorial');
+    } catch {
+      /* no deck configured, or unreachable; the defaults carry it */
+    }
+    tutorial.begin(track, event, copyFor(stepIds, DEFAULT_COPY, deck));
+  }
+
+  /**
+   * Leave the tutorial, taking the practice event with it.
+   *
+   * `event.reset()` clears `sandbox` along with everything else, so nothing of
+   * the practice event survives into whatever the user does next -- which
+   * matters more than usual here, because a stale `sandbox` flag on a real
+   * event would silently stop it saving.
+   */
+  function exitTutorial() {
+    tutorial.stop();
+    eventLoaded = false;
+    event.reset();
+    route.goHome();
+  }
+
+  // A platform admin outranks an event's expiry. Kept in an effect rather than
+  // set once at load: the access level arrives from `session.refresh()` after
+  // the event may already be on screen, and it changes again on log out.
+  $effect(() => {
+    event.expiryOverride = session.isAdmin;
+  });
+
+  // The panel is fixed to the bottom of the viewport, so the page needs room
+  // under its own content or the panel covers the button a step is pointing at.
+  $effect(() => {
+    document.body.classList.toggle('tutorial-running', tutorial.running);
+    return () => document.body.classList.remove('tutorial-running');
+  });
+
   function goHome() {
     if (hasUnsavedWork(event)
         && !window.confirm('You have unsaved work on this event. Leave it behind?')) {
@@ -481,6 +575,7 @@
 <NavBar
   loggedIn={session.loggedIn}
   onCreateEvent={startWizard}
+  onTutorial={startTutorial}
   onHome={goHome}
   onLogin={() => { modal = { kind: 'auth' }; }}
   onAccount={() => { modal = { kind: 'profile' }; }}
@@ -519,8 +614,26 @@
   {#if session.loggedIn}
     <DashboardSection onSelect={openEvent} />
   {:else}
-    <CoaSection onCreateEvent={startWizard} />
+    <CoaSection onCreateEvent={startWizard} onTutorial={startTutorial} />
   {/if}
+{/if}
+
+{#if tutorial.choosing}
+  <TutorialChooser onChoose={beginTutorial} onClose={() => tutorial.stop()} />
+{/if}
+
+{#if tutorial.running}
+  <TutorialPanel
+    html={tutorial.html}
+    position={tutorial.position}
+    total={tutorial.total}
+    anchor={tutorial.step?.anchor ?? null}
+    canGoBack={tutorial.index > 0}
+    atEnd={tutorial.atEnd}
+    onBack={() => tutorial.back(event)}
+    onNext={() => tutorial.next(event)}
+    onExit={exitTutorial}
+  />
 {/if}
 
 <Footer

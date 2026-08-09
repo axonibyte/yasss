@@ -27,7 +27,7 @@ import { normalizeCode } from '../../src/lib/eventCode.js';
  * Resolve an `:event` path parameter by id or by short code.
  *
  * Mirrors `APIEndpoint.resolveEvent`: the id first, since that is what every
- * existing link carries, then the code. The normaliser is imported from the app
+ * existing link carries, then the code. The normalizer is imported from the app
  * rather than reimplemented, so the fake cannot drift from what the real server
  * will accept.
  */
@@ -220,7 +220,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
 
   app.post('/v1/users/:user/passkeys', async (c) => {
     const body = await c.req.json().catch(() => ({}));
-    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognised'), 403);
+    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognized'), 403);
     return c.json(ok('passkey enrolled'), 201);
   });
 
@@ -238,10 +238,10 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     const body = await c.req.json().catch(() => ({}));
     // Single-use, asserted by deletion rather than by lookup: presenting the same
     // assertion twice must fail the second time.
-    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognised'), 403);
+    if (!challenges.delete(body.challenge)) return c.json(err('challenge not recognized'), 403);
 
     const user = [...store.users.values()][0];
-    if (!user) return c.json(err('credential not recognised'), 403);
+    if (!user) return c.json(err('credential not recognized'), 403);
 
     c.header('AXB-ACCOUNT', user.id);
     c.header('AXB-ACCESS-LEVEL', user.accessLevel ?? 'STANDARD');
@@ -620,7 +620,18 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
       if (!answered) return c.json(err('missing required detail'), 400);
     }
 
-    if (event.expired) return c.json(err('event expired'), 412);
+    // A platform admin outranks the expiry, exactly as the real server does:
+    // `AddVolunteerEndpoint.java` reads
+    // `if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())`.
+    //
+    // The fake refused unconditionally, which made it *stricter* than the thing
+    // it models -- the failure mode its own header warns about, "faithful where
+    // I knew to make it faithful, which is exactly its limit". It went unnoticed
+    // because the client never reached this call on an expired event: the
+    // affordances to do so were shut for everybody, admin included.
+    if (event.expired && c.get('actor')?.accessLevel !== 'ADMIN') {
+      return c.json(err('event expired'), 412);
+    }
 
     const volunteer = {
       id: nextId(store, 'volunteer'),
@@ -676,7 +687,7 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
       // domains get blocklisted.
       if (volunteer.reminderEmail) store.suppressed.add(volunteer.reminderEmail);
     }
-    return c.json(ok('reminder subscription cancelled'));
+    return c.json(ok('reminder subscription canceled'));
   });
 
   app.patch('/v1/events/:id/volunteers/:volunteer', async (c) => {

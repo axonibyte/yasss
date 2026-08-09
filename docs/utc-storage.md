@@ -39,7 +39,7 @@ It stops being symmetric when the zone moves. Relocate the server, change the ba
 across every event, window and reminder at once, with nothing in any log to say it happened.
 
 Incidentally, the JDBC URL contains `serverTimezone=UTC` and always has. It does nothing —
-MariaDB Connector/J 3.x recognises `timezone`, not `serverTimezone`, and unknown parameters are
+MariaDB Connector/J 3.x recognizes `timezone`, not `serverTimezone`, and unknown parameters are
 ignored rather than rejected. It reads like a safeguard and is not one.
 
 ## What was done

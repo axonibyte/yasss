@@ -264,12 +264,12 @@ console.log('\nan anonymous viewer sees how full a slot is, but not who is in it
     `got ${(seen.payload?.event?.volunteers ?? []).length} volunteers`,
   );
 
-  // The organiser still sees everything.
+  // The organizer still sees everything.
   const owned = await api('GET', `/v1/events/${event.id}`, { auth });
   const ownedSlot = owned.payload?.event?.activities?.[0]?.slots?.[0];
   check(
     (ownedSlot?.rsvps ?? []).length === 1,
-    'the organiser still sees the ids',
+    'the organizer still sees the ids',
     `got ${JSON.stringify(ownedSlot?.rsvps)}`,
   );
 }
@@ -437,6 +437,51 @@ console.log('\na nullable field can actually be cleared');
     body: { timezone: 'Mars/Olympus_Mons' },
   });
   check(nonsense.status === 400, 'an unknown zone is still refused', `got ${nonsense.status}`);
+}
+
+// --- an expired event is closed to everyone except a platform admin ---------
+
+/**
+ * The client has always carried this exemption -- the expired pill is swapped
+ * for the submit button when the viewer is a platform admin -- and the server
+ * has always honored it (`AddVolunteerEndpoint.java`:
+ * `if(!auth.atLeast(AccessLevel.ADMIN) && event.isExpired())`).
+ *
+ * The two had never been checked against each other, and in between them the
+ * fake API refused *every* signup on an expired event. That made the fake
+ * stricter than the thing it models, and it survived because the client's own
+ * affordances were shut for the admin too: nothing ever reached the call. Three
+ * layers agreeing on the wrong answer for three different reasons.
+ *
+ * So this pins the server's half. If it ever stops exempting admins, the client
+ * is showing a button that cannot work, and this says so here rather than in a
+ * browser test wondering why a toast never came.
+ */
+{
+  const event = await createEvent(api, {
+    auth,
+    title: 'Regression: expired event',
+    // Yesterday, and an hour long. `windowSpec` takes the offset in hours and
+    // does no clamping, so a negative one is simply the past.
+    hoursAhead: -24,
+    windowCount: 1,
+    activities: [{ label: 'Cleanup' }],
+  });
+
+  const asAdmin = await addVolunteer(api, event.id, { auth, name: 'Late Admin' });
+  check(
+    asAdmin.status === 201,
+    'a platform admin may still sign somebody up for an expired event',
+    `got ${asAdmin.status}: ${JSON.stringify(asAdmin.payload ?? asAdmin.text)}`,
+  );
+
+  // And the exemption is an exemption, not an accident: anonymous is refused.
+  const anonymous = await addVolunteer(api, event.id, { name: 'Too Late' });
+  check(
+    anonymous.status === 412,
+    'and everybody else is still refused with a 412',
+    `got ${anonymous.status}`,
+  );
 }
 
 finish('regressions');

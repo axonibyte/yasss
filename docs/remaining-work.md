@@ -52,7 +52,7 @@ already possible. Listed only so the asymmetry is not mistaken for an oversight.
 
 ### 2.3 "Sign out everywhere" has no button
 
-`DELETE /v1/users/:user/sessions` exists, is authorised for the account itself and for an
+`DELETE /v1/users/:user/sessions` exists, is authorized for the account itself and for an
 administrator, and hands the device that asked a replacement ticket so it stays signed in. The
 frontend does not call it. Nothing is broken by its absence — a password reset already revokes
 every session automatically, which is the case that matters — but it is the natural home for a
@@ -123,7 +123,7 @@ tested directly, because two of its defects — a write response with no id, and
 fails partway — are invisible end to end: every request involved answers 200 and the damage
 only shows on the *next* edit. The other action modules are still covered end to end only, on
 the original reasoning that a mocked unit test there pins the implementation rather than the
-behaviour. The `window.history` half of `route.svelte.js` is likewise untested directly.
+behavior. The `window.history` half of `route.svelte.js` is likewise untested directly.
 
 Java unit tests stop where the database begins: almost every endpoint's second statement opens
 JDBC through a static `YasssCore.getDB()`. Threading a repository seam through 30-odd endpoints
@@ -139,7 +139,7 @@ precisely so the matrix around them can be walked without a database or a wait.
 ## 4. What working the backlog turned up
 
 Four defects that were not in the backlog, found while implementing it. Each is recorded
-because in every case the *symptom* had been catalogued and the *cause* guessed wrong.
+because in every case the *symptom* had been cataloged and the *cause* guessed wrong.
 
 **Verifying your email never granted access.** `VerifyUserEndpoint` moved the pending address
 onto the account — which is what authentication resolves against, so the user could suddenly

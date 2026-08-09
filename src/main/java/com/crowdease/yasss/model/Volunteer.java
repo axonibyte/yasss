@@ -264,7 +264,7 @@ public class Volunteer {
    *
    * Deliberately separate from the linked account's address: `user` is null for
    * an anonymous signup, which is a first-class path, and an address collected
-   * by an organiser as a custom field is not consent for the platform to write.
+   * by an organizer as a custom field is not consent for the platform to write.
    *
    * @return the address, or {@code null}
    */

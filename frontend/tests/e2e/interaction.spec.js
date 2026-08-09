@@ -42,7 +42,7 @@ test.describe('removing something', () => {
       .toContainText(/RSVP|cannot be undone/i);
   });
 
-  test('cancelling puts the editor back and changes nothing',
+  test('canceling puts the editor back and changes nothing',
     async ({ page, request }) => {
       await openEditor(page, request);
 

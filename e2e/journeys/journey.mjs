@@ -56,6 +56,22 @@ const SEED = Number(process.env.JOURNEY_SEED ?? (Date.now() % 2 ** 31));
  */
 const RUN_TAG = Date.now().toString(36).slice(-5);
 
+/**
+ * Which pass through `runJourney` this is, counted for the whole process.
+ *
+ * Event titles carry it, and that is not cosmetic. Titles are otherwise
+ * deterministic in (tag, seed, action index) -- the point being that two runs of
+ * one seed name their events identically -- and `shrinkFailure` re-runs the same
+ * seed dozens of times in the same process. So a *failing* run left the database
+ * holding many genuinely distinct events sharing a title, and the browser audit,
+ * which counts duplicates by title because the listing markup carries no ids,
+ * reported a duplicate that was not one.
+ *
+ * A failing run producing a second, spurious failure is the worst possible time
+ * for it: it lands exactly when somebody is trying to read the first.
+ */
+let attempt = 0;
+
 const rawApi = makeApi();
 
 /** xorshift32, the same generator fuzz.mjs uses. Small, seedable, replayable. */
@@ -176,6 +192,8 @@ async function registerActor(api, name, password) {
  * @returns {Promise<{problems: string[], trace: object[], failedAt: number|null}>}
  */
 async function runJourney({ seed, iterations, actors, skip = new Set() }) {
+  attempt += 1;
+  const runTag = `${RUN_TAG}x${attempt}`;
   const problems = [];
   const api = makeCheckedApi(problems);
   const rnd = makeRng(seed);
@@ -187,7 +205,7 @@ async function runJourney({ seed, iterations, actors, skip = new Set() }) {
 
   for (let i = 1; i <= iterations; i += 1) {
     const actor = pick(actors);
-    const ctx = { api, world, actor, actors, rnd, pick, chance, i, seed, runTag: RUN_TAG };
+    const ctx = { api, world, actor, actors, rnd, pick, chance, i, seed, runTag };
 
     const available = ACTIONS.filter((a) => !skip.has(a.name) && a.applicable(ctx));
     if (!available.length) continue;
@@ -386,6 +404,10 @@ if (result?.world) {
       title: e.title,
       owner: e.owner,
       volunteerCount: e.volunteers.size,
+      // The audit needs an event wider than the grid's four visible columns to
+      // exercise the paging slider, and cannot tell from a title which one that
+      // is.
+      activityCount: e.activities.length,
     })),
     expectedListings: actors.filter((a) => a.account).map((a) => ({
       name: a.name,

@@ -30,12 +30,12 @@ test('an event records the zone it was created in, and shows it to everyone',
     const { event } = await (await page.request.get(`/v1/events/${id}`)).json();
     expect(event.timezone).toBe('America/Denver');
 
-    // The picker's default is 8am wall-clock where the organiser is, so this is
+    // The picker's default is 8am wall-clock where the organizer is, so this is
     // also a check that the instant survived the DATETIME column intact.
     const denver = page.locator('#view-event-table');
     await expect(denver).toContainText(/08:00\s*AM/);
 
-    // The point of the column: a viewer elsewhere sees the organiser's hours,
+    // The point of the column: a viewer elsewhere sees the organizer's hours,
     // not their own. A second context rather than a second page, because the
     // zone is a context-level setting.
     const tokyo = await browser.newContext({ timezoneId: 'Asia/Tokyo', locale: 'en-US' });
@@ -54,7 +54,7 @@ test('an event records the zone it was created in, and shows it to everyone',
 test('the zone can be changed after publishing, and the change sticks',
   async ({ page }) => {
     // Until now the zone was captured invisibly at creation and there was no
-    // way to correct it — an organiser who built an event on a machine set to
+    // way to correct it — an organizer who built an event on a machine set to
     // the wrong zone had no recourse at all.
     // Signed in first: publishing anonymously deliberately forfeits the ability
     // to come back and edit, so the sign-in is load-bearing rather than scenery.

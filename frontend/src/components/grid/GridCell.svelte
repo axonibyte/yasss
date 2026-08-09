@@ -18,6 +18,11 @@
     /** Optional second line, for window headers. */
     secondLine = null,
     tooltip = '',
+    /**
+     * What this cell *is*, for slot cells: available, booked, full,
+     * unavailable, editing. Absent on the header cells, which are not slots.
+     */
+    state = null,
     aesthetics = 'is-outlined is-primary',
     onclick = null,
     /**
@@ -44,6 +49,7 @@
   class="cell event-cell"
   class:has-tooltip-top={Boolean(tooltip)}
   data-tooltip={tooltip || undefined}
+  data-slot-state={state || undefined}
 >
   <ul class={listClass}>
     <li>

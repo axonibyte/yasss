@@ -54,6 +54,8 @@ ORIG_ARGS=("$@")
 
 KEEP=0
 SKIP_BUILD=0
+PROVIDED_JAR=
+ENGINE_FLAG=
 STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,journeys,browser,health"
 
 usage() {
@@ -62,6 +64,20 @@ usage: e2e/run.sh [options]
 
   --keep           leave the stack running after the suite finishes
   --skip-build     reuse the existing jar and image
+  --engine NAME    podman or docker. Defaults to podman when it is installed,
+                   otherwise docker; `YASSS_E2E_ENGINE` does the same for a
+                   whole shell. Worth setting explicitly on a machine that has
+                   both -- autodetection picking the one you did not mean is a
+                   confusing way to spend twenty minutes.
+  --jar PATH       test a jar built elsewhere instead of building one here.
+                   The image build and every check below still run: a jar that
+                   arrived from another CI step has been through an artifact
+                   upload and download, and nothing else on the way would notice
+                   a truncated or substituted file. This is what a pipeline
+                   should use, so that the jar the suite proves is the jar that
+                   gets published -- building a second one here would mean the
+                   most thorough tests in the repo validating something nobody
+                   ships.
   --only STAGES    comma-separated subset of:
                    fuzz,accounts,sessions,reminders,text,concurrency,regressions,
                    journeys,browser,health
@@ -105,6 +121,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --keep) KEEP=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
+    # Plain echo rather than `die`, which is not defined until after this loop.
+    --jar)
+      [[ -n "${2:-}" ]] || { echo "--jar needs a path" >&2; usage >&2; exit 2; }
+      PROVIDED_JAR="$2"; shift 2 ;;
+    --engine)
+      case "${2:-}" in
+        podman|docker) ENGINE_FLAG="$2"; shift 2 ;;
+        *) echo "--engine takes podman or docker" >&2; usage >&2; exit 2 ;;
+      esac ;;
     --only) STAGES="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -167,7 +192,7 @@ if [[ -z "${AXB_E2E_LOCK_HELD:-}" ]]; then
       || printf '\n\033[1;33m warn\033[0m another e2e suite holds %s; waiting\n' "${E2E_LOCK}" >&2
     exec_locked lockf -k -t "${E2E_LOCK_WAIT}"
   else
-    printf '\n\033[1;33m warn\033[0m neither flock nor lockf found; running unserialised.\n' >&2
+    printf '\n\033[1;33m warn\033[0m neither flock nor lockf found; running unserialized.\n' >&2
     printf '        If another e2e suite runs concurrently, both may fail in ways\n' >&2
     printf '        that look like application bugs.\n' >&2
   fi
@@ -185,12 +210,40 @@ fi
 #      run -- via the linuxulator -- but only if asked for by platform.
 #   3. Running as root means containers write into the repo as root, so the
 #      drivers get the invoking user's ids.
-PODMAN=(podman)
+#
+# Which engine, and how the shared network namespace is made.
+#
+# The suite's whole topology is one namespace: every container reaches the
+# others on 127.0.0.1, which is what the application's own config names for the
+# database. Podman expresses that as a pod. Docker has no pods, so a placeholder
+# container owns the namespace and everything else joins it with
+# `--network container:`. That is the only difference between the two engines,
+# and it is confined to the four helpers below.
+#
+# Docker matters because Bitbucket Pipelines offers a docker service and not
+# podman -- and running the suite in CI is only worth doing if it is the same
+# suite, not a second definition that can drift from this one.
+ENGINE="${ENGINE_FLAG:-${YASSS_E2E_ENGINE:-}}"
+if [[ -z "${ENGINE}" ]]; then
+  if command -v podman >/dev/null 2>&1; then ENGINE=podman
+  elif command -v docker >/dev/null 2>&1; then ENGINE=docker
+  else die "neither podman nor docker is on PATH"; fi
+elif [[ "${ENGINE}" != podman && "${ENGINE}" != docker ]]; then
+  die "unknown engine '${ENGINE}'; expected podman or docker"
+fi
+
+# Asked for by name and missing is a different mistake from none installed, and
+# deserves to say so rather than failing later inside `pm`.
+command -v "${ENGINE}" >/dev/null 2>&1 \
+  || die "${ENGINE} was requested but is not on PATH"
+log "container engine: ${ENGINE}"
+
+PODMAN=("${ENGINE}")
 PLATFORM_ARGS=()
 DB_USER_ARGS=()
 DRIVER_USER_ARGS=()
 
-if [[ "$(uname -s)" == FreeBSD ]]; then
+if [[ "${ENGINE}" == podman && "$(uname -s)" == FreeBSD ]]; then
   PODMAN=(sudo -n podman)
   PLATFORM_ARGS=(--os linux --arch amd64)
   DRIVER_USER_ARGS=(--user "$(id -u):$(id -g)")
@@ -201,6 +254,23 @@ if [[ "$(uname -s)" == FreeBSD ]]; then
 fi
 
 pm() { "${PODMAN[@]}" "$@"; }
+
+if [[ "${ENGINE}" == podman ]]; then
+  NET_ATTACH=(--pod "${POD}")
+  net_create() { pm pod create --name "${POD}" "$@" >/dev/null; }
+  net_exists() { pm pod exists "${POD}" 2>/dev/null; }
+  net_destroy() { pm pod rm -f "${POD}" >/dev/null 2>&1 || true; }
+  NET_HINT="${PODMAN[*]} pod rm -f ${POD}"
+else
+  NET_ATTACH=(--network "container:${POD}")
+  # The namespace holder is DRIVER_IMAGE rather than a dedicated pause image:
+  # it is pulled for the drivers anyway, so this costs no extra pull and no
+  # extra cache entry.
+  net_create() { pm run -d --name "${POD}" "$@" "${DRIVER_IMAGE}" sleep infinity >/dev/null; }
+  net_exists() { pm container inspect "${POD}" >/dev/null 2>&1; }
+  net_destroy() { pm rm -f "${POD}" >/dev/null 2>&1 || true; }
+  NET_HINT="${PODMAN[*]} rm -f ${POD} ${DB_CTR} ${APP_CTR} ${MAIL_CTR}"
+fi
 
 if [[ -n "${YASSS_E2E_PUBLISH:-}" ]]; then
   PUBLISH="${YASSS_E2E_PUBLISH}"
@@ -218,15 +288,17 @@ teardown() {
   # this twice -- once for the signal, once for the exit it causes.
   trap - EXIT INT TERM
   if [[ ${KEEP} -eq 1 ]]; then
-    log "leaving the stack up (--keep); tear down with: ${PODMAN[*]} pod rm -f ${POD}"
+    log "leaving the stack up (--keep); tear down with: ${NET_HINT}"
     return
   fi
 
   log "tearing down"
-  # The pod owns every container, so removing it is enough; the individual
-  # removals are belt and braces for a partially-created stack.
-  pm pod rm -f "${POD}" >/dev/null 2>&1 || true
+  # Containers first, then the namespace they are attached to. Under podman the
+  # pod owns them and either order works; under docker the holder owns nothing,
+  # so removing it first leaves three containers running against a namespace
+  # that has gone -- and the next run then collides on their names.
   pm rm -f "${DB_CTR}" "${APP_CTR}" "${MAIL_CTR}" >/dev/null 2>&1 || true
+  net_destroy
 
   if [[ ${code} -ne 0 ]]; then
     printf '\033[1;31m==> suite failed (exit %s)\033[0m\n' "${code}" >&2
@@ -284,7 +356,7 @@ drive() {
   fi
   DRIVE_ENV=()
 
-  pm run --rm --pod "${POD}" "${PLATFORM_ARGS[@]}" "${DRIVER_USER_ARGS[@]}" \
+  pm run --rm "${NET_ATTACH[@]}" "${PLATFORM_ARGS[@]}" "${DRIVER_USER_ARGS[@]}" \
     -v "${ROOT}:/repo" -w "${workdir}" "${env_args[@]}" "${image}" "$@"
 }
 
@@ -294,9 +366,10 @@ command -v "${PODMAN[-1]}" >/dev/null || die "podman is not installed"
 pm info >/dev/null 2>&1 || die "podman is installed but cannot run; try: ${PODMAN[*]} info"
 
 # A stale stack from an interrupted run would silently shadow this one.
-if pm pod exists "${POD}" 2>/dev/null; then
+if net_exists; then
   warn "removing a stale ${POD} pod from a previous run"
-  pm pod rm -f "${POD}" >/dev/null
+  pm rm -f "${DB_CTR}" "${APP_CTR}" "${MAIL_CTR}" >/dev/null 2>&1 || true
+  net_destroy
 fi
 
 # Counted rather than `grep -q`: under pipefail, grep exiting at the first match
@@ -327,15 +400,31 @@ ensure_image() {
 
 # --- build ------------------------------------------------------------------
 
-if [[ ${SKIP_BUILD} -eq 0 ]]; then
-  log "building the shadow jar (this also runs the Vite build)"
-  # The frontend is served from the jar's classpath, so this is what guarantees
-  # the browser tests exercise the same bundle a deployment would serve.
-  ( cd "${ROOT}" && ./gradlew --quiet shadowJar ) || die "gradle build failed"
+if [[ -n "${PROVIDED_JAR}" && ${SKIP_BUILD} -eq 1 ]]; then
+  die "--jar and --skip-build contradict each other; --jar already skips the build"
+fi
 
-  jar="$(ls -1 "${ROOT}"/build/libs/*.jar 2>/dev/null | head -1)"
-  [[ -n "${jar}" ]] || die "no jar produced in build/libs"
-  cp "${jar}" "${HERE}/yasss.jar"
+if [[ ${SKIP_BUILD} -eq 0 ]]; then
+  if [[ -n "${PROVIDED_JAR}" ]]; then
+    # Built upstream, so the suite proves the artefact that ships rather than a
+    # second one built from the same tree. The two would not even be comparable
+    # today: the jar is reproducible, so an identical tree gives identical
+    # bytes, and that is what lets the queue's verdict carry to the jar `main`
+    # publishes -- but only if what was tested is what was built.
+    [[ -f "${PROVIDED_JAR}" ]] || die "no jar at ${PROVIDED_JAR}"
+    log "using the jar built upstream ($(basename "${PROVIDED_JAR}"))"
+    cp "${PROVIDED_JAR}" "${HERE}/yasss.jar"
+    echo "  sha256 $(sha256sum "${HERE}/yasss.jar" | awk '{print $1}')"
+  else
+    log "building the shadow jar (this also runs the Vite build)"
+    # The frontend is served from the jar's classpath, so this is what guarantees
+    # the browser tests exercise the same bundle a deployment would serve.
+    ( cd "${ROOT}" && ./gradlew --quiet shadowJar ) || die "gradle build failed"
+
+    jar="$(ls -1 "${ROOT}"/build/libs/*.jar 2>/dev/null | head -1)"
+    [[ -n "${jar}" ]] || die "no jar produced in build/libs"
+    cp "${jar}" "${HERE}/yasss.jar"
+  fi
 
   # The shadow jar merges META-INF/services rather than letting one file win.
   # gRPC discovers its name resolvers and load balancers there, and reCAPTCHA
@@ -393,13 +482,13 @@ rm -f "${HERE}/journeys/handle.json"
 
 if [[ ${PUBLISH} -eq 1 ]]; then
   log "creating pod ${POD} (app published on host port ${APP_PORT})"
-  pm pod create --name "${POD}" -p "${APP_PORT}:7455" -p "${MAIL_PORT}:8025" >/dev/null
+  net_create -p "${APP_PORT}:7455" -p "${MAIL_PORT}:8025"
 else
   # A pod with no network still has a loopback its containers share, which is
   # everything the suite needs. Podman publishes ports by writing pf rules, so
   # asking for them on a FreeBSD host without pf(4) fails the pod outright.
   log "creating pod ${POD} (no published ports)"
-  pm pod create --name "${POD}" --network none >/dev/null
+  net_create --network none
 fi
 
 log "starting mariadb"
@@ -412,7 +501,7 @@ log "starting mariadb"
 # this suite passed by accident and proved nothing about a server configured any
 # other way -- which, before MariaDB 11.6, is every server. Starting latin1 makes
 # migration 017 and the charset assertions below actually load-bearing.
-pm run -d --pod "${POD}" --name "${DB_CTR}" "${PLATFORM_ARGS[@]}" "${DB_USER_ARGS[@]}" \
+pm run -d "${NET_ATTACH[@]}" --name "${DB_CTR}" "${PLATFORM_ARGS[@]}" "${DB_USER_ARGS[@]}" \
   -e MARIADB_ROOT_PASSWORD="${DB_ROOT_PW}" \
   -e MARIADB_DATABASE="${DB_NAME}" \
   -e MARIADB_USER="${DB_USER}" \
@@ -436,7 +525,7 @@ done
 log "starting the mail sink"
 # Reminders are only verifiable if the mail goes somewhere inspectable. Mailpit
 # accepts SMTP on 1025 and exposes what it caught over HTTP on 8025.
-pm run -d --pod "${POD}" --name "${MAIL_CTR}" "${PLATFORM_ARGS[@]}" \
+pm run -d "${NET_ATTACH[@]}" --name "${MAIL_CTR}" "${PLATFORM_ARGS[@]}" \
   docker.io/axllent/mailpit:latest >/dev/null
 
 log "starting the application"
@@ -452,7 +541,7 @@ log "starting the application"
 # pin works. If it is ever removed, every stored instant shifts by this offset
 # and the time assertions across the text, reminders and browser stages fail.
 # A container that happened to be UTC would prove nothing at all.
-pm run -d --pod "${POD}" --name "${APP_CTR}" \
+pm run -d "${NET_ATTACH[@]}" --name "${APP_CTR}" \
   -e TZ=America/Chicago \
   "${APP_IMAGE}" >/dev/null
 
@@ -466,7 +555,7 @@ fi
 # Nothing below should see a 500 from a healthy server; a crash here is a real
 # finding rather than a flaky environment.
 # A relying party that cannot be resolved disables passkeys with an error and lets
-# everything else carry on -- which is the right behaviour and exactly the kind of thing
+# everything else carry on -- which is the right behavior and exactly the kind of thing
 # that goes unnoticed. api.host must be a hostname, not the shipped IP literal, or no
 # browser will perform a ceremony; nothing else in this suite can catch that, because
 # Playwright's virtual authenticator does not enforce the rule.
@@ -703,7 +792,7 @@ if has_stage journeys; then
   log "simulating users over a long run"
 
   # An explicit seed means one run of exactly that seed, so the fixed set is only
-  # requested when there is no seed to honour. Written as an `if` rather than
+  # requested when there is no seed to honor. Written as an `if` rather than
   # `[[ ... ]] && ...` because a false test there is a non-zero status, and this
   # script runs under `set -e`.
   DRIVE_ENV=()
@@ -726,6 +815,17 @@ if has_stage journeys; then
         --project=chromium journey-audit; then
       failures=$((failures + 1))
       warn "journey audit failed"
+    fi
+
+    # Last, and after the audit on purpose: the audit is what runs the tutorial,
+    # and this asks the server whether any of it arrived. The audit can only
+    # watch what the browser requested, which proves the page made no call --
+    # not that the database holds nothing. A leak by some route the audit does
+    # not think to watch passes it and fails this.
+    log "verifying the tutorial left nothing behind"
+    if ! drive "${DRIVER_IMAGE}" /repo/e2e node journeys/verify-sandbox.mjs; then
+      failures=$((failures + 1))
+      warn "journeys sandbox verification failed"
     fi
   else
     warn "no journey handle was written; skipping the browser audit"

@@ -166,7 +166,7 @@ check(
   `got ${optedOut.status}`,
 );
 
-// The address must never come back out. An organiser reading their own event
+// The address must never come back out. An organizer reading their own event
 // learns that reminders are confirmed, not where they go.
 const read = await api('GET', `/v1/events/${event.id}`);
 const serialized = JSON.stringify(read.payload);

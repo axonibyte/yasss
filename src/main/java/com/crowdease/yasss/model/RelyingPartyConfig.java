@@ -120,7 +120,7 @@ public final class RelyingPartyConfig {
    * <em>sites</em> may read a response, this governs which origin a <em>ceremony</em> was
    * performed at. They usually hold the same value, which is why both accept the same
    * sentinel — but a wildcard CORS setting must never become a wildcard ceremony origin,
-   * so {@code *} is refused here rather than honoured.
+   * so {@code *} is refused here rather than honored.
    */
   private static Set<String> origins(String configured, String apiHost) {
     Set<String> out = new LinkedHashSet<>();

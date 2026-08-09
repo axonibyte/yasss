@@ -16,14 +16,14 @@
   let loading = $state(true);
 
   $effect(() => {
-    let cancelled = false;
+    let canceled = false;
     getText(textId)
-      .then((src) => { if (!cancelled) html = renderMarkdownWithPrimaryLinks(src); })
+      .then((src) => { if (!canceled) html = renderMarkdownWithPrimaryLinks(src); })
       // The legacy had no failure path here at all, so a fetch error left the
       // modal blank with no explanation.
-      .catch((e) => { if (!cancelled) toastError(e, "Couldn't load that document, sorry."); })
-      .finally(() => { if (!cancelled) loading = false; });
-    return () => { cancelled = true; };
+      .catch((e) => { if (!canceled) toastError(e, "Couldn't load that document, sorry."); })
+      .finally(() => { if (!canceled) loading = false; });
+    return () => { canceled = true; };
   });
 </script>
 

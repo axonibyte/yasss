@@ -2,7 +2,7 @@
  * Form validators — pure, DOM-free, and therefore testable.
  *
  * The legacy validators read the DOM directly, mixed validation with toasting,
- * and signalled failure by returning `null` (sometimes silently, with no toast
+ * and signaled failure by returning `null` (sometimes silently, with no toast
  * at all — behavior §3.8). These take plain values and return a verdict; the
  * caller decides how to present it.
  *
@@ -25,7 +25,7 @@ export const CAP_MAX = 255;
  * arrives from the server — as `malformed argument (string too long: ...)` at
  * best, and for a volunteer's answer to a custom field as a 500, because that
  * one reaches the insert unchecked. Either way it lands as a toast with no
- * field attached to it, and for an organiser it lands at publish, after an
+ * field attached to it, and for an organizer it lands at publish, after an
  * entire event has been built on a value that was never going to save.
  */
 export const MAX_TEXT = 255;
@@ -115,10 +115,10 @@ export function validateSummary({
   }
 
   // Null is a real value here: an event that recorded no zone renders in each
-  // viewer's own, which is the pre-timezone behaviour and still correct.
+  // viewer's own, which is the pre-timezone behavior and still correct.
   const zone = timezone == null || timezone === '' ? null : String(timezone);
   if (zone !== null && !isValidTimezone(zone)) {
-    errors.timezone = 'That is not a time zone this browser recognises.';
+    errors.timezone = 'That is not a time zone this browser recognizes.';
   }
 
   if (Object.keys(errors).length) return fail(errors);
@@ -184,7 +184,7 @@ export function validateWindow({ begin, end }) {
 export function validateSlot({ enabled, unlimited = false, cap }) {
   // The cap only matters when the slot is enabled.
   if (!enabled) return ok({ enabled: false, cap: 0 });
-  // "Unlimited" is the organiser saying so; the server spells it 0.
+  // "Unlimited" is the organizer saying so; the server spells it 0.
   if (unlimited) return ok({ enabled: true, cap: 0 });
 
   // With the switch off, 0 is not a policy — it is an empty or mistyped box.

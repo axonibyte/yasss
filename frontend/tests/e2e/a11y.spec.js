@@ -131,6 +131,27 @@ test.describe('axe', () => {
     await expectAccessible(page, { include: MODAL });
   });
 
+  test('the navbar with its mobile menu open', async ({ page }) => {
+    // Both new controls at once, and in the state where they overlap the page:
+    // the burger is only rendered below the tablet breakpoint, and the theme
+    // toggle only shows its label there.
+    await page.setViewportSize({ width: 412, height: 800 });
+    await page.goto('/');
+    await waitForApp(page);
+    await page.getByTestId('navbar-burger').click();
+    await expect(page.getByRole('link', { name: 'Create Event' })).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  test('the tutorial panel, which is not a modal', async ({ page }) => {
+    // Deliberately non-modal, so axe sees it alongside a live page rather than
+    // behind a scrim -- which is the arrangement worth checking.
+    await page.goto('/?tutorial=volunteer');
+    await waitForApp(page);
+    await expect(page.getByTestId('tutorial-step')).toBeVisible();
+    await expectAccessible(page);
+  });
+
   test('the volunteer modal, clean and in error', async ({ page, request }) => {
     const { eventId } = await seed(request, {
       event: { activities: 1, windows: 1, details: [{ type: 'STRING', label: 'Notes', required: true }] },

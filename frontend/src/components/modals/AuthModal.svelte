@@ -68,7 +68,7 @@
     busy = true;
     try {
       const result = await session.loginWithPasskey();
-      // Cancelled, or timed out -- the two are indistinguishable, and neither is worth
+      // Canceled, or timed out -- the two are indistinguishable, and neither is worth
       // saying anything about. Showing an error because somebody pressed Escape is the
       // most common WebAuthn UX defect there is.
       if (!result) return;

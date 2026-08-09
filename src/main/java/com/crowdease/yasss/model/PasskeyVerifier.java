@@ -99,7 +99,7 @@ public final class PasskeyVerifier {
               // is what every authenticator in practice returns.
               null,
               // userVerificationRequired = false. The ceremony asks for user verification
-              // but does not demand it, so a security key with no PIN can still enrol;
+              // but does not demand it, so a security key with no PIN can still enroll;
               // whether a given assertion actually verified the user is read off the
               // result at sign-in, which is where it matters.
               false,

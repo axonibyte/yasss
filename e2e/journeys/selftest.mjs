@@ -9,7 +9,7 @@
  * that leaves everyone believing they are covered.
  *
  * So this feeds the checks in model.mjs the responses a *broken* server would
- * send, and asserts each one complains. The responses are modelled on the two
+ * send, and asserts each one complains. The responses are modeled on the two
  * defects that prompted this whole stage:
  *
  *   - `?volunteer=` returning an event once per signup, because the query
@@ -21,8 +21,10 @@
  */
 import { check, finish } from '../lib/check.mjs';
 import {
-  World, checkListing, checkEvent, checkVisibility, slotKey,
+  World, checkListing, checkEvent, checkVisibility, checkNoSandboxLeak,
+  checkEventFreeOfMarkers, slotKey,
 } from './model.mjs';
+import * as markers from '../../frontend/src/lib/tutorial/markers.js';
 
 /** An actor that records rotations but talks to nothing. */
 const actorNamed = (name, account) => ({
@@ -185,9 +187,9 @@ console.log('\nthe visibility oracle');
 }
 
 {
-  // The organiser is shown everybody, by design.
+  // The organizer is shown everybody, by design.
   const problems = await checkVisibility(answering(goodEvent()), world, owner, 'E1');
-  check(problems.length === 0, 'the organiser seeing everyone is not a complaint', JSON.stringify(problems));
+  check(problems.length === 0, 'the organizer seeing everyone is not a complaint', JSON.stringify(problems));
 }
 
 console.log('\ndeterminism');
@@ -215,6 +217,130 @@ console.log('\ndeterminism');
   check(
     JSON.stringify(first) !== JSON.stringify(draw(c)),
     'a different seed draws a different sequence',
+  );
+}
+
+// --- a lowered cap grandfathers, but only what was already there ------------
+
+/**
+ * The narrowest kind of correction, and the one most likely to be made wrongly.
+ *
+ * The cap check used to read `actual > cap`, which called a real product
+ * behavior a defect: an organizer may lower a slot's cap beneath the people
+ * already in it, nobody is evicted, and `edit-mode.spec.js` has a case named
+ * "slot cells show a count over cap" because the grid renders that on purpose.
+ * A seeded run reached it and the invariant cried wolf.
+ *
+ * Loosening it is easy to do too far. These two cases are the difference: the
+ * grandfathered occupancy passes, and one more than it does not.
+ */
+{
+  const world = new World();
+  const event = world.addEvent({ id: 'E9', code: 'CAPFLOOR', title: 'Cap', owner: 'owner' });
+  event.windows = ['W1'];
+  const slots = new Map([['W1', {
+    enabled: true, cap: 1, capFloor: 2, claimants: new Set(['v1', 'v2']),
+  }]]);
+  event.activities = [{ id: 'A1', label: 'Setup', cap: 0, slots }];
+
+  const served = (rsvpCount) => answering({
+    event: {
+      id: 'E9',
+      activities: [{
+        id: 'A1',
+        maxActivityVolunteers: 0,
+        slots: [{ window: 'W1', maxSlotVolunteers: 1, rsvpCount }],
+      }],
+      volunteers: [],
+    },
+  });
+
+  const owner = actorNamed('owner', 'U1');
+  const grandfathered = await checkEvent(served(2), world, owner, 'E9');
+  check(
+    !grandfathered.some((p) => p.includes('over a cap')),
+    'a cap lowered onto people already in the slot is not a violation',
+    grandfathered.join(' | '),
+  );
+
+  const oneMore = await checkEvent(served(3), world, owner, 'E9');
+  check(
+    oneMore.some((p) => p.includes('over a cap')),
+    'but one more person than the floor still is',
+    oneMore.join(' | ') || '(nothing reported)',
+  );
+}
+
+// --- the sandbox leak check -------------------------------------------------
+
+/**
+ * Written from the negative side, which is where polarity gets inverted.
+ *
+ * `checkNoSandboxLeak` reports when it *finds* something, so an implementation
+ * that never found anything -- a typo in a marker, a query that always 404s, a
+ * filter the wrong way round -- would look exactly like a platform with no
+ * leaks. This is the difference between the two.
+ *
+ * The same mistake has already been made once here: an earlier `checkListing`
+ * tested for undercounting when the defect it was written for overcounted, and
+ * this file is what caught it.
+ */
+{
+  const actors = [{ name: 'ada', account: 'U1', session: 'ticket' }];
+
+  // A server that has never heard of any of it: 404 for the direct read, empty
+  // listings everywhere else.
+  const clean = async (method, path) => (path.includes(markers.PRACTICE_EVENT_ID)
+    ? { status: 404, payload: null, text: '' }
+    : { status: 200, payload: { events: [], eventCount: 0 }, text: '{"events":[]}' });
+
+  check(
+    (await checkNoSandboxLeak(clean, actors, markers)).length === 0,
+    'the leak check is quiet when the practice event never reached the server',
+  );
+
+  // Now each way it can arrive, one at a time, so a check that only notices one
+  // of them cannot pass by covering for the others.
+  const leaked = {
+    'the event id being readable': async (method, path) => (
+      path.includes(markers.PRACTICE_EVENT_ID)
+        ? { status: 200, payload: { event: {} }, text: '{}' }
+        : { status: 200, payload: { events: [] }, text: '{"events":[]}' }),
+
+    'the practice code resolving': async (method, path, opts = {}) => (
+      (opts.query ?? '').includes(markers.PRACTICE_CODE)
+        ? { status: 200, payload: { events: [{ id: 'X' }] }, text: '{"events":[{"id":"X"}]}' }
+        : { status: 404, payload: null, text: '' }),
+
+    'the practice title in a listing': async (method, path) => (
+      path.includes(markers.PRACTICE_EVENT_ID)
+        ? { status: 404, payload: null, text: '' }
+        : {
+          status: 200,
+          payload: { events: [{ id: 'X', title: markers.PRACTICE_TITLE }] },
+          text: JSON.stringify({ events: [{ id: 'X', title: markers.PRACTICE_TITLE }] }),
+        }),
+  };
+
+  for (const [what, api] of Object.entries(leaked)) {
+    const problems = await checkNoSandboxLeak(api, actors, markers);
+    check(problems.length > 0, `the leak check notices ${what}`, JSON.stringify(problems));
+  }
+
+  // And the per-event sweep, which is the one that would catch a practice
+  // volunteer attached to somebody's real event.
+  const withVolunteer = answering({
+    volunteers: [{ name: markers.PRACTICE_VOLUNTEER }],
+  });
+  check(
+    (await checkEventFreeOfMarkers(withVolunteer, actors[0], 'E1', markers)).length > 0,
+    'the per-event sweep notices a practice volunteer on a real event',
+  );
+  check(
+    (await checkEventFreeOfMarkers(
+      answering({ volunteers: [{ name: 'A Real Person' }] }), actors[0], 'E1', markers,
+    )).length === 0,
+    'and is quiet about a real one',
   );
 }
 

@@ -18,6 +18,10 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test, expect, ready } from './helpers/harness.js';
+import { parseDeck } from '../../src/lib/tutorial/deck.js';
+import { DEFAULT_COPY } from '../../src/lib/tutorial/defaults.js';
+import { PRACTICE_TITLE } from '../../src/lib/tutorial/markers.js';
+import { SUBMIT_RSVPS } from '../shared/labels.js';
 
 const HANDLE = fileURLToPath(new URL('../../../e2e/journeys/handle.json', import.meta.url));
 
@@ -113,12 +117,17 @@ describe('journey audit', () => {
 
       // Per box, not across the pair. The dashboard shows "Your Upcoming
       // Events" and "Your Upcoming RSVPs" side by side, and an event you both
-      // organise and have signed up to belongs in each -- counting across the
+      // organize and have signed up to belongs in each -- counting across the
       // two reads that as a duplicate when it is the product working.
       //
       // A genuinely repeated id would already have thrown each_key_duplicate
       // and been caught by the watchdog; this is the weaker but more legible
       // statement of the same thing.
+      //
+      // Counting by title only holds because the engine's titles are unique per
+      // run *attempt* -- see `runTag` in journey.mjs. They were not, and a
+      // failing run's shrink passes left several distinct events sharing one,
+      // which this read as a duplicate and reported alongside the real failure.
       const lists = page.locator('#list-event-section ul');
       await expect(lists.first()).toBeVisible({ timeout: 15_000 });
 
@@ -161,5 +170,198 @@ describe('journey audit', () => {
     const [endpoint, calls] = worst(counts);
     expect(calls, `viewing one event called ${endpoint} ${calls} times`)
       .toBeLessThanOrEqual(MAX_CALLS_PER_ENDPOINT);
+  });
+});
+
+/**
+ * The tutorial, run against the real stack by somebody who has real events.
+ *
+ * Two things this tier can see that `tests/e2e/tutorial.spec.js` cannot. It runs
+ * as an actor who has *accumulated* something -- a world of events built by
+ * hundreds of prior actions -- so a tour that clobbers state has something to
+ * clobber. And it runs against the real server with the operator's real deck,
+ * where the fake answers `/v1/texts/:id` with the same generic markdown for
+ * every id and so cannot tell a deck being read from one being ignored.
+ *
+ * The absence half of the claim -- that nothing reached the server -- is checked
+ * from the server's side afterwards by `e2e/journeys/verify-sandbox.mjs`. This
+ * side counts requests; that side asks the database. Neither is sufficient
+ * alone, which is why there are two.
+ */
+/**
+ * The paging slider, on an event a long run actually built.
+ *
+ * The grid holds five columns at any width -- window labels plus four
+ * activities -- and pages the rest. That cap is invisible until an event
+ * crosses it, and every journey event used to be created with exactly one
+ * activity, so whether a run produced a wide one at all was luck. It is drawn
+ * from the seeded stream now, which is what makes this test able to insist
+ * rather than skip.
+ */
+describe('the activity slider', () => {
+  test('pages through an event wider than the grid', async ({ page, baseURL }) => {
+    const wide = [...handle.events].sort((a, b) => b.activityCount - a.activityCount)[0];
+    expect(
+      wide?.activityCount,
+      'no event in this world exceeded four activities, so the slider was never exercised. '
+      + 'The engine draws the count from the seed, so this is a regression in that, not a thin run.',
+    ).toBeGreaterThan(4);
+
+    const actor = handle.actors.find((a) => a.name === wide.owner) ?? handle.actors[0];
+    await signInAs(page, baseURL, actor);
+    await page.goto(`/?event=${wide.id}`);
+    await ready(page);
+
+    const slider = page.locator('#view-event-slider');
+    await expect(slider).toBeVisible();
+    // Four visible activity columns, so the last page starts three from the end.
+    await expect(slider).toHaveAttribute('max', String(wide.activityCount - 3));
+
+    // The activity headers are the four cells after the blank corner, and they
+    // are what paging is supposed to change.
+    const headers = () => page.locator('#view-event-table .fixed-grid > .grid > .cell')
+      .filter({ hasNot: page.locator('[data-slot-state]') })
+      .allTextContents();
+
+    const firstPage = (await headers()).slice(1, 5);
+    expect(firstPage).toHaveLength(4);
+
+    const last = String(wide.activityCount - 3);
+    await slider.fill(last);
+    await expect(slider).toHaveValue(last);
+
+    // The labels moved. Reading the slider's own value back would prove only
+    // that a range input works, which is not the thing under test.
+    const lastPage = (await headers()).slice(1, 5);
+    expect(lastPage).toHaveLength(4);
+    expect(lastPage).not.toEqual(firstPage);
+
+    // And the width never changes: the grid pages rather than growing, which is
+    // the property the whole five-column cap exists to hold.
+    await slider.fill('1');
+    expect((await headers()).slice(1, 5)).toEqual(firstPage);
+  });
+});
+
+describe('the tutorial, over an accumulated world', () => {
+  /** The deck the operator actually configured, parsed the way the app parses it. */
+  let deck = null;
+
+  test.beforeAll(async ({ request }) => {
+    const res = await request.get('/v1/texts/tutorial');
+    deck = res.ok() ? parseDeck(await res.text()) : {};
+  });
+
+  test('runs both tracks without writing anything', async ({ page, baseURL }) => {
+    const actor = handle.actors[0];
+    test.skip(!actor, 'no actor with an account in this world');
+
+    for (const track of ['organizer', 'volunteer']) {
+      const counts = countApiCalls(page);
+      await signInAs(page, baseURL, actor);
+      await page.goto(`/?tutorial=${track}`);
+      await ready(page);
+
+      await expect(page.getByTestId('event-title')).toHaveText(PRACTICE_TITLE);
+
+      // Discard the boot traffic. A signed-in visitor's page legitimately lists
+      // their own events before anything tutorial-shaped happens -- that is the
+      // dashboard doing its job, and counting it would make this assertion
+      // about being signed in rather than about the tutorial. What is asserted
+      // is what the *tour* does from here.
+      counts.clear();
+
+      // Walk it, and *do the things it describes*.
+      //
+      // Claiming a tile is not enough on its own and it took a mutation run to
+      // notice: an unclaimed tile belongs to an unpersisted volunteer, and that
+      // toggle is local whether or not the sandbox clause exists. The write
+      // that clause prevents happens at submit. A version of this test that
+      // only clicked tiles passed with the clause deleted -- it was watching
+      // for a request that the tutorial had no reason to make either way.
+      let submitted = false;
+      for (let i = 0; i < 40; i += 1) {
+        const tile = page.locator('.event-cell li').filter({ hasText: /^Available$/ }).first();
+        if (await tile.count() > 0) await tile.click().catch(() => {});
+
+        const submit = page.getByRole('button', { name: SUBMIT_RSVPS });
+        if (await submit.count() > 0 && await submit.isEnabled().catch(() => false)) {
+          await submit.click();
+          submitted = true;
+        }
+
+        const next = page.getByRole('button', { name: 'Next' });
+        if (await next.count() === 0) break;
+        await next.click();
+      }
+      await page.waitForTimeout(SETTLE_MS);
+
+      // The volunteer track hands the learner somebody to be and a button to
+      // press, so a run of it that submitted nothing exercised nothing.
+      if (track === 'volunteer') {
+        expect(submitted, 'the volunteer tour never reached an enabled Submit').toBe(true);
+      }
+
+      // Writes of any kind, and any traffic about events at all. The deck is a
+      // public GET of /v1/texts and is allowed; see tests/e2e/tutorial.spec.js
+      // for why the assertion is this shape and not "no requests".
+      const forbidden = [...counts.keys()].filter(
+        (k) => !k.startsWith('GET ') || k.includes('/v1/events'),
+      );
+      expect(
+        forbidden,
+        `the ${track} tutorial talked to the server about events: ${forbidden.join(', ')}`,
+      ).toEqual([]);
+
+      await page.getByRole('button', { name: /Finish|Exit tutorial/ }).first().click();
+      await page.context().clearCookies();
+    }
+  });
+
+  test('shows the operator\'s words, not the built-in ones', async ({ page }) => {
+    const [id, markdown] = Object.entries(deck ?? {})
+      .find(([k]) => k === 'v-welcome' || k === 'welcome') ?? [];
+    test.skip(!id, 'the deployed deck covers neither opening step');
+
+    const track = id === 'welcome' ? 'organizer' : 'volunteer';
+    await page.goto(`/?tutorial=${track}`);
+    await ready(page);
+
+    const step = page.getByTestId('tutorial-step');
+    // A distinctive line from the deck, and the absence of the default it
+    // replaced. Both halves matter: showing the deck's words proves the file is
+    // read, and the default being gone proves it actually replaced them rather
+    // than being appended somewhere nobody looks.
+    const firstLine = markdown.split('\n').find((l) => l.trim() && !l.startsWith('#'));
+    await expect(step).toContainText(firstLine.trim().slice(0, 40));
+    const defaultFirstLine = DEFAULT_COPY[id].split('\n')
+      .find((l) => l.trim() && !l.startsWith('#'));
+    await expect(step).not.toContainText(defaultFirstLine.trim().slice(0, 40));
+  });
+
+  test('leaves an interrupted actor\'s own world exactly as it was', async ({ page, baseURL }) => {
+    const actor = handle.actors[0];
+    const expected = handle.expectedListings.find((e) => e.name === actor?.name);
+    test.skip(!expected || expected.owned.length === 0, 'this actor owns nothing to disturb');
+
+    await signInAs(page, baseURL, actor);
+    await page.goto('/');
+    await ready(page);
+    const before = await page.locator('#list-event-section li').count();
+
+    // Interrupted mid-session, which is the case that only exists once somebody
+    // has accumulated something worth losing.
+    await page.getByRole('link', { name: 'Tutorial' }).click();
+    await page.getByTestId('tutorial-track-volunteer').click();
+    await expect(page.getByTestId('event-title')).toHaveText(PRACTICE_TITLE);
+    await page.getByRole('button', { name: 'Exit tutorial' }).click();
+
+    await ready(page);
+    await page.waitForTimeout(SETTLE_MS);
+    await expect(page.getByTestId('tutorial-step')).toHaveCount(0);
+    expect(
+      await page.locator('#list-event-section li').count(),
+      'the dashboard changed across a tutorial run',
+    ).toBe(before);
   });
 });

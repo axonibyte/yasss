@@ -4,9 +4,9 @@
  * Worth unit testing rather than leaving to the browser: it is pure logic over
  * a cookie and an injectable API, and several of its failure modes are awkward
  * to provoke through a UI — a malformed cookie, a rotation arriving mid-flight,
- * a server that stops recognising a token.
+ * a server that stops recognizing a token.
  *
- * The rotation behaviour in particular carries a legacy defect: the old client
+ * The rotation behavior in particular carries a legacy defect: the old client
  * advanced its in-memory token but only wrote it back to the cookie inside the
  * refresh timer, so reloading between rotations logged the user out.
  */
@@ -105,7 +105,7 @@ describe('refresh', () => {
     expect(api.getApiInfo).not.toHaveBeenCalled();
   });
 
-  it('keeps a session the server still recognises', async () => {
+  it('keeps a session the server still recognizes', async () => {
     api.getApiInfo.mockResolvedValue({
       _auth: { account: 'acct-1', session: 'tok-1', accessLevel: 'STANDARD' },
     });
@@ -115,7 +115,7 @@ describe('refresh', () => {
     expect(session.loggedIn).toBe(true);
   });
 
-  it('clears a session the server no longer recognises', async () => {
+  it('clears a session the server no longer recognizes', async () => {
     api.getApiInfo.mockResolvedValue({
       _auth: { account: 'acct-1', session: 'tok-1', accessLevel: 'STANDARD' },
     });

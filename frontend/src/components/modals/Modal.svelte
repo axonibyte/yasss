@@ -57,7 +57,7 @@
    * that the rest of the page is inert — but nothing made it so. Focus stayed
    * wherever it was, Tab walked straight out into the page behind, and closing
    * the modal left focus on `<body>` so the next Tab started from the top of
-   * the document. Claiming the semantics without honouring them is worse than
+   * the document. Claiming the semantics without honoring them is worse than
    * not claiming them.
    */
   function trap(node) {

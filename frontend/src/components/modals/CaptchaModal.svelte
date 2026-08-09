@@ -16,11 +16,11 @@
 
   $effect(() => {
     if (!container) return;
-    let cancelled = false;
+    let canceled = false;
     renderWidget(container)
-      .then((token) => { if (!cancelled) onToken?.(token); })
-      .catch((e) => { if (!cancelled) failed = e.message; });
-    return () => { cancelled = true; };
+      .then((token) => { if (!canceled) onToken?.(token); })
+      .catch((e) => { if (!canceled) failed = e.message; });
+    return () => { canceled = true; };
   });
 </script>
 

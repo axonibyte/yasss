@@ -65,7 +65,7 @@ public final class SessionTicket {
      * A ticket from before sessions carried timing claims.
      *
      * <p>Refused, which signs every existing user out exactly once at upgrade.
-     * That is strictly better than the previous behaviour, which signed everyone
+     * That is strictly better than the previous behavior, which signed everyone
      * out on every deploy and again every fifteen minutes.
      */
     LEGACY,

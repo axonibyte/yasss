@@ -3,13 +3,13 @@
  *
  * Each action decides for itself whether it applies to the actor it is handed,
  * performs one step, and updates the shadow world to match. Weights are rough
- * frequencies, not probabilities -- the engine normalises across whatever is
+ * frequencies, not probabilities -- the engine normalizes across whatever is
  * applicable at the time.
  *
  * The chaos actions at the bottom are not separate machinery. They are ordinary
  * actions that happen to do the wrong thing on purpose, so they interleave with
  * everything else and accumulate history alongside it, which is the whole point:
- * a cancelled edit is only interesting once something else has happened on top
+ * a canceled edit is only interesting once something else has happened on top
  * of it.
  */
 import { createEvent, addVolunteer as apiAddVolunteer } from '../lib/fixtures.mjs';
@@ -92,7 +92,17 @@ export const ACTIONS = [
         auth: ctx.actor.session,
         ...owns(ctx, 'admin'),
         windowCount: 1 + Math.floor(ctx.rnd() * 2),
-        activities: [{ label: 'Setup' }],
+        // One to six, drawn from the seeded stream so a run stays a replay.
+        //
+        // It used to be exactly one, always, and `add-activity` at weight 3 was
+        // the only way an event ever got wider. So whether any event in a run
+        // exceeded the grid's four visible columns -- the thing that puts the
+        // paging slider on screen -- was luck, and the browser audit had nothing
+        // dependable to page through. Six is one past the cap on purpose.
+        activities: Array.from(
+          { length: 1 + Math.floor(ctx.rnd() * 6) },
+          (_, i) => ({ label: i === 0 ? 'Setup' : `${NAMES[i % NAMES.length]}'s shift` }),
+        ),
         allowMultiUserSignups: true,
       });
 
@@ -177,8 +187,17 @@ export const ACTIONS = [
       if (res.status >= 400) return `enable-slot refused (${res.status})`;
 
       const existing = activity.slots.get(windowId);
+      const claimants = existing?.claimants ?? new Set();
       activity.slots.set(windowId, {
-        enabled: true, cap, claimants: existing?.claimants ?? new Set(),
+        enabled: true,
+        cap,
+        claimants,
+        // Lowering a cap beneath the people already in the slot does not evict
+        // them -- `edit-mode.spec.js` has a case named "slot cells show a count
+        // over cap", so the product renders that state on purpose. The floor is
+        // what the cap invariant may hold the server to from here: those
+        // claimants are grandfathered, and one more would still be a defect.
+        capFloor: cap === 0 ? 0 : Math.max(cap, claimants.size),
       });
       return `enabled ${activity.id}/${windowId} cap=${cap}`;
     },
@@ -416,7 +435,7 @@ export const ACTIONS = [
       ctx.actor.absorb(bad);
       if (bad.status < 400) event.title = wrong;
 
-      // Sometimes the organiser fixes their own typo; sometimes a platform
+      // Sometimes the organizer fixes their own typo; sometimes a platform
       // administrator does it for them, which exercises authority over another
       // account's data.
       const fixer = ctx.chance(0.3)
@@ -450,7 +469,7 @@ export const ACTIONS = [
    *
    * At this tier that is an entity created and immediately dropped, or one
    * created and never referred to again. The browser audit covers the other
-   * half -- a modal opened and cancelled -- because that is where it exists.
+   * half -- a modal opened and canceled -- because that is where it exists.
    */
   {
     name: 'abandon-activity',

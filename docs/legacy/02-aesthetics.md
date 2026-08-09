@@ -250,7 +250,7 @@ with placeholder "Event URL". Footer: `div.buttons > button#share-event-copy.but
 `modal-card-head > p.modal-card-title` (**never populated** — both modals render with an
 empty header bar; the rewrite fixes this with a `title` prop), body
 `section.modal-card-body > div.content` filled with Showdown output, and an **empty**
-`footer.modal-card-foot` that still renders as a grey bar.
+`footer.modal-card-foot` that still renders as a gray bar.
 
 ### 2.3 `#edit-event-modal` — event summary
 
@@ -500,7 +500,7 @@ Attached fresh on every window-modal open (`app.js:589-613`):
 ```
 
 Modal dialog (not inline dropdown), range selection, dual date panes, two 12-hour time pickers,
-footer button labelled "Save", minimum selectable date tomorrow.
+footer button labeled "Save", minimum selectable date tomorrow.
 
 **Bug to avoid:** legacy does `calOpts.startTime = calOpts.startDate` then `setHours` — the same
 Date instance, so both mutate. Clone. Also `minDate: tomorrow` is applied even when *editing* a

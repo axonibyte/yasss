@@ -8,7 +8,7 @@
  * case it was inert -- and pressing it reported success, which reads as confirmation
  * of a save that never happened.
  *
- * The organiser case is the one worth pinning. An event admin is shown every
+ * The organizer case is the one worth pinning. An event admin is shown every
  * volunteer on their event, so a role check would have got this wrong; the count is
  * of *unpersisted* volunteers, which exist only in this tab, so somebody else's forty
  * signups contribute nothing to it.
@@ -94,10 +94,10 @@ describe('the Submit RSVPs button', () => {
   });
 
   /**
-   * The organiser's view. Everyone on the event is already saved, so there is
+   * The organizer's view. Everyone on the event is already saved, so there is
    * nothing for this button to write, however many of them there are.
    */
-  it('stays disabled for an organiser looking at everybody elses signups', () => {
+  it('stays disabled for an organizer looking at everybody elses signups', () => {
     render(EventSection, { props: props(viewingEvent({ persisted: 40 })) });
 
     const button = submitButton();

@@ -254,7 +254,7 @@ test('a confirmation link cannot resurrect an unsubscribed volunteer', async ({
 });
 
 test('the address is never returned to the client', async ({ page, request }) => {
-  // An organiser reading their own event sees that a volunteer has confirmed
+  // An organizer reading their own event sees that a volunteer has confirmed
   // reminders, but not where those reminders go.
   const { user, eventId, session } = await seedSignedIn(page, request, {
     event: { activities: 1, windows: 1, ownedBy: 'user' },

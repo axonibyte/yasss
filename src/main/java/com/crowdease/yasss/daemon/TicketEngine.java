@@ -59,7 +59,7 @@ public final class TicketEngine implements Runnable {
    * timeout. What {@code ticket.*} still means is rotation cadence and the
    * floor on key retention.
    *
-   * <p>Clamped rather than honoured without limit, because a deployment pinning
+   * <p>Clamped rather than honored without limit, because a deployment pinning
    * {@code refreshInterval: 1} would otherwise ask for one signer per minute for
    * thirty days. When the clamp bites, the caller warns and says what to change.
    *

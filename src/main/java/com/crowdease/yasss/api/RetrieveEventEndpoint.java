@@ -56,8 +56,8 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       if(null == event)
         throw new EndpointException(req, "event not found", 404);
 
-      // Fulfilment is only attempted for a caller who could plausibly have just
-      // paid -- the event's own organiser, or an admin. It used to run for any
+      // Fulfillment is only attempted for a caller who could plausibly have just
+      // paid -- the event's own organizer, or an admin. It used to run for any
       // caller at all, so anyone holding an unpublished event id could drive one
       // Stripe API round trip per outstanding checkout session, on repeat, with
       // no authentication.
@@ -75,7 +75,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
       Map<UUID, Volunteer> volunteers = new HashMap<>();
 
       // Hoisted, and checked first everywhere below. It is loop-invariant, and
-      // putting it first means an organiser viewing their own event -- who can
+      // putting it first means an organizer viewing their own event -- who can
       // see everyone by definition -- never performs a single per-volunteer user
       // lookup. The lookups that remain are memoised, because the same account
       // routinely owns several volunteers on one event and because the RSVP loop
@@ -156,7 +156,7 @@ public final class RetrieveEventEndpoint extends APIEndpoint {
                 .put("remindersEnabled", volunteer.remindersEnabled())
                           // The address itself is deliberately not
                           // disclosed: the platform is the sender, and
-                          // the organiser has no operational need for it.
+                          // the organizer has no operational need for it.
                           .put(
                               "reminderConfirmed",
                               Volunteer.ReminderState.CONFIRMED

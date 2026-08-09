@@ -9,7 +9,7 @@
  *
  * The column holds the canonical form: uppercase, no separator. Storing it that
  * way keeps the collation out of the question of whether two codes are equal --
- * the hyphen and the case are presentation only, and normalisation happens in
+ * the hyphen and the case are presentation only, and normalization happens in
  * EventCode before anything reaches SQL.
  *
  * Appended rather than positioned, so this stays ALGORITHM=INSTANT; a

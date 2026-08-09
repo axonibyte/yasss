@@ -11,7 +11,7 @@
  * `Number.isInteger`.
  *
  * `expect` is what the *client* should do with the value, and is asserted
- * against the modal's behaviour. It is deliberately not "what the server does":
+ * against the modal's behavior. It is deliberately not "what the server does":
  * the whole reason these validators exist is to fail fast, so a value the client
  * accepts and the server refuses is a finding, not an expectation.
  */
@@ -203,13 +203,13 @@ export const ACCOUNT_EMAILS = [
   // Accepted, and correctly so: Chromium punycodes an IDN inside
   // `input[type=email]` before the app sees it, so `ada@exämple.com` arrives as
   // `ada@xn--exmple-cua.com` -- plain ASCII, which both tiers take. The pattern
-  // is still ASCII-only, so an IDN typed anywhere the browser does not normalise
+  // is still ASCII-only, so an IDN typed anywhere the browser does not normalize
   // would be refused; that is recorded in docs/remaining-work.md.
   { name: 'non-ascii domain, punycoded by the browser', value: 'ada@exämple.com', expect: 'accepted' },
   { name: 'over the column width', value: `${'a'.repeat(250)}@example.com`, expect: 'rejected' },
 
   { name: 'plain', value: 'ada@example.com', expect: 'accepted' },
-  { name: 'uppercase, normalised', value: 'ADA@EXAMPLE.COM', expect: 'accepted' },
+  { name: 'uppercase, normalized', value: 'ADA@EXAMPLE.COM', expect: 'accepted' },
   { name: 'padded, trimmed', value: '  ada@example.com  ', expect: 'accepted' },
   { name: 'plus tagged', value: 'ada+e2e@example.com', expect: 'accepted' },
 ];

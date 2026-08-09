@@ -186,11 +186,16 @@ test('the stylesheet actually loaded', async ({ page }) => {
 
   const brand = page.locator('.navbar-brand strong');
   const color = await brand.evaluate((el) => getComputedStyle(el).color);
-  // The brand turquoise, darkened to `--bulma-primary-on-scheme` wherever it is
-  // used as *text*: hsl(171, 100%, 41%) reads at about 1.8:1 on the page
-  // background, which axe flags as a serious contrast failure and which is
-  // genuinely hard to read. Same hue, same saturation; backgrounds are
-  // untouched. Still an exact value, because the point of this test is to
-  // notice when the stylesheet has not loaded at all.
-  expect(color).toBe('rgb(0, 107, 91)');
+  // The brand turquoise, darkened enough to read as *text*: hsl(171, 100%, 41%)
+  // is about 1.95:1 on the page background, which axe flags as a serious
+  // contrast failure and which is genuinely hard to read. Same hue, same
+  // saturation; backgrounds are untouched.
+  //
+  // 24% rather than the 21% every other primary-coloured text uses. At 21% the
+  // wordmark read as a muddy green rather than the brand; 24% measures 4.70:1 against the background axe resolves,
+  // which still clears AA for 16px at weight 600 -- under the large-text
+  // threshold, so the 4.5:1 bar applies. `chrome.spec.js` asserts the ratio and
+  // the reasoning; this stays an exact value because its job is to notice when
+  // the stylesheet has not loaded at all.
+  expect(color).toBe('rgb(0, 122, 104)');
 });

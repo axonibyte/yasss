@@ -91,7 +91,7 @@ test('a mistyped confirmation is caught before any key derivation', async ({ pag
   await closeModal(page);
 });
 
-test('registration accepts a password at the minimum and normalises the address',
+test('registration accepts a password at the minimum and normalizes the address',
   async ({ page }) => {
     // The one scrypt this spec pays deliberately.
     const address = `${uniqueTitle('acct').replace(/\s+/g, '-').toLowerCase()}@example.com`;

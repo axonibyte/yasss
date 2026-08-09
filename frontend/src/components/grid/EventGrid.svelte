@@ -106,6 +106,7 @@
             <GridCell
               label={cell.label}
               aesthetics={cell.aesthetics}
+              state={cell.state}
               ariaLabel={slotName(activity, win, cell.label)}
               onclick={slotHandler(activity, win)}
             />

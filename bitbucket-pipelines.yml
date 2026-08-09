@@ -9,26 +9,15 @@ mirror: &mirror
     - cd ${BITBUCKET_REPO_SLUG}.git
     - git push --mirror git@github.com:${BITBUCKET_REPO_OWNER}/${BITBUCKET_REPO_SLUG}.git
 
-# Unit, component and browser tests. Runs on the Playwright image so the
-# browsers and their system libraries are already present -- installing them
-# into the JDK image on every build is minutes of wasted wall clock.
-frontend: &frontend
-  name: frontend tests
-  image: mcr.microsoft.com/playwright:v1.62.1-noble
-  caches:
-    - npm
-  script:
-    - cd frontend
-    - npm ci
-    - npm run test
-    - npm run build
-    - npm run test:e2e
-    # The @compat subset on Firefox, WebKit and a mobile viewport. The image
-    # already carries all three, so this costs about a minute.
-    - npm run test:e2e:compat
-  artifacts:
-    - frontend/playwright-report/**
-
+# The jar, and everything that does not need a browser.
+#
+# This is also the *only* place the frontend bundle is built. `check` runs the
+# Java and vitest suites, and `processResources` depends on `buildFrontend`, so
+# Gradle produces the bundle on its way to the jar. The browser steps below take
+# it from here as an artefact rather than building a second one -- which is what
+# they used to do, meaning Playwright validated a bundle that was not the one
+# shipped inside the jar. Same inputs, so almost certainly the same bytes; but
+# "almost certainly" was doing the work in a claim about what gets published.
 build: &build
   name: build and test artifacts
   image:
@@ -39,11 +28,83 @@ build: &build
     - gradle
     - npm
   script:
-    # `check` rather than `test`: it runs the Java suite and the frontend unit
-    # tests. The browser suite is its own step above so this one stays quick.
     - bash ./gradlew clean check shadowJar --info
   artifacts:
     - build/libs/*.jar
+    # The bundle the jar carries, for the browser steps to test.
+    - src/main/resources/public/**
+
+# Everything below runs against the artefacts above, so none of them rebuild.
+browser: &browser
+  name: browser tests (chromium)
+  image: mcr.microsoft.com/playwright:v1.62.1-noble
+  caches:
+    - npm
+  script:
+    - cd frontend
+    - npm ci
+    # No `npm run build` -- the bundle arrived from `build`. If that artefact is
+    # ever dropped, the fake server serves nothing and these fail immediately
+    # rather than quietly testing a stale checkout.
+    - npm run test:e2e
+  artifacts:
+    - frontend/playwright-report/**
+
+compat: &compat
+  name: cross-engine subset
+  image: mcr.microsoft.com/playwright:v1.62.1-noble
+  caches:
+    - npm
+  script:
+    - cd frontend
+    - npm ci
+    # Firefox, WebKit and a mobile viewport, over the @compat subset only. This
+    # is the tier that catches what the FreeBSD dev box cannot run: WebKit does
+    # not work under its linuxulator, and the mobile viewport is where a navbar
+    # change broke three tests that chromium was happy with.
+    - npm run test:e2e:compat
+  artifacts:
+    - frontend/playwright-report/**
+
+# A push should tell you in a minute or two whether you broke something obvious.
+# Everything expensive waits for the merge queue.
+fast: &fast
+  name: unit and component tests
+  image:
+    name: registry.digitalocean.com/axb/openjdk17:latest
+    username: $DO_REG_SECRET
+    password: $DO_REG_SECRET
+  caches:
+    - gradle
+    - npm
+  script:
+    - bash ./gradlew check
+
+# The real thing: a container stack with MariaDB, a mail sink and the jar under
+# test, driven through the API and a browser. See e2e/README.md.
+#
+# `--jar` rather than letting the script build its own, so the suite proves the
+# artefact that gets published. `--engine docker` because Bitbucket offers a
+# docker service and not podman; the script's topology is engine-agnostic.
+stack: &stack
+  name: full stack (containerised)
+  size: 2x
+  services:
+    - docker
+  caches:
+    - docker
+  script:
+    # run.sh reads the jar's manifest and service registries with `unzip`, and a
+    # missing one would surface as a confusing failure deep inside the jar
+    # checks rather than as "unzip is not installed".
+    - >-
+      command -v unzip >/dev/null ||
+      (apt-get update && apt-get install -y --no-install-recommends unzip)
+    - export YASSS_E2E_PUBLISH=0
+    - bash ./e2e/run.sh --engine docker --jar build/libs/yasss.jar
+  artifacts:
+    - frontend/playwright-report/**
+    - e2e/journeys/handle.json
 
 publish: &publish
   name: publish artifact
@@ -63,30 +124,89 @@ publish: &publish
 definitions:
   caches:
     npm: frontend/node_modules
+  services:
+    docker:
+      # The default 1024 MB does not hold MariaDB, the JVM under test and
+      # Chromium at once. When this ran short locally the app died mid-suite
+      # with ECONNREFUSED rather than anything naming memory, so budget for one
+      # confusing failure if this needs raising again.
+      memory: 3072
 
 pipelines:
   branches:
     '**':
-      - step:
-          <<: *mirror
-      # Previously only `main` built anything, so a branch could never be shown
-      # to be green before merging -- which is how a frontend that had never
-      # been executed once reached a release branch.
+      # Mirroring is repo-wide and idempotent -- it pushes every ref regardless
+      # of which branch triggered it -- so it need not gate the tests. It used
+      # to be a blocking first step, which put a full `git clone --mirror` on
+      # the critical path of every push.
       - parallel:
           - step:
-              <<: *frontend
+              <<: *mirror
           - step:
-              <<: *build
+              <<: *fast
     main:
-      - step:
-          <<: *mirror
       - parallel:
           - step:
-              <<: *frontend
+              <<: *mirror
           - step:
               <<: *build
       - step:
           <<: *publish
+
+  # Feedback before queueing. Deliberately not the whole matrix: the queue is
+  # what gates the merge, and this only exists so an obvious break is visible
+  # while the PR is still being reviewed.
+  pull-requests:
+    '**':
+      - parallel:
+          - step:
+              <<: *mirror
+          - step:
+              <<: *build
+      - step:
+          <<: *browser
+
+  # The gate. Bitbucket builds a merge *result* commit -- what will actually
+  # land -- so this validates the combination rather than the branch. A failure
+  # ejects that pull request and rebuilds the ones behind it without its
+  # changes.
+  #
+  # The key must match the queue name in the UI exactly, and branch restrictions
+  # must not block `bitbucket-merge-queue-*` or the queue silently cannot run.
+  merge-queues:
+    rapid_dev_to_main:
+      - step:
+          <<: *build
+      - parallel:
+          - step:
+              <<: *browser
+          - step:
+              <<: *compat
+      - step:
+          <<: *stack
+
+  # For a long journey run, or for reproducing a queue failure without opening a
+  # pull request.
+  custom:
+    full-stack:
+      - step:
+          <<: *build
+      - step:
+          <<: *stack
+    long-journeys:
+      - step:
+          <<: *build
+      - step:
+          <<: *stack
+          name: long journey run
+          script:
+            - >-
+              command -v unzip >/dev/null ||
+              (apt-get update && apt-get install -y --no-install-recommends unzip)
+            - export YASSS_E2E_PUBLISH=0
+            - export JOURNEY_ITERATIONS=2000
+            - bash ./e2e/run.sh --engine docker --jar build/libs/yasss.jar --only journeys
+
   tags:
     '**':
       - step:

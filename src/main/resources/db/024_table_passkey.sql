@@ -44,7 +44,7 @@
  * User.commit reconciles pending email addresses by deleting other users whose
  * pending_email matches a newly verified one. With the cascade that now takes
  * their passkeys too. Correct -- the account is being destroyed -- but it means
- * enrolment is refused on an account with no verified email; see
+ * enrollment is refused on an account with no verified email; see
  * PasskeyRegistrationEndpoint.
  *
  * Block comments deliberately -- see the note in 006.

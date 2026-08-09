@@ -36,6 +36,29 @@ describe('parseRoute', () => {
   it('yields nulls for a bare URL', () => {
     expect(parseRoute('')).toEqual({
       eventId: null, action: null, user: null, volunteer: null, token: null, share: false,
+      tutorial: null,
+    });
+  });
+
+  describe('the tutorial parameter', () => {
+    it('reads a named track', () => {
+      expect(parseRoute('?tutorial=organizer').tutorial).toBe('organizer');
+      expect(parseRoute('?tutorial=volunteer').tutorial).toBe('volunteer');
+    });
+
+    it('distinguishes a bare ?tutorial from an absent one', () => {
+      // `''` opens the chooser and `null` does nothing at all, so these cannot
+      // collapse into one falsy value -- which is what `params.get` alone
+      // returns for both.
+      expect(parseRoute('?tutorial').tutorial).toBe('');
+      expect(parseRoute('?tutorial=').tutorial).toBe('');
+      expect(parseRoute('?event=abc').tutorial).toBeNull();
+    });
+
+    it('passes an unrecognized track through for the caller to reject', () => {
+      // Validated where it is used rather than here: `parse` reports the URL,
+      // and deciding that 'nonsense' means "ask which track" is App's business.
+      expect(parseRoute('?tutorial=nonsense').tutorial).toBe('nonsense');
     });
   });
 });

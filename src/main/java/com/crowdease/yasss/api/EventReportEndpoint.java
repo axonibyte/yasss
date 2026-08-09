@@ -194,7 +194,7 @@ public final class EventReportEndpoint extends Endpoint {
               slot.getWindow().toString(),
               activity.getShortDescription());
           
-          // Same hazard: a fully-capped slot whose RSVPs were all cancelled
+          // Same hazard: a fully-capped slot whose RSVPs were all canceled
           // yields no rows and no remaining blanks to add.
           if(rows.isEmpty())
             rows.add(new HTMLElem("tr"));

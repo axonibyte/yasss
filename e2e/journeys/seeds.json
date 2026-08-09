@@ -14,14 +14,28 @@
     {
       "seed": 20260807,
       "iterations": 120,
-      "note": "general coverage. Verified against the build before 9991e50: fails at action 30 with `?volunteer=` returning an event twice for an account holding two signups on it."
+      "note": "general coverage. Once verified against the build before 9991e50, where it failed at action 30 with `?volunteer=` returning an event twice for an account holding two signups on it -- but see _staleNote: this seed no longer walks that sequence."
     },
     {
       "seed": 811,
       "iterations": 120,
-      "note": "general coverage, different action mix. Catches the same duplicate at action 10."
+      "note": "general coverage, different action mix. Also once caught that duplicate, at action 10; see _staleNote."
     }
   ],
+  "_staleNote": [
+    "What a seed catches is only true for the action sequence it drew when the",
+    "claim was written, and the sequence moves whenever the number of draws per",
+    "action changes. `create-event` began varying its activity count -- one",
+    "`ctx.rnd()` call -- and every seed below started walking somewhere else.",
+    "",
+    "So the notes above record what these seeds *found*, which is why they were",
+    "kept, and no longer describe what they do today. That is worth knowing",
+    "before trusting one: a seed promoted for catching a specific defect stops",
+    "guarding that defect the moment the stream shifts, and nothing announces",
+    "it. A regression that must stay caught belongs in a written test, not in a",
+    "seed."
+  ],
+
   "_browserNote": [
     "The browser audit is not seeded from here -- it reads whatever world the",
     "engine last built. Verified against the build before 7c51719, where one",

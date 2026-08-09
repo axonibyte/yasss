@@ -89,7 +89,7 @@ describe('detail answers', () => {
     // The regression this file exists for. `isBlank` means "not ticked", which
     // is right for the required check but wrong for serialization: an optional
     // checkbox answered *no* is an answer, and dropping it makes "no"
-    // indistinguishable from "never asked" in the organiser's data.
+    // indistinguishable from "never asked" in the organizer's data.
     const agree = new Detail({ id: 'd1', type: 'BOOLEAN', label: 'Parking?' });
     const { volunteer, ...ctx } = fixture({
       details: [agree], values: new Map([[agree.key, false]]),
@@ -118,7 +118,7 @@ describe('detail answers', () => {
     expect(volunteerCreatePayload(volunteer, { ...ctx, account: null }).details).toEqual([]);
   });
 
-  it('skips a detail of an unrecognised type instead of throwing', () => {
+  it('skips a detail of an unrecognized type instead of throwing', () => {
     const odd = new Detail({ id: 'd1', type: 'MYSTERY', label: 'Odd' });
     const { volunteer, ...ctx } = fixture({
       details: [odd], values: new Map([[odd.key, 'x']]),

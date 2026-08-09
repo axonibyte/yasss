@@ -1,6 +1,6 @@
 <script>
   /**
-   * A labelled form field with inline error presentation.
+   * A labeled form field with inline error presentation.
    *
    * The legacy appended a red `Error` pill with a tooltip into the label and
    * only cleared it on the next submit attempt, so a corrected field stayed red

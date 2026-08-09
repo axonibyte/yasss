@@ -87,7 +87,7 @@ public class DetailTypeTest {
 
   /**
    * The character class is lowercase-only, so an address with any capital
-   * letter is rejected. Genuine server behaviour, not a client quirk -- the
+   * letter is rejected. Genuine server behavior, not a client quirk -- the
    * frontend lowercases on blur rather than loosening the rule, which keeps the
    * two tiers in agreement while removing the trap.
    */
@@ -169,7 +169,7 @@ public class DetailTypeTest {
             + "frontend/tests/unit/validation.test.js", type, value));
   }
 
-  // --- normalisation ---------------------------------------------------------
+  // --- normalization ---------------------------------------------------------
 
   /**
    * The EMAIL pattern is lowercase-only, mirroring a Java pattern compiled
@@ -195,7 +195,7 @@ public class DetailTypeTest {
   }
 
   @Test
-  public void normaliseToleratesNull() {
+  public void normalizeToleratesNull() {
     for(Type type : Type.values()) assertNull(type.normalize(null));
   }
 }

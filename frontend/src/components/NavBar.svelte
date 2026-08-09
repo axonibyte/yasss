@@ -1,14 +1,22 @@
 <script>
   /**
-   * Reproduces the legacy navbar exactly (docs/legacy/02-aesthetics.md §0.1).
+   * The navbar. docs/legacy/02-aesthetics.md §0.1.
    *
-   * Deliberately has no navbar-burger and no navbar-menu — the legacy markup
-   * had neither, so Bulma stacks the links under the brand on mobile. Do not
-   * "helpfully" add a hamburger; that is a visible departure from main.
+   * This used to carry an instruction not to add a hamburger, on the grounds
+   * that the legacy markup had neither a burger nor a `navbar-menu` and that
+   * adding one was a visible departure from main. That was right while the bar
+   * held two items and the departure bought nothing. It now holds four plus a
+   * theme control, which on a phone stacked into a column tall enough to push
+   * the page content off screen — so the departure is the point, and it was
+   * asked for.
    */
+  import { theme } from '../state/theme.svelte.js';
+
   let {
-    loggedIn = false, onCreateEvent, onLogin, onAccount, onLogout, onHome,
+    loggedIn = false, onCreateEvent, onTutorial, onLogin, onAccount, onLogout, onHome,
   } = $props();
+
+  let menuOpen = $state(false);
 
   /**
    * Run a navbar action without letting the link navigate.
@@ -19,9 +27,14 @@
    * fragments that changed nothing visible, and on Chromium the resulting
    * `popstate` fired in the same tick as the click, which is a hazard the route
    * listener already has to work around.
+   *
+   * Closing the menu here rather than in each handler: on a phone the menu
+   * covers the page, so leaving it open over whatever the item just opened is
+   * the one thing every item would otherwise have to remember not to do.
    */
   const act = (fn) => (e) => {
     e.preventDefault();
+    menuOpen = false;
     fn?.();
   };
 </script>
@@ -40,14 +53,59 @@
       <img src="/assets/img/yasss_logo_small.png" alt="Yasss!" />
       <strong class="has-text-primary">Yasss!</strong>
     </a>
+
+    <!--
+      A real <button>, not Bulma's `<a role="button">`. The anchor form is not
+      reachable by keyboard in any useful way — it has no href, so it is not a
+      tab stop — and it lies about being a link when it toggles a disclosure.
+      `aria-expanded` is the part a screen reader actually needs.
+    -->
+    <button
+      type="button"
+      class="navbar-burger"
+      class:is-active={menuOpen}
+      aria-label="Menu"
+      aria-expanded={menuOpen}
+      aria-controls="navbar-menu"
+      data-testid="navbar-burger"
+      onclick={() => { menuOpen = !menuOpen; }}
+    >
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </button>
   </div>
-  <div class="navbar-end">
-    <a class="navbar-item" href="#create-event" onclick={act(onCreateEvent)}>Create Event</a>
-    {#if loggedIn}
-      <a class="navbar-item" href="#account" onclick={act(onAccount)}>Account</a>
-      <a class="navbar-item" href="#logout" onclick={act(onLogout)}>Log Out</a>
-    {:else}
-      <a class="navbar-item" href="#login" onclick={act(onLogin)}>Log In</a>
-    {/if}
+
+  <div id="navbar-menu" class="navbar-menu" class:is-active={menuOpen}>
+    <div class="navbar-end">
+      <a class="navbar-item" href="#create-event" onclick={act(onCreateEvent)}>Create Event</a>
+      <a class="navbar-item" href="#tutorial" onclick={act(onTutorial)}>Tutorial</a>
+      {#if loggedIn}
+        <a class="navbar-item" href="#account" onclick={act(onAccount)}>Account</a>
+        <a class="navbar-item" href="#logout" onclick={act(onLogout)}>Log Out</a>
+      {:else}
+        <a class="navbar-item" href="#login" onclick={act(onLogin)}>Log In</a>
+      {/if}
+
+      <!--
+        One button cycling system → light → dark rather than a two-state switch.
+        The accessible name carries the *setting*, because that is what pressing
+        it changes; the icon shows what is currently rendered, which under
+        "match system" the setting does not tell you.
+      -->
+      <div class="navbar-item">
+        <button
+          type="button"
+          class="button is-small is-ghost theme-toggle"
+          data-testid="theme-toggle"
+          aria-label={`Theme: ${theme.label}. Change`}
+          title={`Theme: ${theme.label}`}
+          onclick={() => theme.cycle()}
+        >
+          <span aria-hidden="true">{theme.isDark ? '☾' : '☀'}</span>
+          <span class="theme-toggle-label">{theme.label}</span>
+        </button>
+      </div>
+    </div>
   </div>
 </nav>

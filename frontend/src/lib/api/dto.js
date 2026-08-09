@@ -94,7 +94,7 @@ export function eventSummaryToApi(next, previous = {}) {
   // the endpoint could not tell an explicit null from an absent key. It can now,
   // so clearing one is a change like any other.
   //
-  // Normalised to null first, so that undefined (never loaded) and '' (the
+  // Normalized to null first, so that undefined (never loaded) and '' (the
   // select's empty option) do not read as different values from one another and
   // produce a pointless PATCH.
   const zone = next.timezone || null;

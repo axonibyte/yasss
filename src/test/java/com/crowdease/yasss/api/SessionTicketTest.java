@@ -61,7 +61,7 @@ public class SessionTicketTest {
 
   @Test public void rejects_aTicketWithNoTimingClaims() {
     // Every session issued before this existed. Refused, which signs the user
-    // base out exactly once at upgrade -- against the previous behaviour of
+    // base out exactly once at upgrade -- against the previous behavior of
     // signing them out on every deploy and again every fifteen minutes.
     assertEquals(
         verdict(new JSONObject().put(SessionTicket.CLAIM_ACCOUNT, UUID.randomUUID()), 0L),

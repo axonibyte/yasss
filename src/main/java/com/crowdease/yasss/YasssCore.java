@@ -232,7 +232,7 @@ public class YasssCore {
 
       String globalSecret = config.getString(ParamEnum.TICKET_GLOBAL_SECRET);
 
-      // Refusing to start is the least bad outcome, and it is a change in behaviour for
+      // Refusing to start is the least bad outcome, and it is a change in behavior for
       // any deployment that never set this.
       //
       // Since axb-lib-auth-java 0.1.0, Credentialed refuses to encrypt credential
@@ -275,7 +275,7 @@ public class YasssCore {
         if(0 < swept.failed())
           logger.warn(
               "{} MFA secret(s) could not be read and were left untouched; those accounts "
-              + "must re-enrol -- see docs/upstream-axb-lib-auth.md",
+              + "must re-enroll -- see docs/upstream-axb-lib-auth.md",
               swept.failed());
       } catch(SQLException e) {
         logger.error("could not sweep stored MFA secrets: {}", e.getMessage());
@@ -799,7 +799,7 @@ public class YasssCore {
   }
 
   /**
-   * Whether replayable v1 credentials are still honoured.
+   * Whether replayable v1 credentials are still honored.
    *
    * @return {@code auth.acceptLegacySig}
    */

@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
  *
  * Every endpoint in the application defers to {@link Authorization}, and until
  * now nothing verified it. Several of the rules encoded here are load-bearing
- * for behaviour the product depends on and are written down nowhere else --
+ * for behavior the product depends on and are written down nowhere else --
  * notably that an event with no administrator is editable only by a platform
  * admin, which is the entire reason "publish anonymously and you can never edit
  * it again" is true.
@@ -147,7 +147,7 @@ public class AuthorizationMatrixTest {
    * prompt warns that you will not be able to edit the event later, and this is
    * why that is true. It falls out of {@code actor.getID().equals(null)} being
    * false rather than from any explicit branch, so it is exactly the kind of
-   * behaviour a refactor could quietly invert.
+   * behavior a refactor could quietly invert.
    */
   @Test
   public void anUnownedEventIsAdminOnly() {

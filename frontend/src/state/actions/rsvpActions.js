@@ -12,6 +12,7 @@
  */
 import * as api from '../../lib/api/index.js';
 import { toastError } from '../toast.js';
+import { isRemoteVolunteer } from './remote.js';
 
 /**
  * Toggle the selected volunteer's claim on a slot.
@@ -22,13 +23,16 @@ export async function toggleRsvp(event, activity, win) {
   const volunteer = event.selectedVolunteer;
   const slot = event.slot(activity, win);
   if (!volunteer || !slot || !slot.enabled) return false;
-  if (event.expired) return false;
+  // `interactive`, not `expired`: an expired event is closed to everyone except
+  // a platform admin, and that exemption is the model's to state rather than
+  // this module's to re-derive.
+  if (!event.interactive) return false;
 
   const held = event.hasRsvp(slot);
   if (!held && event.atCapacity(activity, slot)) return false;
 
-  // Not yet persisted: local only, submitted later with the volunteer.
-  if (!volunteer.persisted) {
+  // Not the server's to record: local only, submitted later with the volunteer.
+  if (!isRemoteVolunteer(event, volunteer)) {
     if (held) event.removeRsvp(volunteer, slot);
     else event.addRsvp(volunteer, slot);
     return true;

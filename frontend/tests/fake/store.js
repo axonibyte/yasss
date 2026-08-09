@@ -1,7 +1,7 @@
 /**
  * In-memory state for the fake API server.
  *
- * Modelled on the real schema rather than on whatever the tests happen to need,
+ * Modeled on the real schema rather than on whatever the tests happen to need,
  * because the point of the fake is to catch places where the frontend and the
  * Java server disagree. Where the server's shape is surprising, that surprise
  * is reproduced here — see `serializeEventRead`.
@@ -189,7 +189,7 @@ const byPriority = (list) => list
  * The volunteer shape the server actually emits.
  *
  * `reminderEmail` and `reminderToken` are deliberately withheld: the real server
- * emits only whether a confirmed address exists, so an organiser reading their
+ * emits only whether a confirmed address exists, so an organizer reading their
  * own event cannot harvest volunteers' contact details. Spreading the stored
  * record here would hand the frontend a field it must never learn to rely on.
  */

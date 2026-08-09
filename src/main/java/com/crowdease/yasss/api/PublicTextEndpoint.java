@@ -37,7 +37,8 @@ public final class PublicTextEndpoint extends Endpoint {
   public static enum TextFile {
     CALL_TO_ACTION(ParamEnum.TEXTS_CALL_TO_ACTION, "coa"),
     TERMS_OF_SERVICE(ParamEnum.TEXTS_TERMS_OF_SERVICE, "terms"),
-    PRIVACY_POLICY(ParamEnum.TEXTS_PRIVACY_POLICY, "privacy");
+    PRIVACY_POLICY(ParamEnum.TEXTS_PRIVACY_POLICY, "privacy"),
+    TUTORIAL(ParamEnum.TEXTS_TUTORIAL, "tutorial");
 
     private String id;
     private ParamEnum param;

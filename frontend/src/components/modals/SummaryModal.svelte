@@ -18,13 +18,13 @@
   // svelte-ignore state_referenced_locally
   let allowMultiuserSignups = $state(summary?.allowMultiuserSignups ?? false);
   // Held as a string so an empty box stays empty rather than showing a 0 the
-  // organiser did not type; blank means "use the platform default".
+  // organizer did not type; blank means "use the platform default".
   // svelte-ignore state_referenced_locally
   let reminderLeadTime = $state(
     summary?.reminderLeadTime == null ? '' : String(summary.reminderLeadTime),
   );
   // The zone used to be captured silently from the browser at creation and was
-  // then unchangeable, so an organiser building an event while travelling — or
+  // then unchangeable, so an organizer building an event while traveling — or
   // on a machine with the wrong zone set — had no way to see that it was wrong
   // and no way to correct it. It is a real field now.
   //
@@ -32,7 +32,7 @@
   // one that never recorded a zone defaults to blank — meaning "render in each
   // viewer's own" — rather than to the editor's zone, so that editing the
   // description of an event created before zones existed does not quietly stamp
-  // whichever zone the organiser happens to be in onto it.
+  // whichever zone the organizer happens to be in onto it.
   // svelte-ignore state_referenced_locally
   let timezone = $state(summary?.timezone ?? (isNew ? localZone() : ''));
   let errors = $state({});
@@ -57,7 +57,7 @@
     // `UTC` is added explicitly because `supportedValuesOf` returns the
     // canonical set and leaves it out, yet the engine resolves it, the server
     // accepts it, and it is what `Intl` reports for a browser running in UTC.
-    // Without it a UTC organiser could neither see nor choose their own zone.
+    // Without it a UTC organizer could neither see nor choose their own zone.
     const current = summary?.timezone ?? localZone();
     return [...new Set([...list, 'UTC', current].filter(Boolean))].sort();
   })();

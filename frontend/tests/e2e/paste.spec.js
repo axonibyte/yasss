@@ -8,7 +8,7 @@
  * `change` does not arrive until the field is left.
  *
  * Two real defects lived in that gap and are fixed here; one deliberate
- * behaviour lives there too and is pinned rather than changed. See
+ * behavior lives there too and is pinned rather than changed. See
  * `tests/shared/paste.js` for why `keyboard.insertText` is the only honest way
  * to reproduce a paste across engines.
  */
@@ -192,10 +192,10 @@ test.describe('the slot cap', () => {
   });
 });
 
-test.describe('email normalisation', () => {
+test.describe('email normalization', () => {
   /**
    * Addresses are lowercased on blur so the user can see it happen, but every
-   * validator normalises independently — so submitting without ever leaving the
+   * validator normalizes independently — so submitting without ever leaving the
    * field has to be safe too. A dispatched click does not move focus, which is
    * what makes this test the one that would catch a "simplify the validators"
    * refactor.
@@ -215,9 +215,9 @@ test.describe('email normalisation', () => {
       await page.getByRole('button', { name: 'Log In!' }).dispatchEvent('click');
       await posted;
 
-      // A dispatched click moves no focus, so the onblur normaliser never runs.
-      // The address is lowercased anyway, because `validateLogin` normalises
-      // independently and the modal writes the normalised value back — which is
+      // A dispatched click moves no focus, so the onblur normalizer never runs.
+      // The address is lowercased anyway, because `validateLogin` normalizes
+      // independently and the modal writes the normalized value back — which is
       // the property worth pinning, since the blur handler exists only so the
       // user can watch it happen.
       expect(await page.locator('#auth-email').inputValue()).toBe('ada@example.com');

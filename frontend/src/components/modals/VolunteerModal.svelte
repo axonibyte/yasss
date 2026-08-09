@@ -27,7 +27,7 @@
   } = $props();
 
   // The form edits a snapshot, not the live entity: nothing is written back
-  // until Save, so cancelling leaves the volunteer untouched. Capturing the
+  // until Save, so canceling leaves the volunteer untouched. Capturing the
   // initial value is therefore the intent — this modal is remounted for each
   // volunteer, so there is no stale-prop hazard.
   // svelte-ignore state_referenced_locally
@@ -64,7 +64,7 @@
     const before = values.get(key);
     values.set(key, value);
     values = new Map(values);
-    // Only when the value actually changed. An EMAIL answer normalises to
+    // Only when the value actually changed. An EMAIL answer normalizes to
     // lowercase on blur, which routes through here — so simply *leaving* a
     // field you had not corrected cleared its complaint. That was already
     // wrong; it became visible once validation started focusing the offending

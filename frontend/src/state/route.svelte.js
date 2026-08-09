@@ -34,6 +34,12 @@ function parse(search = window.location.search) {
     // through email clients that mangle it (app.js:2752).
     token: params.get('token')?.replace(/ /g, '+') ?? null,
     share: params.has('share'),
+    // `?tutorial`, `?tutorial=organizer`, `?tutorial=volunteer`. The bare form
+    // opens the chooser. Linkable on purpose: it is the only entry point that
+    // can be *sent* to somebody, and the people who most need the volunteer
+    // track arrive from a shared link and never see the landing page the other
+    // two entry points live on.
+    tutorial: params.has('tutorial') ? (params.get('tutorial') || '') : null,
   };
 }
 
@@ -44,6 +50,7 @@ class Route {
   volunteer = $state(null);
   token = $state(null);
   share = $state(false);
+  tutorial = $state(null);
 
   constructor() {
     Object.assign(this, parse());
@@ -59,6 +66,20 @@ class Route {
 
   clearShare() {
     this.share = false;
+  }
+
+  /**
+   * Drop a consumed tutorial request, and take it out of the address bar.
+   *
+   * Left in the URL it would restart the tour on every reload, and -- worse --
+   * exiting the tutorial navigates home, which would put the visitor straight
+   * back into it.
+   */
+  clearTutorial() {
+    this.tutorial = null;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('tutorial');
+    window.history.replaceState({}, '', url);
   }
 
   /** Canonical link to an event, as used by share and by server-sent emails. */

@@ -299,7 +299,7 @@ export async function openPicker(page) {
  *
  * `which` is 'start' or 'end', `unit` is 'hours' or 'minutes'. Positive steps
  * press +, negative press -. This is the only route to an inverted range that a
- * user actually has: the date cells normalise start/end between them, but the
+ * user actually has: the date cells normalize start/end between them, but the
  * clocks are independent, so a same-day window can be given an end before its
  * beginning.
  */

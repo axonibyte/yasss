@@ -17,10 +17,10 @@ import org.testng.annotations.Test;
  * Markup escaping.
  *
  * <p>{@link HTMLElem} builds two HTML surfaces that render user-supplied text:
- * the organiser's printable report, served as {@code text/html} from the same
+ * the organizer's printable report, served as {@code text/html} from the same
  * origin as the app, and every templated email. Both interpolated with
  * {@code String.format} and escaped nothing, so a volunteer could choose their
- * own name and have it executed in the organiser's browser.
+ * own name and have it executed in the organizer's browser.
  *
  * <p>The distinction this class draws is the load-bearing one:
  * {@code push} must <em>not</em> escape, because several callers deliberately

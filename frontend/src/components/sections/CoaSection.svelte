@@ -10,16 +10,16 @@
   import { getText } from '../../lib/api/index.js';
   import { renderMarkdownWithPrimaryLinks } from '../../lib/markdown.js';
 
-  let { onCreateEvent } = $props();
+  let { onCreateEvent, onTutorial } = $props();
 
   let html = $state('');
 
   $effect(() => {
-    let cancelled = false;
+    let canceled = false;
     getText('coa')
-      .then((src) => { if (!cancelled) html = renderMarkdownWithPrimaryLinks(src); })
+      .then((src) => { if (!canceled) html = renderMarkdownWithPrimaryLinks(src); })
       .catch(() => { /* the section still renders with its CTA */ });
-    return () => { cancelled = true; };
+    return () => { canceled = true; };
   });
 </script>
 
@@ -35,6 +35,18 @@
         <div class="buttons is-centered">
           <button class="button is-primary is-medium" onclick={onCreateEvent}>
             Create an Event!
+          </button>
+          <!--
+            Beside the call to action rather than above it: someone who already
+            knows what they want should not have to read past an offer of
+            lessons, and someone who does not is looking at this card anyway.
+          -->
+          <button
+            class="button is-medium"
+            data-testid="tutorial-start"
+            onclick={onTutorial}
+          >
+            Show me how it works
           </button>
         </div>
       </div>

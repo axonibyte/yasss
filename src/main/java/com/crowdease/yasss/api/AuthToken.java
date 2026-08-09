@@ -84,7 +84,7 @@ public class AuthToken {
    * session ticket" -- still a full compromise, but one that is bounded by
    * {@code session_epoch} from that point on and that shows up in a revocation.
    *
-   * <p>This is a behaviour change for any non-browser consumer that signs every request
+   * <p>This is a behavior change for any non-browser consumer that signs every request
    * rather than exchanging a credential for a ticket once. The bundled clients do not:
    * both the frontend and {@code register-admin.mjs} sign exactly one request, against
    * {@code GET /v1}, and use the returned ticket thereafter.
@@ -200,7 +200,7 @@ public class AuthToken {
         // authenticate it are a passkey -- which does not come through here at all -- and
         // a session ticket. A password credential is refused before it is even verified,
         // because verifying it would be work done on behalf of a credential we have
-        // already decided not to honour.
+        // already decided not to honor.
         //
         // The ticket branch below is deliberately still reachable: sessions established
         // before the switch stay valid, and a ticket is not a password.

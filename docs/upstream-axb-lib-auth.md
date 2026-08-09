@@ -1,7 +1,7 @@
 # `axb-lib-auth-java` — what changed, and what it means here
 
 **This project moved from `0.0.2` straight to `0.2.0`**, skipping `0.1.0` deliberately.
-Written in the style of `upstream-axb-lib-db.md`: a record of upstream behaviour that
+Written in the style of `upstream-axb-lib-db.md`: a record of upstream behavior that
 shapes decisions in this repository, kept so the reasoning is not rediscovered.
 
 Verified against the library at tag `0.2.0`.

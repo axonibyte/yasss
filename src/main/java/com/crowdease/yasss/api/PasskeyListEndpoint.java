@@ -135,7 +135,7 @@ public final class PasskeyListEndpoint extends APIEndpoint {
         throw new EndpointException(
             req,
             "this is the only way left to sign in to this account; turn password sign-in "
-            + "back on, or enrol another passkey, before removing it",
+            + "back on, or enroll another passkey, before removing it",
             409);
     }
 

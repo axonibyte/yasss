@@ -1,11 +1,11 @@
 # `Database.setup` in `axb-lib-db` — fixed in 0.4.1
 
 **Status: resolved upstream.** This was written as a report against 0.3.4/0.4.0; the
-behaviours below were fixed in `axb-lib-db-java` 0.4.1. Kept as a record, because the
+behaviors below were fixed in `axb-lib-db-java` 0.4.1. Kept as a record, because the
 constraints shaped every migration in `db/` and the reasoning is worth not rediscovering.
 
 > **This project is now on 0.5.1.** See the bottom of this document for what changed after
-> 0.4.1 and what it means here — one of those changes alters connection-pool behaviour, and
+> 0.4.1 and what it means here — one of those changes alters connection-pool behavior, and
 > one of them is why 017 and 018 no longer fill the boot log with error packets.
 
 Verified against MariaDB 11.
@@ -84,12 +84,12 @@ affects this project:
   construction were fixed in 0.4.0. **This project builds no OR groups**, so nothing here is
   affected; recorded because the trap is easy to walk into.
 - **`Database.close()` no longer swallows exceptions**, logging them at WARN instead. It still
-  does not throw, so no `finally` block anywhere changes behaviour — but a connection that
+  does not throw, so no `finally` block anywhere changes behavior — but a connection that
   fails to return to the pool is now visible in the log rather than silent.
 - **`Database.transaction()`** was added, for work that spans several statements. Connections
   come from the pool with autocommit on, so a multi-statement sequence issued through
   `connect()` is not atomic. Nothing in this project currently needs it; `Volunteer.commit()`
-  and `Event.commit()` would be the candidates if partial-write behaviour ever becomes a
+  and `Event.commit()` would be the candidates if partial-write behavior ever becomes a
   concern.
 
 ---
@@ -116,7 +116,7 @@ calls — still returns one connection to the pool and still tolerates nulls.
 
 ### Pool settings now reach the pool (0.5.0)
 
-**This one changes runtime behaviour here.** The properties map passed to the six-argument
+**This one changes runtime behavior here.** The properties map passed to the six-argument
 constructor was handed wholesale to `addDataSourceProperty`, which forwards values to the JDBC
 driver. Pool settings sent that way are accepted and then ignored — so the library's own
 defaults named a `connectionTimeout`, `maxLifetime`, `idleTimeout` and `leakDetectionThreshold`

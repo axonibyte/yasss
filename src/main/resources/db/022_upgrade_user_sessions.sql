@@ -9,7 +9,7 @@
  *
  * `verify_token_expires` and `reset_token_expires` are epoch milliseconds, NULL
  * meaning "does not expire". NULL is what every token minted before this
- * migration has, and honouring it is deliberate: retrofitting an expiry onto
+ * migration has, and honoring it is deliberate: retrofitting an expiry onto
  * links already sitting in inboxes would break them at upgrade time for no
  * security gain.
  *

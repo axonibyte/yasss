@@ -130,17 +130,17 @@ public final class PasskeyAuthEndpoint extends APIEndpoint {
     var claim = PasskeyChallenge.claim(challenge, PasskeyChallenge.Ceremony.AUTHENTICATION, now);
 
     if(!claim.claimed())
-      throw new EndpointException(req, "challenge not recognised", 403);
+      throw new EndpointException(req, "challenge not recognized", 403);
     if(!claim.usable())
       throw new EndpointException(req, "challenge expired", 410);
 
     Passkey passkey = Passkey.byCredentialID(credentialID);
     if(null == passkey)
-      throw new EndpointException(req, "credential not recognised", 403);
+      throw new EndpointException(req, "credential not recognized", 403);
 
     User user = User.getUser(passkey.getUser());
     if(null == user)
-      throw new EndpointException(req, "credential not recognised", 403);
+      throw new EndpointException(req, "credential not recognized", 403);
 
     PasskeyVerifier.Asserted asserted;
     try {

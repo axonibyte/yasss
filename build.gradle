@@ -131,7 +131,33 @@ eclipse {
   }
 }
 
+// Byte-for-byte identical output for an identical tree.
+//
+// Zip entries carry a modification time and an arbitrary directory order, so
+// two builds of the same commit produced two different files and two different
+// checksums. That made a question worth answering unanswerable: "is the jar on
+// the downloads page the one built from this commit?" could only ever be taken
+// on trust, because rebuilding and comparing proved nothing.
+//
+// With these, the sha256 published beside the artefact becomes a claim anybody
+// can check by building the tag themselves. It is also what lets a merge queue
+// mean something: the queue validates a merge result, `main` rebuilds after the
+// merge, and only reproducibility makes those two the same jar rather than two
+// jars from the same source.
+//
+// `filePermissions`/`dirPermissions` are pinned for the same reason -- the
+// default depends on the builder's umask, and e2e/run.sh sets `umask 000` in
+// CI.
+def makeReproducible = { task ->
+  task.preserveFileTimestamps = false
+  task.reproducibleFileOrder = true
+  task.filePermissions { unix(0644) }
+  task.dirPermissions { unix(0755) }
+}
+
 jar {
+  makeReproducible(delegate)
+
   manifest {
     attributes(
       'Main-Class': prjGroup + '.' + prjMain,
@@ -148,6 +174,8 @@ jar {
 }
 
 shadowJar {
+  makeReproducible(delegate)
+
   archiveBaseName.set(prjName)
   archiveClassifier.set('')
   archiveVersion.set('')

@@ -40,6 +40,38 @@ export class EventModel {
   reminderLeadTime = $state(null);
   volunteersMaxed = $state(false);
   expired = $state(false);
+  /**
+   * A practice event, built by the tutorial and belonging to nobody.
+   *
+   * It carries an id so `mode` resolves to VIEW, which is the only way to show
+   * the volunteer surface -- and that id would otherwise authorize every write
+   * in the action layer to go out over the network. This is what says it must
+   * not. See `actions/remote.js` and `lib/tutorial/sandbox.js`.
+   */
+  sandbox = $state(false);
+  /**
+   * Whether the viewer outranks this event's expiry.
+   *
+   * Set from outside, for the same reason `sandbox` is: this model describes
+   * the event and knows nothing about who is looking at it, and importing
+   * session state here would point the dependency the wrong way round.
+   *
+   * Deliberately *not* cleared by `reset()`, which is the one thing that
+   * separates it from `sandbox`. `sandbox` describes the event and goes when the
+   * event does; this describes who is looking, and they are still the same
+   * person after loading a different event. Clearing it here looked harmless and
+   * silently undid the whole exemption: the effect that sets it only re-runs
+   * when the access level changes, so `reset()` wrote false and nothing wrote
+   * true again.
+   *
+   * It exists because the exemption at `EventSection.svelte`'s expired branch
+   * was only half wired. That branch swaps the "This event has expired." pill
+   * for the submit button when the viewer is a platform admin -- but
+   * `interactive` was `!expired` with no admin clause, so `canAddVolunteer` was
+   * false, the grid ignored clicks and `toggleRsvp` returned early. The admin
+   * got a button and no possible way to put anything behind it.
+   */
+  expiryOverride = $state(false);
 
   activities = $state([]);
   windows = $state([]);
@@ -77,7 +109,7 @@ export class EventModel {
    * one this reported — which left the larger case uncovered. Until an event is
    * published nothing about it is remote: activities, windows, custom fields
    * and slots are all local state, and the whole graph goes to the server in a
-   * single POST at publish. So an organiser fifteen minutes into building an
+   * single POST at publish. So an organizer fifteen minutes into building an
    * event, with no volunteers on it at all, could close the tab and be asked
    * nothing.
    *
@@ -85,6 +117,10 @@ export class EventModel {
    * that is merely being looked at.
    */
   get hasUnsavedWork() {
+    // A practice event has nothing to lose: it was never going anywhere, and
+    // arming the unload guard over it would teach a first-time visitor that
+    // this app nags you for closing a tab.
+    if (this.sandbox) return false;
     if (this.volunteers.some((v) => !v.persisted)) return true;
     if (this.persisted) return false;
     return Boolean(this.title)
@@ -96,11 +132,12 @@ export class EventModel {
   maxStep = $derived(maxStep(this.activities.length));
 
   /** True when the viewer may act on cells at all. */
-  interactive = $derived(!this.expired);
+  interactive = $derived(!this.expired || this.expiryOverride);
 
   reset() {
     this.id = null;
     this.admin = null;
+    this.sandbox = false;
     this.title = '';
     this.description = '';
     this.notifyOnSignup = true;
@@ -252,7 +289,7 @@ export class EventModel {
         id: raw.id,
         name: raw.name ?? '',
         remindersEnabled: Boolean(raw.remindersEnabled),
-        // The address itself is deliberately never sent back, so an organiser
+        // The address itself is deliberately never sent back, so an organizer
         // reading the event cannot harvest volunteers' contact details.
         reminderConfirmed: Boolean(raw.reminderConfirmed),
         user: raw.user ?? null,

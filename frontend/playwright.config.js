@@ -7,7 +7,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  // `fullyParallel` was declared from the start but CI never honoured it:
+  // `fullyParallel` was declared from the start but CI never honored it:
   // Playwright's default there is a single worker, so 173 specs ran end to end.
   // Two is what the pipeline's 1x runner has to give. The suite is safe for it
   // by construction rather than by luck -- the fake resolves identity per
