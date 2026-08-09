@@ -72,6 +72,14 @@ export function buildPracticeEvent(event, now = new Date()) {
   });
   event.windows = [morning, afternoon];
 
+  // Six activities against five columns, which is one more than the grid shows.
+  //
+  // Deliberately over the cap. The grid holds five columns at every width -- one
+  // for the window labels and four for activities -- and pages the rest behind a
+  // slider. A practice event that fitted would teach a first-time organizer a
+  // grid that behaves differently from the one they get the moment they add a
+  // fifth activity, and the slider is not self-evident: it is the only control
+  // on the page that reveals content rather than changing it.
   const setUp = new Activity({
     label: 'Set up',
     description: 'Tables, signs, and the float for the cash box.',
@@ -84,6 +92,13 @@ export function buildPracticeEvent(event, now = new Date()) {
     priority: 1,
     slotCapDefault: 3,
   });
+  const extras = ['Serve', 'Take payments', 'Wash up', 'Pack down'].map(
+    (label, i) => new Activity({
+      label,
+      priority: 2 + i,
+      slotCapDefault: 2,
+    }),
+  );
 
   // Four cells, four states. "Set up" in the afternoon is disabled -- there is
   // nothing to set up once it has started -- and its morning slot is one short
@@ -101,7 +116,18 @@ export function buildPracticeEvent(event, now = new Date()) {
     enabled: true, cap: 3, rsvpCount: 0,
   }));
 
-  event.activities = [setUp, bake];
+  // Every extra activity is available in both windows: they exist to push the
+  // grid past its column cap, and a page of nothing but full and disabled tiles
+  // would be a poor thing to scroll to.
+  for (const activity of extras) {
+    for (const win of [morning, afternoon]) {
+      activity.slots.set(win.key, new Slot(activity.key, win.key, {
+        enabled: true, cap: 2, rsvpCount: 0,
+      }));
+    }
+  }
+
+  event.activities = [setUp, bake, ...extras];
 
   event.details = [new Detail({
     type: 'STRING',

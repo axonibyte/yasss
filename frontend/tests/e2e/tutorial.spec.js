@@ -345,3 +345,54 @@ test.describe('the ?tutorial link', () => {
     await expect(page.getByTestId('tutorial-step')).toHaveCount(0);
   });
 });
+
+/**
+ * The practice event is wider than the grid, on purpose.
+ *
+ * A tour of a grid that fits would teach a first-time organizer a grid that
+ * behaves differently from the one they get the moment they add a fifth
+ * activity — and the slider is the only control on the page that reveals
+ * content rather than changing it, so it is the one most worth showing.
+ */
+test.describe('the practice grid pages', () => {
+  test('shows a slider, and paging moves the activities', async ({ page }) => {
+    await page.goto('/?tutorial=organizer');
+    await waitForApp(page);
+
+    const slider = page.locator('#view-event-slider');
+    await expect(slider).toBeVisible();
+    // Six activities, four visible columns, so the last page starts at three.
+    await expect(slider).toHaveAttribute('max', '3');
+
+    const headers = () => page.locator('#view-event-table .fixed-grid > .grid > .cell')
+      .filter({ hasNot: page.locator('[data-slot-state]') })
+      .allTextContents();
+
+    const first = (await headers()).slice(1, 5);
+    expect(first).toContain('Set up');
+
+    await slider.fill('3');
+    const last = (await headers()).slice(1, 5);
+    expect(last).not.toEqual(first);
+    // Still four columns: it pages rather than growing.
+    expect(last).toHaveLength(4);
+  });
+
+  test('a step teaches it, and puts the grid back to the first page',
+    async ({ page }) => {
+      await page.goto('/?tutorial=organizer');
+      await waitForApp(page);
+      const slider = page.locator('#view-event-slider');
+
+      // Wander off before reaching the step that describes paging.
+      await slider.fill('3');
+
+      for (let i = 0; i < 20; i += 1) {
+        if ((await page.getByTestId('tutorial-step').innerText()).match(/slider/i)) break;
+        await page.getByRole('button', { name: 'Next' }).click();
+      }
+      await expect(page.getByTestId('tutorial-step')).toContainText(/slider/i);
+      // Whatever the learner dragged it to, the step describes page one.
+      await expect(slider).toHaveValue('1');
+    });
+});

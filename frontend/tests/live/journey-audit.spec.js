@@ -123,6 +123,11 @@ describe('journey audit', () => {
       // A genuinely repeated id would already have thrown each_key_duplicate
       // and been caught by the watchdog; this is the weaker but more legible
       // statement of the same thing.
+      //
+      // Counting by title only holds because the engine's titles are unique per
+      // run *attempt* -- see `runTag` in journey.mjs. They were not, and a
+      // failing run's shrink passes left several distinct events sharing one,
+      // which this read as a duplicate and reported alongside the real failure.
       const lists = page.locator('#list-event-section ul');
       await expect(lists.first()).toBeVisible({ timeout: 15_000 });
 
@@ -183,6 +188,61 @@ describe('journey audit', () => {
  * side counts requests; that side asks the database. Neither is sufficient
  * alone, which is why there are two.
  */
+/**
+ * The paging slider, on an event a long run actually built.
+ *
+ * The grid holds five columns at any width -- window labels plus four
+ * activities -- and pages the rest. That cap is invisible until an event
+ * crosses it, and every journey event used to be created with exactly one
+ * activity, so whether a run produced a wide one at all was luck. It is drawn
+ * from the seeded stream now, which is what makes this test able to insist
+ * rather than skip.
+ */
+describe('the activity slider', () => {
+  test('pages through an event wider than the grid', async ({ page, baseURL }) => {
+    const wide = [...handle.events].sort((a, b) => b.activityCount - a.activityCount)[0];
+    expect(
+      wide?.activityCount,
+      'no event in this world exceeded four activities, so the slider was never exercised. '
+      + 'The engine draws the count from the seed, so this is a regression in that, not a thin run.',
+    ).toBeGreaterThan(4);
+
+    const actor = handle.actors.find((a) => a.name === wide.owner) ?? handle.actors[0];
+    await signInAs(page, baseURL, actor);
+    await page.goto(`/?event=${wide.id}`);
+    await ready(page);
+
+    const slider = page.locator('#view-event-slider');
+    await expect(slider).toBeVisible();
+    // Four visible activity columns, so the last page starts three from the end.
+    await expect(slider).toHaveAttribute('max', String(wide.activityCount - 3));
+
+    // The activity headers are the four cells after the blank corner, and they
+    // are what paging is supposed to change.
+    const headers = () => page.locator('#view-event-table .fixed-grid > .grid > .cell')
+      .filter({ hasNot: page.locator('[data-slot-state]') })
+      .allTextContents();
+
+    const firstPage = (await headers()).slice(1, 5);
+    expect(firstPage).toHaveLength(4);
+
+    const last = String(wide.activityCount - 3);
+    await slider.fill(last);
+    await expect(slider).toHaveValue(last);
+
+    // The labels moved. Reading the slider's own value back would prove only
+    // that a range input works, which is not the thing under test.
+    const lastPage = (await headers()).slice(1, 5);
+    expect(lastPage).toHaveLength(4);
+    expect(lastPage).not.toEqual(firstPage);
+
+    // And the width never changes: the grid pages rather than growing, which is
+    // the property the whole five-column cap exists to hold.
+    await slider.fill('1');
+    expect((await headers()).slice(1, 5)).toEqual(firstPage);
+  });
+});
+
 describe('the tutorial, over an accumulated world', () => {
   /** The deck the operator actually configured, parsed the way the app parses it. */
   let deck = null;

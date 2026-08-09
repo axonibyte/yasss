@@ -54,6 +54,16 @@ const STEPS = [
     anchor: '#view-event-table [data-slot-state="available"]',
   },
   {
+    id: 'paging',
+    track: 'organizer',
+    anchor: '#view-event-slider',
+    enter(event) {
+      // Back to the first page, so the step describes what is on screen however
+      // far the learner dragged it before reaching here.
+      event.step = 1;
+    },
+  },
+  {
     id: 'structure',
     track: 'organizer',
     anchor: '#view-event-section',
@@ -97,6 +107,14 @@ const STEPS = [
         for (const detail of event.details) volunteer.values.set(detail.key, PRACTICE_ANSWER);
         event.addVolunteer(volunteer);
       }
+    },
+  },
+  {
+    id: 'v-paging',
+    track: 'volunteer',
+    anchor: '#view-event-slider',
+    enter(event) {
+      event.step = 1;
     },
   },
   {

@@ -220,6 +220,57 @@ console.log('\ndeterminism');
   );
 }
 
+// --- a lowered cap grandfathers, but only what was already there ------------
+
+/**
+ * The narrowest kind of correction, and the one most likely to be made wrongly.
+ *
+ * The cap check used to read `actual > cap`, which called a real product
+ * behavior a defect: an organizer may lower a slot's cap beneath the people
+ * already in it, nobody is evicted, and `edit-mode.spec.js` has a case named
+ * "slot cells show a count over cap" because the grid renders that on purpose.
+ * A seeded run reached it and the invariant cried wolf.
+ *
+ * Loosening it is easy to do too far. These two cases are the difference: the
+ * grandfathered occupancy passes, and one more than it does not.
+ */
+{
+  const world = new World();
+  const event = world.addEvent({ id: 'E9', code: 'CAPFLOOR', title: 'Cap', owner: 'owner' });
+  event.windows = ['W1'];
+  const slots = new Map([['W1', {
+    enabled: true, cap: 1, capFloor: 2, claimants: new Set(['v1', 'v2']),
+  }]]);
+  event.activities = [{ id: 'A1', label: 'Setup', cap: 0, slots }];
+
+  const served = (rsvpCount) => answering({
+    event: {
+      id: 'E9',
+      activities: [{
+        id: 'A1',
+        maxActivityVolunteers: 0,
+        slots: [{ window: 'W1', maxSlotVolunteers: 1, rsvpCount }],
+      }],
+      volunteers: [],
+    },
+  });
+
+  const owner = actorNamed('owner', 'U1');
+  const grandfathered = await checkEvent(served(2), world, owner, 'E9');
+  check(
+    !grandfathered.some((p) => p.includes('over a cap')),
+    'a cap lowered onto people already in the slot is not a violation',
+    grandfathered.join(' | '),
+  );
+
+  const oneMore = await checkEvent(served(3), world, owner, 'E9');
+  check(
+    oneMore.some((p) => p.includes('over a cap')),
+    'but one more person than the floor still is',
+    oneMore.join(' | ') || '(nothing reported)',
+  );
+}
+
 // --- the sandbox leak check -------------------------------------------------
 
 /**

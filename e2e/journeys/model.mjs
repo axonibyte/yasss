@@ -62,6 +62,16 @@ export class World {
     this.knowledge.get(actor).add(eventId);
   }
 
+  /**
+   * The occupancy a lowered cap grandfathered, if any. Null when the model has
+   * nothing to say, in which case the served cap stands on its own.
+   */
+  capFloor(event, activityId, windowId) {
+    const activity = event.activities.find((a) => a.id === activityId);
+    const slot = activity?.slots?.get(windowId);
+    return slot?.capFloor ?? null;
+  }
+
   knows(actor) {
     return [...(this.knowledge.get(actor) ?? [])];
   }
@@ -253,9 +263,22 @@ export async function checkEvent(api, world, actor, eventId) {
           `slot ${activity.id}/${slot.window} reports ${actual} RSVPs, model says ${expected}`,
         );
       }
+      // A cap the organizer lowered underneath people who had already signed up
+      // is not a violation: nobody is evicted, and the grid renders the
+      // over-subscription rather than hiding it. What would be a violation is
+      // one *more* person getting in, so the bar is the floor the model recorded
+      // when the cap moved -- which equals the occupancy at that moment, and so
+      // still catches the next claim.
+      //
+      // Stated as `cap` alone, this invariant called correct behavior a defect
+      // the first time a seeded run happened to lower a cap onto a full slot.
       const cap = slot.maxSlotVolunteers ?? 0;
-      if (cap !== 0 && actual > cap) {
-        problems.push(`slot ${activity.id}/${slot.window} holds ${actual} over a cap of ${cap}`);
+      const floor = world.capFloor(event, activity.id, slot.window) ?? cap;
+      if (cap !== 0 && actual > Math.max(cap, floor)) {
+        problems.push(
+          `slot ${activity.id}/${slot.window} holds ${actual} over a cap of ${cap}`
+          + (floor > cap ? ` (grandfathered floor ${floor})` : ''),
+        );
       }
     }
     const activityCap = activity.maxActivityVolunteers ?? 0;

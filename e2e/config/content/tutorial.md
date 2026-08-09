@@ -44,6 +44,11 @@ printed:
 See [the fixture link](https://example.invalid/fixture) for nothing in
 particular.
 
+<!-- step: paging -->
+## Fixture: paging past four activities
+
+The grid shows four at a time and slides to reach the rest. Fixture wording.
+
 <!-- step: structure -->
 ## Fixture: changing it afterwards
 
@@ -73,6 +78,11 @@ A name is enough; no account needed. Fixture wording.
 ## Fixture: the organizer's questions
 
 Required answers block submission. Fixture wording.
+
+<!-- step: v-paging -->
+## Fixture: there may be more off to the side
+
+Drag the slider to reach activities that do not fit. Fixture wording.
 
 <!-- step: v-claim -->
 ## Fixture: claim your squares

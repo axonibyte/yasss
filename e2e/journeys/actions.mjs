@@ -92,7 +92,17 @@ export const ACTIONS = [
         auth: ctx.actor.session,
         ...owns(ctx, 'admin'),
         windowCount: 1 + Math.floor(ctx.rnd() * 2),
-        activities: [{ label: 'Setup' }],
+        // One to six, drawn from the seeded stream so a run stays a replay.
+        //
+        // It used to be exactly one, always, and `add-activity` at weight 3 was
+        // the only way an event ever got wider. So whether any event in a run
+        // exceeded the grid's four visible columns -- the thing that puts the
+        // paging slider on screen -- was luck, and the browser audit had nothing
+        // dependable to page through. Six is one past the cap on purpose.
+        activities: Array.from(
+          { length: 1 + Math.floor(ctx.rnd() * 6) },
+          (_, i) => ({ label: i === 0 ? 'Setup' : `${NAMES[i % NAMES.length]}'s shift` }),
+        ),
         allowMultiUserSignups: true,
       });
 
@@ -177,8 +187,17 @@ export const ACTIONS = [
       if (res.status >= 400) return `enable-slot refused (${res.status})`;
 
       const existing = activity.slots.get(windowId);
+      const claimants = existing?.claimants ?? new Set();
       activity.slots.set(windowId, {
-        enabled: true, cap, claimants: existing?.claimants ?? new Set(),
+        enabled: true,
+        cap,
+        claimants,
+        // Lowering a cap beneath the people already in the slot does not evict
+        // them -- `edit-mode.spec.js` has a case named "slot cells show a count
+        // over cap", so the product renders that state on purpose. The floor is
+        // what the cap invariant may hold the server to from here: those
+        // claimants are grandfathered, and one more would still be a defect.
+        capFloor: cap === 0 ? 0 : Math.max(cap, claimants.size),
       });
       return `enabled ${activity.id}/${windowId} cap=${cap}`;
     },

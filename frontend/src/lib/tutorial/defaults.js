@@ -39,6 +39,14 @@ and you get a new row; add a window and you get a new column.`,
 
 Try clicking an available square now. Nothing here is real.`,
 
+  paging: `## More than four things to do
+
+The grid shows four activities at a time, whatever size your screen is. Add a
+fifth and the slider appears to reach the rest.
+
+Everything is still there — the grid scrolls sideways rather than shrinking, so
+the squares stay big enough to tap.`,
+
   structure: `## Changing it later
 
 Once an event is published you can still edit it: **Modify Event** turns the
@@ -86,6 +94,13 @@ whatever the event needs. Required ones have to be filled in before you can
 submit.
 
 We have filled this one in for you.`,
+
+  'v-paging': `## There may be more than you can see
+
+This event has more activities than fit across the screen. Drag the slider to
+reach the rest — the ones you want may be off to the side.
+
+Anything you have already claimed stays claimed while you scroll.`,
 
   'v-claim': `## Claim your squares
 
