@@ -18,7 +18,7 @@
  * thirty-one modal cycles, which is ninety-three across the matrix.
  */
 import { test, expect } from '@playwright/test';
-import { seed, waitForApp } from './helpers.js';
+import { navbarItem, seed, waitForApp } from './helpers.js';
 
 test.describe('cross-engine', { tag: '@compat' }, () => {
   /**
@@ -31,7 +31,7 @@ test.describe('cross-engine', { tag: '@compat' }, () => {
   test('a switch label toggles the input it covers', async ({ page }) => {
     await page.goto('/');
     await waitForApp(page);
-    await page.getByRole('link', { name: 'Create Event' }).click();
+    await navbarItem(page, 'Create Event');
     await page.locator('#event-title').fill('Switches');
     await page.getByRole('button', { name: 'Save' }).click();
     await page.getByRole('button', { name: 'Add an Activity' }).click();
@@ -59,7 +59,7 @@ test.describe('cross-engine', { tag: '@compat' }, () => {
     async ({ page }) => {
       await page.goto('/');
       await waitForApp(page);
-      await page.getByRole('link', { name: 'Create Event' }).click();
+      await navbarItem(page, 'Create Event');
       await page.locator('#event-title').fill('Picker');
       await page.getByRole('button', { name: 'Save' }).click();
       await page.getByRole('button', { name: 'Add an Activity' }).click();
@@ -85,12 +85,12 @@ test.describe('cross-engine', { tag: '@compat' }, () => {
     await page.goto('/');
     await waitForApp(page);
 
-    await page.getByRole('link', { name: 'Log In' }).click();
+    await navbarItem(page, 'Log In');
     await page.locator('#auth-email').click();
     await page.keyboard.press('Escape');
     await expect(page.locator('.modal-card')).toHaveCount(0);
 
-    await page.getByRole('link', { name: 'Log In' }).click();
+    await navbarItem(page, 'Log In');
     // Clicked near the corner: the backdrop spans the viewport but the card
     // sits over its center, which is where a plain click would land.
     await page.locator('.modal-background').click({ position: { x: 5, y: 5 } });

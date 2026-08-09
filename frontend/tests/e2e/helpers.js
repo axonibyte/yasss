@@ -34,6 +34,26 @@ export async function rotateSigner(request, userId) {
   expect(res.ok()).toBe(true);
 }
 
+/**
+ * Click a navbar item, opening the mobile menu first if there is one.
+ *
+ * Below Bulma's tablet breakpoint the items live in a collapsed `navbar-menu`
+ * and there is a burger in front of them; above it they are simply there and
+ * the burger is not rendered. Tests that reach for a navbar item should not
+ * have to know which, and the ones that did know broke the moment the burger
+ * arrived -- `compat.spec.js` runs at 412px and went red on three tests that
+ * had been correct for as long as the bar had no menu.
+ *
+ * Deliberately keyed on the burger being *visible* rather than on a viewport
+ * width: the breakpoint is Bulma's to move, and a test asserting a number here
+ * would be asserting it in the wrong place.
+ */
+export async function navbarItem(page, name) {
+  const burger = page.getByTestId('navbar-burger');
+  if (await burger.isVisible()) await burger.click();
+  await page.getByRole('link', { name }).click();
+}
+
 /** Wait past the boot splash, which is held for a deliberate minimum. */
 export async function waitForApp(page) {
   await page.waitForSelector('.pageloader:not(.is-active)', { timeout: 15_000 });

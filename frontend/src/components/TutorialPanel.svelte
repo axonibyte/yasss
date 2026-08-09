@@ -9,7 +9,9 @@
    * the panel would make the tutorial the one surface where you cannot do what
    * it just told you to do.
    *
-   * So: a `region`, docked, with the step text in a polite live region so a
+   * So: a docked `region` -- which is what a `<section>` with an accessible name
+ * already is, hence no explicit role; stating it again is what the compiler
+ * warns about -- with the step text in a polite live region so a
    * screen reader hears each step without focus being taken from wherever the
    * learner put it. The anchor gets a highlight class and nothing more --
    * nothing outside is made `inert`, nothing is covered by a scrim.
@@ -58,7 +60,6 @@
 <section
   id="tutorial-panel"
   class="tutorial-panel"
-  role="region"
   aria-label="Tutorial"
 >
   <div class="tutorial-panel-inner">
