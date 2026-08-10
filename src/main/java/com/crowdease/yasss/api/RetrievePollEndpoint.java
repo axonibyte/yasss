@@ -13,7 +13,10 @@ import com.axonibyte.lib.http.APIVersion;
 import com.axonibyte.lib.http.rest.EndpointException;
 import com.axonibyte.lib.http.rest.HTTPMethod;
 import com.crowdease.yasss.model.Poll;
+import com.crowdease.yasss.model.PollResponse;
+import com.crowdease.yasss.model.PollTally;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import spark.Request;
@@ -55,10 +58,44 @@ public final class RetrievePollEndpoint extends APIEndpoint {
       if(!poll.isPublished() && !auth.atLeast(poll))
         throw new EndpointException(req, "poll not found", 404);
 
+      JSONObject body = PollView.structure(poll);
+
+      // Whether the caller is the organiser, and whether they have answered.
+      // The second is an account or the token they were handed -- never the
+      // address or the fingerprint, which are evidence of a duplicate and not
+      // proof of identity.
+      final boolean owner = auth.atLeast(poll);
+      final String token = req.queryParams("token");
+      final boolean responded = PollAnswers.hasResponded(poll, auth, token);
+
+      // Omitted from the payload rather than hidden by the client. A tally the
+      // browser is trusted not to render is a tally anybody can read with
+      // developer tools open, which is not a setting -- it is a suggestion.
+      if(poll.tallyVisibleTo(owner, responded))
+        body.put(
+            "tally",
+            PollView.tally(PollTally.counts(poll.getID()), PollTally.respondents(poll.getID())));
+
+      // The organiser gets the answers themselves, which is the poll's whole
+      // point for them: a tally says half the group can make Tuesday, and the
+      // list says which half.
+      if(owner) {
+        JSONArray responseArr = new JSONArray();
+        for(PollResponse response : poll.getResponses())
+          responseArr.put(PollView.response(response, false));
+        body.put("responses", responseArr);
+      }
+
+      // Anybody may always read back their own answer, whatever the result
+      // setting says: it is theirs, and they are the one who wrote it.
+      PollResponse own = PollAnswers.ownResponse(poll, auth, token);
+      if(null != own && !owner)
+        body.put("yourResponse", PollView.response(own, false));
+
       return new JSONObject()
           .put("status", "ok")
           .put("info", "successfully retrieved poll")
-          .put("poll", PollView.structure(poll));
+          .put("poll", body);
 
     } catch(SQLException e) {
       throw new EndpointException(req, "database malfunction", 500, e);

@@ -86,6 +86,9 @@ import com.crowdease.yasss.api.ResolveCodeEndpoint;
 import com.crowdease.yasss.api.RetrievePollEndpoint;
 import com.crowdease.yasss.api.SetPollCellEndpoint;
 import com.crowdease.yasss.api.UnsetPollCellEndpoint;
+import com.crowdease.yasss.api.AddPollResponseEndpoint;
+import com.crowdease.yasss.api.ModifyPollResponseEndpoint;
+import com.crowdease.yasss.api.RemovePollResponseEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.StripeDriver;
 import com.crowdease.yasss.daemon.ReminderEngine;
@@ -451,6 +454,7 @@ public class YasssCore {
               new AddActivityEndpoint(),
               new AddDetailEndpoint(),
               new AddPollDetailEndpoint(),
+              new AddPollResponseEndpoint(),
               new AddPollOptionEndpoint(),
               new AddPollWindowEndpoint(),
               new AddVolunteerEndpoint(),
@@ -468,6 +472,7 @@ public class YasssCore {
               new ModifyPollEndpoint(),
               new ModifyPollDetailEndpoint(),
               new ModifyPollOptionEndpoint(),
+              new ModifyPollResponseEndpoint(),
               new ModifyPollWindowEndpoint(),
               new ModifyUserEndpoint(),
               new ModifyVolunteerEndpoint(),
@@ -479,6 +484,7 @@ public class YasssCore {
               new RemovePollEndpoint(),
               new RemovePollDetailEndpoint(),
               new RemovePollOptionEndpoint(),
+              new RemovePollResponseEndpoint(),
               new RemovePollWindowEndpoint(),
               new RemoveUserEndpoint(),
               new RemoveVolunteerEndpoint(),

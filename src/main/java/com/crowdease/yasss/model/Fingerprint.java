@@ -60,7 +60,13 @@ public final class Fingerprint {
    *         was no digest or it was not one
    */
   public static byte[] parse(String hex) {
-    if(null == hex || HEX_LENGTH != hex.length()) return null;
+    // Blank reads as absent rather than as malformed. A browser that produces
+    // no digest must still be able to answer -- that is the whole reason this
+    // is nullable -- and a client that expresses "none" as an empty string
+    // rather than by omitting the field has not done anything wrong enough to
+    // be locked out of the poll for.
+    if(null == hex || hex.isBlank()) return null;
+    if(HEX_LENGTH != hex.length()) return null;
 
     byte[] out = new byte[BYTE_LENGTH];
     for(int i = 0; i < BYTE_LENGTH; i++) {

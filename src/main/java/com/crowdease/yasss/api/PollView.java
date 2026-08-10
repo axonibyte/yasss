@@ -9,11 +9,15 @@ package com.crowdease.yasss.api;
 
 import java.sql.SQLException;
 import java.sql.Time;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import com.crowdease.yasss.model.Poll;
 import com.crowdease.yasss.model.PollCell;
 import com.crowdease.yasss.model.PollDetail;
 import com.crowdease.yasss.model.PollOption;
+import com.crowdease.yasss.model.PollResponse;
 import com.crowdease.yasss.model.PollWindow;
 
 import org.json.JSONArray;
@@ -109,6 +113,73 @@ final class PollView {
         .put("windows", windowArr)
         .put("details", detailArr)
         .put("cells", cellArr);
+  }
+
+  /**
+   * Renders one answer.
+   *
+   * <p>The identity columns are never rendered. An IP address and a browser
+   * fingerprint are collected to make a second answer inconvenient and for no
+   * other purpose, and sending either back -- even to the organiser, who is the
+   * only one who could ask -- would turn a duplicate check into a report on who
+   * answered from where.
+   *
+   * @param response the {@link PollResponse}
+   * @param withToken whether to include the edit token
+   * @return the answer as a {@link JSONObject}
+   */
+  static JSONObject response(PollResponse response, boolean withToken) {
+    JSONArray voteArr = new JSONArray();
+    for(UUID cellID : response.getVotes()) voteArr.put(cellID);
+
+    JSONArray answerArr = new JSONArray();
+    for(var answer : response.getDetails().entrySet())
+      answerArr.put(
+          new JSONObject()
+              .put("detail", answer.getKey().getID())
+              .put("value", answer.getValue()));
+
+    JSONObject out = new JSONObject()
+        .put("id", response.getID())
+        .put("user", null == response.getUser() ? JSONObject.NULL : response.getUser())
+        .put("name", response.getName())
+        .put("submitted", Long.toString(response.getSubmitted().getTime()))
+        .put("votes", voteArr)
+        .put("details", answerArr);
+
+    // Handed over exactly once, in the reply to the submission that minted it.
+    // It is the only thing an anonymous respondent can present to prove an
+    // answer is theirs, so anywhere else it appears is somewhere it can leak.
+    if(withToken && null != response.getEditToken())
+      out.put("editToken", response.getEditToken());
+
+    return out;
+  }
+
+  /**
+   * Renders the vote counts.
+   *
+   * <p>Squares with no votes are absent from the map, so the caller reads a
+   * missing key as zero. Whether this is included at all is
+   * {@link com.crowdease.yasss.model.Poll#tallyVisible} and is decided before
+   * this is called.
+   *
+   * @param counts the counts, by {@link com.crowdease.yasss.model.PollCell} id
+   * @param respondents how many people have answered at all
+   * @return the tally as a {@link JSONObject}
+   */
+  static JSONObject tally(Map<UUID, Integer> counts, int respondents) {
+    JSONObject byCell = new JSONObject();
+    for(var count : counts.entrySet())
+      byCell.put(count.getKey().toString(), count.getValue().intValue());
+
+    return new JSONObject()
+        // Distinct from the largest per-square count on purpose: somebody may
+        // answer and choose nothing, which is a meaningful reply -- "none of
+        // these work" -- and a denominator that ignored them would overstate
+        // how well the best square did.
+        .put("respondents", respondents)
+        .put("byCell", byCell);
   }
 
   /**

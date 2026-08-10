@@ -42,21 +42,39 @@ final class PollGuard {
    */
   static Poll editable(Request req, Authorization auth) throws EndpointException, SQLException {
     Poll poll = resolve(req);
+    checkEditable(req, auth, poll);
+    return poll;
+  }
 
+  /**
+   * The two checks, separated from the lookup so they can be tested without a
+   * database.
+   *
+   * <p>THE ORDER IS NORMATIVE. Ownership is refused before closure is
+   * mentioned: to somebody who may not touch this poll, "access denied" and
+   * "poll closed" are two different pieces of information, and the second tells
+   * them something about a poll that is none of their business.
+   *
+   * <p>Note that {@link ModifyPollEndpoint} deliberately does not call this.
+   * The deadline lives there, so a closed poll that could not be edited would
+   * be one nobody could ever reopen -- the organiser could not extend the
+   * deadline they had just let lapse.
+   *
+   * @param req the {@link Request}
+   * @param auth the caller's {@link Authorization}
+   * @param poll the {@link Poll}
+   * @throws EndpointException 403 if the caller does not administer it, 412 if
+   *         it has closed
+   */
+  static void checkEditable(Request req, Authorization auth, Poll poll) throws EndpointException {
     if(!auth.atLeast(poll))
       throw new EndpointException(req, "access denied", 403);
 
     // Mirrors the expiry gate on every event mutation. Reshaping a poll after
-    // it has closed would move squares that people have already voted on,
-    // changing what their answer said after they can no longer revise it.
-    //
-    // Note that ModifyPollEndpoint deliberately does NOT call this: the
-    // deadline lives there, and a closed poll that could not be edited would be
-    // one nobody could ever reopen.
+    // it has closed would move squares people have already voted on, changing
+    // what their answer said after they can no longer revise it.
     if(!auth.atLeast(AccessLevel.ADMIN) && poll.isClosed())
       throw new EndpointException(req, "poll closed", 412);
-
-    return poll;
   }
 
   /**
