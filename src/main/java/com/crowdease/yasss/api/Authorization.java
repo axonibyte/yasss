@@ -9,7 +9,7 @@ package com.crowdease.yasss.api;
 
 import com.axonibyte.lib.http.rest.AuthStatus;
 import com.crowdease.yasss.YasssCore;
-import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.Ownable;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.User.AccessLevel;
 
@@ -109,40 +109,50 @@ public class Authorization implements AuthStatus {
       return check;
     }
 
-    else if(permission instanceof Event) {
+    // Was `instanceof Event`, and is now the interface both Event and Poll
+    // implement. The rule it encodes -- you may change a thing if you administer
+    // it, and a thing with no administrator can be changed only by staff -- is
+    // what makes publishing anonymously irreversible, and it is not a rule that
+    // should exist in two copies that can drift.
+    else if(permission instanceof Ownable) {
       if(!atLeast(IS_AUTHENTICATED)) return false;
       
-      Event event = (Event)permission;
+      Ownable subject = (Ownable)permission;
       logger.info(
-          "determining user {} access permissions to modify event {}, running subchecks",
+          "determining user {} access permissions to modify {} {}, running subchecks",
           actor.getID().toString(),
-          event.getID().toString());
+          subject.getKind(),
+          subject.getID().toString());
       
-      boolean check = actor.getID().equals(event.getAdmin());
+      boolean check = actor.getID().equals(subject.getAdmin());
       logger.info(
           // Arguments were transposed: the admin was rendered as the user and
           // the actor as the admin, so this line -- the one an operator reads
           // when they are working out why something 403'd -- named the wrong
           // party twice.
-          "event {} subcheck: check that user {} is event admin {}; return {}",
-          event.getID().toString(),
+          "{} {} subcheck: check that user {} is {} admin {}; return {}",
+          subject.getKind(),
+          subject.getID().toString(),
           actor.getID().toString(),
-          null == event.getAdmin() ? "UNSPECIFIED" : event.getAdmin().toString(),
+          subject.getKind(),
+          null == subject.getAdmin() ? "UNSPECIFIED" : subject.getAdmin().toString(),
           Boolean.valueOf(check).toString().toUpperCase());
 
       AccessLevel accessLevel = check ? AccessLevel.STANDARD : AccessLevel.ADMIN;
       check = atLeast(accessLevel);
       logger.info(
-          "event {} subcheck: check that user {} at least {}; return {}",
-          event.getID().toString(),
+          "{} {} subcheck: check that user {} at least {}; return {}",
+          subject.getKind(),
+          subject.getID().toString(),
           actor.getID().toString(),
           accessLevel.name(),
           Boolean.valueOf(check).toString().toUpperCase());
 
       logger.info(
-          "final check to determine whether user {} has access to modify event {}; return {}",
+          "final check to determine whether user {} has access to modify {} {}; return {}",
           actor.getID().toString(),
-          event.getID().toString(),
+          subject.getKind(),
+          subject.getID().toString(),
           Boolean.valueOf(check).toString().toUpperCase());
       
       return check;

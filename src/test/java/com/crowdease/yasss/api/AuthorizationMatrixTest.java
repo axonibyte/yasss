@@ -14,6 +14,8 @@ import java.sql.Timestamp;
 import java.util.UUID;
 
 import com.crowdease.yasss.model.Event;
+import com.crowdease.yasss.model.Ownable;
+import com.crowdease.yasss.model.Poll;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.User.AccessLevel;
 
@@ -46,6 +48,12 @@ public class AuthorizationMatrixTest {
     return new Event(
         UUID.randomUUID(), admin, "Event", "described",
         new Timestamp(System.currentTimeMillis()), false, false, true);
+  }
+
+  private static Poll pollOwnedBy(UUID admin) {
+    return new Poll(
+        UUID.randomUUID(), admin, "Poll", "described",
+        Poll.Scope.RELATIVE, new Timestamp(System.currentTimeMillis()), true);
   }
 
   private static Authorization as(User actor) {
@@ -154,6 +162,82 @@ public class AuthorizationMatrixTest {
     Event unowned = eventOwnedBy(null);
     assertFalse(as(user(AccessLevel.STANDARD)).atLeast(unowned));
     assertTrue(as(user(AccessLevel.ADMIN)).atLeast(unowned));
+  }
+
+  // --- polls ----------------------------------------------------------------
+  //
+  // The same four rules, against the other thing that implements Ownable.
+  // Written out rather than folded into the event cases above: the point of
+  // these is that a poll is governed by the same rule as an event, and a test
+  // that only ever exercised one of them could not tell that.
+
+  /** The owner needs only STANDARD; being the owner is what earns the access. */
+  @Test
+  public void aPollOwnerNeedsOnlyStandard() {
+    User owner = user(AccessLevel.STANDARD);
+    assertTrue(as(owner).atLeast(pollOwnedBy(owner.getID())));
+  }
+
+  /** Anyone else needs to be a platform admin. */
+  @Test
+  public void aNonOwnerNeedsAdminForAPollToo() {
+    Poll poll = pollOwnedBy(UUID.randomUUID());
+    assertFalse(as(user(AccessLevel.STANDARD)).atLeast(poll));
+    assertTrue(as(user(AccessLevel.ADMIN)).atLeast(poll));
+  }
+
+  /** Owning it is not enough if the account has not been verified. */
+  @Test
+  public void anUnverifiedPollOwnerIsStillRefused() {
+    User owner = user(AccessLevel.UNVERIFIED);
+    assertFalse(as(owner).atLeast(pollOwnedBy(owner.getID())));
+  }
+
+  /**
+   * A poll with no administrator is editable only by a platform admin.
+   *
+   * The same promise the event flow makes, now made about polls: publish one
+   * without an account and nobody but staff will ever be able to edit it.
+   */
+  @Test
+  public void anUnownedPollIsAdminOnly() {
+    Poll unowned = pollOwnedBy(null);
+    assertFalse(as(user(AccessLevel.STANDARD)).atLeast(unowned));
+    assertTrue(as(user(AccessLevel.ADMIN)).atLeast(unowned));
+  }
+
+  /** An anonymous caller may change nothing, whatever kind of thing it is. */
+  @Test
+  public void anAnonymousCallerOwnsNoPoll() {
+    Authorization anon = new Authorization(null, true);
+    assertFalse(anon.atLeast(pollOwnedBy(null)));
+    assertFalse(anon.atLeast(pollOwnedBy(UUID.randomUUID())));
+  }
+
+  /**
+   * Both kinds answer the same way to the same question.
+   *
+   * The reason {@link Ownable} exists at all. Before it, this rule lived in a
+   * branch keyed on {@code instanceof Event}; adding a second kind by copying
+   * that branch would have worked on the day it was written and drifted
+   * afterwards, and the half that drifts is the half nobody is looking at.
+   */
+  @Test
+  public void ownershipDoesNotDependOnWhatIsOwned() {
+    UUID admin = UUID.randomUUID();
+    for(AccessLevel level : AccessLevel.values()) {
+      for(boolean owned : new boolean[] { true, false }) {
+        User actor = user(level);
+        UUID who = owned ? actor.getID() : admin;
+        Ownable event = eventOwnedBy(who);
+        Ownable poll = pollOwnedBy(who);
+        assertTrue(
+            as(actor).atLeast(event) == as(actor).atLeast(poll),
+            String.format(
+                "a %s %s it: events and polls disagreed",
+                level, owned ? "owning" : "not owning"));
+      }
+    }
   }
 
   // --- users ----------------------------------------------------------------

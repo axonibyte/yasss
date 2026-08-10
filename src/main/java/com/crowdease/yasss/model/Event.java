@@ -37,7 +37,7 @@ import com.crowdease.yasss.YasssCore;
  *
  * @author Caleb L. Power <cpower@crowdease.com>
  */
-public class Event {
+public class Event implements Ownable {
 
   private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(Event.class);
 
@@ -489,11 +489,18 @@ public class Event {
   }
 
   /**
+   * {@inheritDoc}
+   */
+  @Override public String getKind() {
+    return "event";
+  }
+
+  /**
    * Retrieves the event's unique identifier.
    *
    * @return the {@link UUID} of the {@link Event}
    */
-  public UUID getID() {
+  @Override public UUID getID() {
     return id;
   }
 
@@ -538,7 +545,7 @@ public class Event {
    * @return the {@link UUID} of the {@link Event} admin or {@code null} if no
    *         admin was ever specified
    */
-  public UUID getAdmin() {
+  @Override public UUID getAdmin() {
     return admin;
   }
 

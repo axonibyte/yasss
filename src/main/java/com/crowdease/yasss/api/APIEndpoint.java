@@ -11,6 +11,7 @@ import java.sql.SQLException;
 
 import java.util.HashMap;
 import java.util.Map;
+import com.crowdease.yasss.model.AccessCode;
 import com.crowdease.yasss.model.Event;
 import com.crowdease.yasss.model.Mail;
 import com.crowdease.yasss.model.Volunteer;
@@ -22,6 +23,7 @@ import com.axonibyte.lib.http.rest.JSONEndpoint;
 import com.crowdease.yasss.YasssCore;
 import com.crowdease.yasss.api.AuthToken.AuthException;
 import com.crowdease.yasss.model.JSONDeserializer;
+import com.crowdease.yasss.model.Poll;
 import com.crowdease.yasss.model.User;
 import com.crowdease.yasss.model.JSONDeserializer.DeserializationException;
 
@@ -375,6 +377,83 @@ public abstract class APIEndpoint extends JSONEndpoint {
     } catch(IllegalArgumentException e) {
       return Event.getEventByCode(raw);
     }
+  }
+
+  /**
+   * Resolves a {@code :poll} path parameter, by {@link java.util.UUID} or by
+   * short code.
+   *
+   * <p>The twin of {@link #resolveEvent(String)}, and deliberately a separate
+   * method rather than something clever built on the shared registry. An
+   * endpoint under {@code /polls} wants a poll: handed a code that names an
+   * event, the honest answer is "no such poll" and a 404, not a redirect into a
+   * different resource on a route that has never returned one.
+   *
+   * @param raw the path parameter
+   * @return the {@link Poll}, or {@code null} if nothing matches
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static Poll resolvePoll(String raw) throws SQLException {
+    if(null == raw) return null;
+    try {
+      return Poll.getPoll(java.util.UUID.fromString(raw));
+    } catch(IllegalArgumentException e) {
+      return Poll.getPollByCode(raw);
+    }
+  }
+
+  /**
+   * Resolves a bare short code to whatever it names.
+   *
+   * <p>What the single entry box needs, and the reason codes share a namespace
+   * at all: the person typing eight characters off a flyer does not know
+   * whether they are holding an event or a poll, so this answers the question
+   * for them in one round trip rather than making the client guess and retry.
+   *
+   * @param raw the code, in any spelling a human might produce
+   * @return what it names, or {@code null} if nothing holds that code
+   * @throws SQLException if a database malfunction occurs
+   */
+  public static AccessCode.Ref resolveCode(String raw) throws SQLException {
+    return AccessCode.resolve(raw);
+  }
+
+  /**
+   * Validates and parses a time of day, as {@code HH:mm}.
+   *
+   * <p>Deliberately not {@link java.sql.Time#valueOf(String)}, which accepts
+   * only {@code HH:mm:ss} and throws an unchecked
+   * {@link IllegalArgumentException} on anything else -- a 500 where a 400
+   * belongs. Seconds are not accepted rather than merely ignored: a poll asks
+   * about nine o'clock, and a caller sending {@code 09:00:30} has misunderstood
+   * something that silently discarding the seconds would leave them believing.
+   *
+   * @param req the {@link Request}
+   * @param raw the candidate, as {@code HH:mm}
+   * @param token the argument name, for the error message
+   * @return the parsed {@link java.sql.Time}
+   * @throws EndpointException with a 400 if it is not a time of day
+   */
+  protected static java.sql.Time validTime(Request req, String raw, String token)
+      throws EndpointException {
+    // Digits checked one at a time rather than handed to parseInt, which
+    // accepts a leading sign -- so "+9:00" parsed as nine o'clock and was
+    // accepted, having passed both the length check and the range check. The
+    // four positions that must be digits are the whole format, so saying so
+    // directly is both shorter and the thing that is actually true.
+    if(null != raw && 5 == raw.length() && ':' == raw.charAt(2)
+        && digit(raw, 0) && digit(raw, 1) && digit(raw, 3) && digit(raw, 4)) {
+      int hour = (raw.charAt(0) - '0') * 10 + (raw.charAt(1) - '0');
+      int minute = (raw.charAt(3) - '0') * 10 + (raw.charAt(4) - '0');
+      if(24 > hour && 60 > minute)
+        return java.sql.Time.valueOf(String.format("%02d:%02d:00", hour, minute));
+    }
+    throw new EndpointException(req, "malformed argument (" + token + ")", 400);
+  }
+
+  private static boolean digit(String raw, int index) {
+    char c = raw.charAt(index);
+    return '0' <= c && '9' >= c;
   }
 
   /** The largest page size any listing endpoint will serve. */

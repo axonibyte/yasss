@@ -39,7 +39,7 @@ import com.crowdease.yasss.YasssCore;
  *
  * @author Caleb L. Power &lt;cpower@crowdease.com&gt;
  */
-public class Poll {
+public class Poll implements Ownable {
 
   private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(Poll.class);
 
@@ -216,8 +216,15 @@ public class Poll {
   }
 
   /** @return this poll's {@link UUID} */
-  public UUID getID() {
+  @Override public UUID getID() {
     return id;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override public String getKind() {
+    return "poll";
   }
 
   /**
@@ -241,7 +248,7 @@ public class Poll {
   }
 
   /** @return the organising account's {@link UUID}, or {@code null} */
-  public UUID getAdmin() {
+  @Override public UUID getAdmin() {
     return admin;
   }
 
