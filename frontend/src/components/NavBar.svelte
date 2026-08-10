@@ -13,7 +13,8 @@
   import { theme } from '../state/theme.svelte.js';
 
   let {
-    loggedIn = false, onCreateEvent, onTutorial, onLogin, onAccount, onLogout, onHome,
+    loggedIn = false, onCreatePoll,
+    onCreateEvent, onTutorial, onLogin, onAccount, onLogout, onHome,
   } = $props();
 
   let menuOpen = $state(false);
@@ -78,6 +79,7 @@
 
   <div id="navbar-menu" class="navbar-menu" class:is-active={menuOpen}>
     <div class="navbar-end">
+      <a class="navbar-item" href="#create-poll" onclick={act(onCreatePoll)}>Create Poll</a>
       <a class="navbar-item" href="#create-event" onclick={act(onCreateEvent)}>Create Event</a>
       <a class="navbar-item" href="#tutorial" onclick={act(onTutorial)}>Tutorial</a>
       {#if loggedIn}

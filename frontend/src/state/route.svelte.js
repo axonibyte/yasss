@@ -143,13 +143,14 @@ class Route {
    * writes state it also reads is where re-entrancy loops come from. This fires
    * only on genuine browser navigation and cannot loop.
    *
-   * @param {(previousEventId: string|null) => void} onNavigate
+   * @param {(previousEventId: string|null, previousPollId: string|null) => void} onNavigate
    */
   listen(onNavigate) {
     window.addEventListener('popstate', () => {
-      const previous = this.eventId;
+      const previousEvent = this.eventId;
+      const previousPoll = this.pollId;
       Object.assign(this, parse());
-      onNavigate?.(previous);
+      onNavigate?.(previousEvent, previousPoll);
     });
   }
 }

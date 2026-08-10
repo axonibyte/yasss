@@ -1,6 +1,6 @@
 <script>
   /**
-   * "Have a code?" — the other half of short event codes.
+   * "Have a code?" — the other half of short codes.
    *
    * Without somewhere to type one, a code is just a shorter URL. This is the
    * surface that makes it worth reading down a telephone or printing on a
@@ -8,8 +8,14 @@
    *
    * Validation is local and immediate: the code either normalizes to eight
    * symbols or it does not, and saying so at the field is far better than a
-   * round trip that ends in "event not found". Whether the event *exists* is
+   * round trip that ends in "not found". Whether anything *holds* that code is
    * still the server's answer.
+   *
+   * One box for both kinds. Somebody typing eight characters off a flyer does
+   * not know whether they are holding an event or a poll, and asking them would
+   * be asking them to know something about our data model. The caller resolves
+   * the code once and opens whichever it names -- which is why the codes share
+   * a namespace at all.
    */
   import Field from './inputs/Field.svelte';
   import { fieldAria } from '../lib/a11y.js';
@@ -24,7 +30,7 @@
     e?.preventDefault();
     const code = normalizeCode(raw);
     if (!code) {
-      error = 'An event code is eight characters, like ABCD-EFGH.';
+      error = 'A code is eight characters, like ABCD-EFGH.';
       return;
     }
     error = null;
@@ -36,7 +42,7 @@
   <div class="container" style="max-width: 26rem;">
     <!-- A real form, so Enter submits. -->
     <form onsubmit={go}>
-      <Field label="Have an event code?" {error} id="event-code-entry">
+      <Field label="Have a code?" {error} id="event-code-entry">
         <div class="field has-addons">
           <div class="control is-expanded">
             <input

@@ -14,6 +14,7 @@
   import CoaSection from './components/sections/CoaSection.svelte';
   import DashboardSection from './components/sections/DashboardSection.svelte';
   import EventSection from './components/sections/EventSection.svelte';
+  import PollSection from './components/sections/PollSection.svelte';
   import AuthModal from './components/modals/AuthModal.svelte';
   import ProfileModal from './components/modals/ProfileModal.svelte';
   import PasswordResetModal from './components/modals/PasswordResetModal.svelte';
@@ -28,20 +29,29 @@
   import WindowModal from './components/modals/WindowModal.svelte';
   import DetailModal from './components/modals/DetailModal.svelte';
   import SlotModal from './components/modals/SlotModal.svelte';
+  import PollSummaryModal from './components/modals/PollSummaryModal.svelte';
+  import PollWindowModal from './components/modals/PollWindowModal.svelte';
+  import PollAnswerModal from './components/modals/PollAnswerModal.svelte';
   import TutorialPanel from './components/TutorialPanel.svelte';
   import TutorialChooser from './components/TutorialChooser.svelte';
 
   import { session, connectSessionToApi } from './state/session.svelte.js';
   import { route } from './state/route.svelte.js';
   import { currentEvent, Mode } from './state/event.svelte.js';
+  import { currentPoll } from './state/poll.svelte.js';
+  import { PollOption } from './state/pollEntities.svelte.js';
   import { Volunteer } from './state/entities.svelte.js';
   import { toastSuccess, toastDanger, toastError } from './state/toast.js';
   import { configureCaptcha, requireCaptcha } from './lib/captcha.js';
   import { setPasswordMinLength } from './lib/validation/policy.js';
   import { loadEvent, openReport, saveSummary } from './state/actions/eventActions.js';
+  import { pollSummaryDiff } from './state/serialize/pollPayload.js';
   import { toggleRsvp } from './state/actions/rsvpActions.js';
   import { publishEvent } from './state/actions/publishActions.js';
   import * as structure from './state/actions/structureActions.js';
+  import * as pollActions from './state/actions/pollActions.js';
+  import { reviseAnswer, storedToken, submitAnswer, withdrawAnswer }
+    from './state/actions/answerActions.js';
   import {
     deleteVolunteer, hasUnsavedWork, saveVolunteer, submitVolunteers,
   } from './state/actions/volunteerActions.js';
@@ -67,6 +77,17 @@
   let navigating = $state(false);
 
   const event = currentEvent;
+  const poll = currentPoll;
+
+  /**
+   * Whether a poll is on screen.
+   *
+   * Mutually exclusive with `eventLoaded`, and kept as its own flag rather
+   * than derived from the route: a poll being built has no id and so does not
+   * appear in the URL at all, exactly as an unpublished event does not.
+   */
+  let pollLoaded = $state(false);
+  let pollBusy = $state(false);
 
   /** Resolves the pending CAPTCHA challenge, when one is on screen. */
   let captchaResolve = null;
@@ -199,6 +220,12 @@
         modal = { kind: 'share' };
         route.clearShare();
       }
+    } else if (route.pollId) {
+      pollLoaded = await pollActions.loadPoll(poll, route.pollId, storedToken(route.pollId));
+      if (pollLoaded && route.share) {
+        modal = { kind: 'share' };
+        route.clearShare();
+      }
     }
 
     await handleRouteAction();
@@ -208,7 +235,7 @@
     // event they were pointed at is the thing they came for -- starting a tour
     // over the top of it would be the tutorial overriding the user's intent
     // rather than serving it.
-    if (route.tutorial !== null && !eventLoaded) {
+    if (route.tutorial !== null && !eventLoaded && !pollLoaded) {
       const track = route.tutorial;
       route.clearTutorial();
       if (track === 'organizer' || track === 'volunteer') await beginTutorial(track);
@@ -219,7 +246,7 @@
     // Back and Forward move within our own history once anything has pushed an
     // entry, so the app has to follow the URL rather than assume it only ever
     // changes when we change it.
-    route.listen(async (previousEventId) => {
+    route.listen(async (previousEventId, previousPollId) => {
       // Chromium fires popstate for a fragment-link click as well as for
       // history traversal, and every navbar item is an `href="#login"`-style
       // link. Without this guard, opening any modal from the navbar closed it
@@ -227,9 +254,28 @@
       // popstate, and the handler below cleared it. Which event we are looking
       // at is not knowable, but whether the route actually moved is, and that
       // is the only thing worth reacting to.
-      if (route.eventId === previousEventId) return;
+      if (route.eventId === previousEventId && route.pollId === previousPollId) return;
 
       modal = null;
+
+      // A poll named in the URL. Checked before the event branch because the
+      // two are mutually exclusive and `goToPoll` clears the event id.
+      if (route.pollId) {
+        eventLoaded = false;
+        event.reset();
+        if (route.pollId === poll.id) return;
+        navigating = true;
+        try {
+          pollLoaded = await pollActions.loadPoll(poll, route.pollId, storedToken(route.pollId));
+        } finally {
+          navigating = false;
+        }
+        return;
+      }
+
+      pollLoaded = false;
+      poll.reset();
+
       if (!route.eventId) {
         eventLoaded = false;
         event.reset();
@@ -433,6 +479,179 @@
     }
   }
 
+  // --- polls ---------------------------------------------------------------
+
+  /** Start a new poll. The settings modal is step one, as it is for an event. */
+  function startPollWizard() {
+    modal = { kind: 'poll-summary', isNew: true };
+  }
+
+  /**
+   * Open a poll by id or code.
+   *
+   * Carries this browser's edit token, which is what lets the server hand back
+   * the reader's own answer and decide whether an "after you answer" result
+   * setting has been satisfied. Anonymous respondents have nothing else that
+   * identifies them.
+   */
+  async function openPoll(pollId) {
+    if (navigating) return;
+    navigating = true;
+    route.goToPoll(pollId);
+    try {
+      eventLoaded = false;
+      pollLoaded = await pollActions.loadPoll(poll, pollId, storedToken(pollId));
+      if (!pollLoaded) route.goHome();
+    } finally {
+      navigating = false;
+    }
+  }
+
+  /**
+   * Open whatever a short code names.
+   *
+   * One round trip rather than asking for an event and falling back to a poll
+   * when that 404s: the visitor does not know which they hold, and neither
+   * should the first request.
+   */
+  async function openByCode(code) {
+    if (navigating) return;
+    navigating = true;
+    let ref = null;
+    try {
+      ref = await api.resolveCode(code);
+    } catch (e) {
+      toastError(e, "We couldn't find anything with that code.");
+      return;
+    } finally {
+      navigating = false;
+    }
+    if (ref?.kind === 'poll') await openPoll(ref.id);
+    else if (ref?.kind === 'event') await openEvent(ref.id);
+    else toastDanger("We couldn't find anything with that code.");
+  }
+
+  async function savePollSummaryModal(values) {
+    const creating = modal?.isNew === true;
+
+    if (!creating && poll.persisted) {
+      const previous = {
+        title: poll.title,
+        description: poll.description,
+        timeMode: poll.timeMode,
+        timezone: poll.timezone,
+        deadline: poll.deadline,
+        allowMultiAnswers: poll.allowMultiAnswers,
+        allowAnswerEdits: poll.allowAnswerEdits,
+        resultVisibility: poll.resultVisibility,
+      };
+      const ok = await pollActions.savePollSummary(poll, pollSummaryDiff(values, previous));
+      if (!ok) return;
+      Object.assign(poll, {
+        title: values.title,
+        description: values.description,
+        timeMode: values.timeMode,
+        timezone: values.timezone,
+        deadline: values.deadline,
+        allowMultiAnswers: values.allowMultiAnswers,
+        allowAnswerEdits: values.allowAnswerEdits,
+        resultVisibility: values.resultVisibility,
+      });
+      modal = null;
+      return;
+    }
+
+    // First step of the wizard. The same reset the event wizard does, and for
+    // the same reason: a reload must not resurrect whatever was on screen when
+    // "Create Poll" was clicked.
+    if (route.eventId || route.pollId) route.goHome();
+    event.reset();
+    eventLoaded = false;
+    poll.reset();
+    Object.assign(poll, {
+      title: values.title,
+      description: values.description,
+      scope: values.scope,
+      timeMode: values.timeMode,
+      timezone: values.timezone,
+      deadline: values.deadline,
+      allowMultiAnswers: values.allowMultiAnswers,
+      allowAnswerEdits: values.allowAnswerEdits,
+      resultVisibility: values.resultVisibility,
+    });
+    // The columns the organiser picked become the grid's columns.
+    poll.options = (values.scope === 'RELATIVE'
+      ? values.days.map((dayOfWeek, i) => new PollOption({ dayOfWeek, priority: i }))
+      : values.dates.map((date, i) => new PollOption({ date, priority: i })));
+    pollLoaded = true;
+    modal = null;
+  }
+
+  async function publishPollNow() {
+    if (pollBusy) return;
+    const run = async () => {
+      const captcha = await requestCaptcha();
+      const result = await pollActions.publishPoll(poll, {
+        account: session.account,
+        captcha,
+      });
+      if (result.sandbox) {
+        toastDanger('This is a practice poll, so it is not published anywhere.');
+        return;
+      }
+      if (!result.ok) return;
+      route.goToPoll(result.pollId, { share: true });
+      pollLoaded = await pollActions.loadPoll(poll, result.pollId);
+      modal = pollLoaded ? { kind: 'share' } : null;
+    };
+
+    const guarded = async () => {
+      pollBusy = true;
+      try {
+        await run();
+      } catch (e) {
+        toastError(e, "Couldn't publish your poll... sorry.");
+      } finally {
+        pollBusy = false;
+      }
+    };
+
+    if (session.loggedIn) await guarded();
+    // Publishing anonymously means never being able to edit it again, which is
+    // the same promise the event flow makes and the same warning it shows.
+    else modal = { kind: 'guest', context: 'publish', proceed: guarded };
+  }
+
+  /** A square click means "vote" when answering and "offer or withdraw" when not. */
+  async function onPollCellClick(option, win) {
+    if (poll.mode !== Mode.VIEW) {
+      await pollActions.toggleCell(poll, option, win);
+      return;
+    }
+    // Answering: the grid collects the choices and the modal submits them, so a
+    // click here only moves a local selection. Nothing is sent until Submit,
+    // which is what makes an answer one request rather than one per square.
+    const cell = poll.cell(option, win);
+    if (!cell?.id) return;
+    if (poll.votes.has(cell.id)) poll.votes.delete(cell.id);
+    else poll.votes.add(cell.id);
+  }
+
+  async function saveAnswer(values) {
+    pollBusy = true;
+    try {
+      const answer = { ...values, votes: [...poll.votes] };
+      const result = poll.ownResponse
+        ? await reviseAnswer(poll, answer)
+        : await submitAnswer(poll, answer, { captcha: await requestCaptcha() });
+      if (result.ok) modal = null;
+    } catch (e) {
+      toastError(e, "Couldn't record your answer... sorry.");
+    } finally {
+      pollBusy = false;
+    }
+  }
+
   /** Slot clicks mean "toggle my RSVP" when viewing and "edit" when not. */
   function onSlotClick(activity, win) {
     if (event.mode === Mode.VIEW) {
@@ -534,6 +753,8 @@
     modal = null;
     eventLoaded = false;
     event.reset();
+    pollLoaded = false;
+    poll.reset();
     route.goHome();
   }
 
@@ -574,6 +795,7 @@
 
 <NavBar
   loggedIn={session.loggedIn}
+  onCreatePoll={startPollWizard}
   onCreateEvent={startWizard}
   onTutorial={startTutorial}
   onHome={goHome}
@@ -608,9 +830,46 @@
     onExitEdit={() => { event.editing = false; }}
     onSubmitRsvps={submitRsvps}
   />
+{:else if pollLoaded}
+  <PollSection
+    {poll}
+    busy={pollBusy}
+    onEditSummary={() => { modal = { kind: 'poll-summary', isNew: false }; }}
+    onShare={() => { modal = { kind: 'share' }; }}
+    onDelete={() => confirmDestructive({
+      title: 'Delete this poll?',
+      detail: 'Every answer people have already given is deleted with it. '
+        + 'This cannot be undone.',
+      confirmLabel: 'Delete Poll',
+      proceed: async () => {
+        if (await pollActions.deletePoll(poll)) goHome();
+        else modal = null;
+      },
+    })}
+    onOptionClick={(option) => confirmDestructive({
+      title: 'Remove this day?',
+      detail: 'Every square on it, and every vote for those squares, goes with it.',
+      confirmLabel: 'Remove Day',
+      proceed: async () => {
+        await pollActions.removeOption(poll, option);
+        modal = null;
+      },
+    })}
+    onWindowClick={(win) => { modal = { kind: 'poll-window', win }; }}
+    onCellClick={onPollCellClick}
+    onAllDayToggle={(option, allDay) => pollActions.setAllDay(poll, option, allDay)}
+    onAddOption={() => { modal = { kind: 'poll-option' }; }}
+    onAddWindow={() => { modal = { kind: 'poll-window', win: null }; }}
+    onAddField={() => { modal = { kind: 'poll-detail', detail: null, isNew: true }; }}
+    onDetailClick={(detail) => { modal = { kind: 'poll-detail', detail, isNew: false }; }}
+    onPublish={publishPollNow}
+    onEnterEdit={() => { poll.editing = true; }}
+    onExitEdit={() => { poll.editing = false; }}
+    onAnswer={() => { modal = { kind: 'poll-answer' }; }}
+  />
 {:else}
   <IntroSection />
-  <EventCodeEntry onGo={openEvent} />
+  <EventCodeEntry onGo={openByCode} />
   {#if session.loggedIn}
     <DashboardSection onSelect={openEvent} />
   {:else}
@@ -671,8 +930,10 @@
     working, so every link already in the world is unaffected.
   -->
   <ShareModal
-    url={route.eventUrl(event.code ?? event.id)}
-    code={event.code}
+    url={pollLoaded
+      ? route.pollUrl(poll.code ?? poll.id)
+      : route.eventUrl(event.code ?? event.id)}
+    code={pollLoaded ? poll.code : event.code}
     onClose={() => { modal = null; }}
   />
 {:else if modal?.kind === 'guest'}
@@ -798,6 +1059,113 @@
         },
       });
     }}
+    onClose={() => { modal = null; }}
+  />
+{:else if modal?.kind === 'poll-summary'}
+  <PollSummaryModal
+    poll={modal.isNew ? null : poll}
+    isNew={modal.isNew}
+    loggedIn={session.loggedIn}
+    busy={pollBusy}
+    onSave={savePollSummaryModal}
+    onClose={() => { modal = null; }}
+  />
+{:else if modal?.kind === 'poll-option'}
+  <PollSummaryModal
+    poll={null}
+    isNew={true}
+    loggedIn={session.loggedIn}
+    busy={pollBusy}
+    onSave={async (values) => {
+      // Reuses the settings form purely for its day and date pickers, then
+      // takes only the columns out of it. Everything else the form collected is
+      // already set on the poll and is deliberately ignored here -- adding a
+      // day must not quietly rewrite the poll's settings.
+      const wanted = poll.scope === 'RELATIVE'
+        ? values.days.map((dayOfWeek) => ({ dayOfWeek }))
+        : values.dates.map((date) => ({ date }));
+      const existing = new Set(
+        poll.options.map((o) => (poll.scope === 'RELATIVE' ? o.dayOfWeek : o.date)),
+      );
+      for (const column of wanted) {
+        const key = poll.scope === 'RELATIVE' ? column.dayOfWeek : column.date;
+        if (existing.has(key)) continue;
+        await pollActions.addOption(poll, column);
+      }
+      modal = null;
+    }}
+    onClose={() => { modal = null; }}
+  />
+{:else if modal?.kind === 'poll-window'}
+  <PollWindowModal
+    win={modal.win}
+    options={poll.options}
+    scope={poll.scope}
+    busy={pollBusy}
+    onSave={async (values) => {
+      const ok = modal.win
+        ? await pollActions.updateWindow(poll, modal.win, {
+            startTime: values.start,
+            appliesToNewOptions: values.future,
+          })
+        : await pollActions.addWindows(poll, values);
+      if (ok) modal = null;
+    }}
+    onDelete={modal.win ? () => {
+      const win = modal.win;
+      confirmDestructive({
+        title: 'Remove this time?',
+        detail: 'Every square at this time, and every vote for those squares, '
+          + 'goes with it.',
+        confirmLabel: 'Remove Time',
+        proceed: async () => {
+          await pollActions.removeWindow(poll, win);
+          modal = null;
+        },
+      });
+    } : null}
+    onClose={() => { modal = null; }}
+  />
+{:else if modal?.kind === 'poll-detail'}
+  <DetailModal
+    detail={modal.detail}
+    isNew={modal.isNew}
+    onSave={async (values) => {
+      const ok = modal.detail
+        ? await pollActions.updateDetail(poll, modal.detail, values)
+        : await pollActions.addDetail(poll, values);
+      if (ok) modal = null;
+    }}
+    onDelete={() => {
+      const detail = modal.detail;
+      confirmDestructive({
+        title: 'Remove this question?',
+        detail: `Every answer people have already given for `
+          + `"${detail?.label ?? 'this question'}" is deleted with it. This cannot be undone.`,
+        confirmLabel: 'Remove Question',
+        proceed: async () => {
+          await pollActions.removeDetail(poll, detail);
+          modal = null;
+        },
+      });
+    }}
+    onClose={() => { modal = null; }}
+  />
+{:else if modal?.kind === 'poll-answer'}
+  <PollAnswerModal
+    {poll}
+    existing={poll.ownResponse}
+    busy={pollBusy}
+    onSave={saveAnswer}
+    onWithdraw={poll.ownResponse ? () => confirmDestructive({
+      title: 'Withdraw your answer?',
+      detail: 'Your times come off the poll. You can answer again afterwards.',
+      confirmLabel: 'Withdraw',
+      proceed: async () => {
+        await withdrawAnswer(poll);
+        modal = null;
+      },
+    }) : null}
     onClose={() => { modal = null; }}
   />
 {:else if modal?.kind === 'confirm'}
