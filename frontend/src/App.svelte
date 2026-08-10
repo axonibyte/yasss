@@ -963,6 +963,7 @@
       ? route.pollUrl(poll.code ?? poll.id)
       : route.eventUrl(event.code ?? event.id)}
     code={pollLoaded ? poll.code : event.code}
+    noun={pollLoaded ? 'poll' : 'event'}
     onClose={() => { modal = null; }}
   />
 {:else if modal?.kind === 'guest'}

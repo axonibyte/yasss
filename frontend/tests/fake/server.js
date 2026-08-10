@@ -20,6 +20,7 @@ import {
   seedEvent, seedUser, serializeEventRead,
 } from './store.js';
 import { identityOf, sessionToken } from './auth.js';
+import { registerPollRoutes } from './polls.js';
 
 import { normalizeCode } from '../../src/lib/eventCode.js';
 
@@ -828,6 +829,8 @@ export function createFakeApi({ staticDir = null, captchaSiteKey = null } = {}) 
     user.signerEpoch += 1;
     return c.json({ ok: true });
   });
+
+  registerPollRoutes(app, store);
 
   if (staticDir) {
     app.use('/*', serveStatic({ root: staticDir }));

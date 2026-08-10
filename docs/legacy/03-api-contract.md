@@ -602,3 +602,113 @@ values.
 
 `Event.isExpired()` = the earliest `begin_time` is in the past; it drives the
 `412 "event expired"` guard on nearly every mutating event-scoped endpoint.
+
+---
+
+# 9. Polls
+
+Added after the rewrite, so nothing in the sections above describes them. A
+poll is a sibling of an event, not a mode of one: same grid, same short-code
+lifecycle, different meaning underneath.
+
+|            | Event                          | Poll                                |
+|------------|--------------------------------|-------------------------------------|
+| columns    | activities                     | days of the week, or dates          |
+| rows       | windows (`begin`..`end`)       | windows (a start time, no end)      |
+| who answers| many volunteers per submission | exactly one person                  |
+| a square   | `slot`, keyed by its parents   | `poll_cell`, with an id of its own  |
+
+## 9.1 Routes
+
+```
+POST   /v1/polls                                         create the whole graph
+GET    /v1/polls                                         scoped listing, else 403
+GET    /v1/polls/:poll                  [?token=]        read
+PATCH  /v1/polls/:poll                                   settings only
+DELETE /v1/polls/:poll
+POST   /v1/polls/:poll/options                           add a column
+PATCH  /v1/polls/:poll/options/:option                   incl. the All Day flag
+DELETE /v1/polls/:poll/options/:option
+POST   /v1/polls/:poll/windows                           add a row (+ applyTo)
+PATCH  /v1/polls/:poll/windows/:window
+DELETE /v1/polls/:poll/windows/:window
+POST   /v1/polls/:poll/details                           custom questions
+PATCH  /v1/polls/:poll/details/:detail
+DELETE /v1/polls/:poll/details/:detail
+PUT    /v1/polls/:poll/options/:option/windows/:window   offer a square
+DELETE /v1/polls/:poll/options/:option/windows/:window   withdraw one
+POST   /v1/polls/:poll/responses                         answer
+PATCH  /v1/polls/:poll/responses/:response  [?token=]    revise
+DELETE /v1/polls/:poll/responses/:response  [?token=]    withdraw
+GET    /v1/codes/:code                                   what does this code name
+```
+
+`:poll` accepts a UUID or a short code, exactly as `:event` does.
+
+## 9.2 PRESENCE ENABLES
+
+**The single most important line in this section, because it is the opposite of
+§2.** For an event, `CreateEventEndpoint` commits a slot for every (activity,
+window) pair *unless* an explicit `{enabled: false}` suppresses it — omission
+enables, which is why `eventPayload.js` emits one entry per pair.
+
+For a poll, a `poll_cell` row exists **if and only if** the square is offered.
+`cells` in the create body lists only the squares that are, naming its column
+and row by array index; an unlisted pair is withheld. `window` absent means the
+all-day square.
+
+Anyone who has read one of these payload builders and then the other will
+assume the wrong rule. Both files say so at the top.
+
+## 9.3 Shared short codes
+
+Codes are one namespace across both kinds, allocated by `access_code`
+(migration 032). `event.code` and `poll.code` remain as display copies; the
+registry is the uniqueness authority, and it is claimed *before* the row is
+written so that a failure between the two burns a code rather than letting two
+things answer to one.
+
+`GET /v1/codes/:code` exists because the entry box resolves both kinds and the
+visitor does not know which they hold.
+
+## 9.4 Answering
+
+One row per submission. `POST .../responses` takes `name`, `votes` (cell ids),
+`details`, and — only when the poll allows one answer each — a `fingerprint`.
+
+The duplicate rule is asymmetric on purpose: a signed-in caller is matched on
+their **account alone**, an anonymous one on **address OR fingerprint**. The
+fingerprint is written either way, which is what stops answering and then
+signing out from buying a second vote. See `docs/fingerprinting.md`.
+
+The 201 carries `editToken` **once**. It is the only thing an anonymous
+respondent can present to prove an answer is theirs; neither the address nor
+the fingerprint authorises an edit.
+
+## 9.5 Result visibility
+
+Six settings, enforced server-side in `RetrievePollEndpoint`: the `tally` key is
+**absent from the payload** when it is not disclosed, rather than present and
+hidden. `CREATOR_ONLY`, `PUBLIC_ALWAYS`, `PUBLIC_AFTER_CLOSE`,
+`RESPONDENT_OWN`, `RESPONDENT_ALL_AFTER_SUBMIT`, `RESPONDENT_ALL_AFTER_CLOSE`.
+
+Two of them require a deadline; the last also forces authenticated answering,
+because a browser-held token is not an identity that survives the gap between
+submitting and the deadline. Both are checked at create and at modify by
+`PollRules`, which the two endpoints share so neither can be reached around.
+
+## 9.6 Things that will surprise you
+
+- **Scope cannot be patched.** `PATCH /v1/polls/:poll` answers 400 for it. A
+  weekday poll's columns hold no dates; changing it would invalidate the grid
+  and every vote on it.
+- **All Day is non-destructive.** Setting it adds the whole-day square and
+  leaves the timed squares in place, so unsetting restores the column. While it
+  is set, those squares are not votable — `PollAnswers.votable` is what decides.
+- **A poll with no deadline never closes.** A relative poll has no dates that
+  could pass, so a deadline is the only thing that can ever close one.
+- **`applyTo` absent means every column; an empty array means none.** A row
+  offered on no column is a legitimate half-built state.
+- **`appliesToNewOptions` is a standing rule, not a list.** It is applied by
+  `AddPollOptionEndpoint` when a column is added later.
+

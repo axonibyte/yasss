@@ -12,6 +12,11 @@ export function createStore() {
   return {
     users: new Map(), // id -> {id, email, pendingEmail, pubkey, accessLevel, verifyToken}
     events: new Map(), // id -> event
+    polls: new Map(), // id -> poll
+    /** Every short code in use, across both kinds. The real server has one
+     *  namespace for them, so the fake must too or a spec could never see a
+     *  collision the real server would refuse. */
+    codes: new Set(),
     /** Deterministic ids make failures readable. */
     seq: 0,
     /** Addresses that unsubscribed, platform-wide. */

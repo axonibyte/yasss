@@ -56,7 +56,7 @@ KEEP=0
 SKIP_BUILD=0
 PROVIDED_JAR=
 ENGINE_FLAG=
-STAGES="fuzz,accounts,sessions,reminders,text,concurrency,regressions,journeys,browser,health"
+STAGES="fuzz,accounts,sessions,reminders,text,polls,concurrency,regressions,journeys,browser,health"
 
 usage() {
   cat <<'USAGE'
@@ -707,6 +707,18 @@ if has_stage text; then
   if ! drive "${DRIVER_IMAGE}" /repo/e2e node text/verify.mjs; then
     failures=$((failures + 1))
     warn "text stage failed"
+  fi
+fi
+
+if has_stage polls; then
+  # Polls differ from events in exactly the places only the real stack can
+  # check: the all-day square's uniqueness (029), the short-code namespace
+  # shared across two tables (032), and a duplicate-answer rule that is a lock,
+  # a count and an insert in one transaction.
+  log "verifying polls against the real schema"
+  if ! drive "${DRIVER_IMAGE}" /repo/e2e node polls/verify.mjs; then
+    failures=$((failures + 1))
+    warn "polls stage failed"
   fi
 fi
 
