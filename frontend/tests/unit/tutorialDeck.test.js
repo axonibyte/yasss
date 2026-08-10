@@ -94,6 +94,24 @@ describe('copyFor', () => {
   });
 });
 
+describe('the tracks', () => {
+  it('offers a track for every one the chooser will render, and vice versa', async () => {
+    // The chooser renders from TRACKS, so a track that declared no steps would
+    // appear as a button that starts an empty tour. Read from source for the
+    // same reason the copy check below does: the state module is a runes module
+    // and this suite deliberately does not pull in the Svelte compiler.
+    const src = readFileSync(
+      resolve(process.cwd(), 'src/state/tutorial.svelte.js'), 'utf8',
+    );
+    const declared = [...src.matchAll(/^  (\w+): \{ subject: '(?:event|poll)'/gm)].map((m) => m[1]);
+    const used = new Set([...src.matchAll(/^    track: '([^']+)',$/gm)].map((m) => m[1]));
+
+    expect(declared.length).toBeGreaterThan(1);
+    expect(declared.filter((track) => !used.has(track))).toEqual([]);
+    expect([...used].filter((track) => !declared.includes(track))).toEqual([]);
+  });
+});
+
 describe('the built-in copy', () => {
   it('covers every step the tour declares', () => {
     // Reads the step list out of the source rather than importing it: the state

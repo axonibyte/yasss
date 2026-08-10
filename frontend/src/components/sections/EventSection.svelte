@@ -134,17 +134,20 @@
             {/if}
             <div class="buttons is-left">
               {#if editingLayout}
-                <button class="button is-light is-outlined is-primary is-small" onclick={onEditSummary}>
+                <button class="button is-light is-outlined is-primary is-small"
+                  data-testid="edit-summary" onclick={onEditSummary}>
                   Edit Summary
                 </button>
               {/if}
               {#if canViewReport}
-                <button class="button is-light is-outlined is-primary is-small" onclick={onViewReport}>
+                <button class="button is-light is-outlined is-primary is-small"
+                  data-testid="view-report" onclick={onViewReport}>
                   View Report
                 </button>
               {/if}
               {#if event.persisted}
-                <button class="button is-light is-outlined is-primary is-small" onclick={onShare}>
+                <button class="button is-light is-outlined is-primary is-small"
+                  data-testid="share" onclick={onShare}>
                   Share
                 </button>
               {/if}
@@ -188,13 +191,16 @@
       <div class="content">
         <div class="buttons is-centered">
           {#if editingLayout}
-            <button class="button is-light is-outlined is-primary" onclick={onAddActivity}>
+            <button class="button is-light is-outlined is-primary" data-testid="add-activity"
+              onclick={onAddActivity}>
               Add an Activity
             </button>
-            <button class="button is-light is-outlined is-primary" onclick={onAddWindow}>
+            <button class="button is-light is-outlined is-primary" data-testid="add-window"
+              onclick={onAddWindow}>
               Add a Window
             </button>
-            <button class="button is-light is-outlined is-primary" onclick={onAddField}>
+            <button class="button is-light is-outlined is-primary" data-testid="add-field"
+              onclick={onAddField}>
               Add a Field
             </button>
           {/if}
@@ -206,7 +212,7 @@
               POSTed a second event.
             -->
             <button class="button is-primary" class:is-loading={busy} disabled={busy}
-              onclick={onPublish}>Publish Event</button>
+              data-testid="publish-event" onclick={onPublish}>Publish Event</button>
           {/if}
 
           {#if event.mode === Mode.EDIT}
@@ -214,7 +220,8 @@
           {/if}
 
           {#if canEnterEdit}
-            <button class="button is-warning" onclick={onEnterEdit}>Modify Event</button>
+            <button class="button is-warning" data-testid="modify-event"
+              onclick={onEnterEdit}>Modify Event</button>
           {/if}
 
           {#if event.mode === Mode.VIEW}

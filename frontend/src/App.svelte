@@ -57,7 +57,9 @@
   } from './state/actions/volunteerActions.js';
   import * as api from './lib/api/index.js';
   import { theme } from './state/theme.svelte.js';
-  import { tutorial, loadPracticeEvent, stepIds } from './state/tutorial.svelte.js';
+  import {
+    isTrack, loadPracticeEvent, loadPracticePoll, stepsFor, stepIds, subjectOf, tutorial,
+  } from './state/tutorial.svelte.js';
   import { DEFAULT_COPY } from './lib/tutorial/defaults.js';
   import { copyFor } from './lib/tutorial/deck.js';
 
@@ -78,6 +80,11 @@
 
   const event = currentEvent;
   const poll = currentPoll;
+
+  /** Whichever practice model the running tutorial is about. */
+  const tutorialSubject = $derived(
+    tutorial.track && subjectOf(tutorial.track) === 'poll' ? poll : event,
+  );
 
   /**
    * Whether a poll is on screen.
@@ -238,7 +245,7 @@
     if (route.tutorial !== null && !eventLoaded && !pollLoaded) {
       const track = route.tutorial;
       route.clearTutorial();
-      if (track === 'organizer' || track === 'volunteer') await beginTutorial(track);
+      if (isTrack(track)) await beginTutorial(track);
       // A bare `?tutorial`, or a track nobody recognizes: ask rather than guess.
       else tutorial.open();
     }
@@ -442,6 +449,10 @@
     const run = async () => {
       const captcha = await requestCaptcha();
       const result = await publishEvent(event, { account: session.account, captcha });
+      if (result.sandbox) {
+        toastDanger('This is a practice event, so it is not published anywhere.');
+        return;
+      }
       if (!result.ok) return;
 
       if (result.redirect) {
@@ -686,10 +697,10 @@
    * gets the same question.
    */
   function startTutorial() {
-    if (hasUnsavedWork(event)) {
+    if (hasUnsavedWork(event) || (pollLoaded && !poll.persisted)) {
       confirmDestructive({
         title: 'Start the tutorial?',
-        detail: 'You have unsaved work on this event. Starting the tutorial will lose it.',
+        detail: 'You have unsaved work. Starting the tutorial will lose it.',
         confirmLabel: 'Start tutorial',
         proceed: () => { modal = null; tutorial.open(); },
       });
@@ -699,8 +710,24 @@
   }
 
   async function beginTutorial(track) {
-    loadPracticeEvent(event);
-    eventLoaded = true;
+    // Which practice model the track teaches on, and which surface its first
+    // step is about. Both come from the track's own declaration rather than
+    // from a name check here, so adding a fifth track does not mean editing
+    // the shell.
+    const subject = subjectOf(track) === 'poll' ? poll : event;
+    const firstMode = stepsFor(track)[0]?.mode ?? 'VIEW';
+
+    event.reset();
+    poll.reset();
+    if (subject === poll) {
+      loadPracticePoll(poll, { mode: firstMode });
+      pollLoaded = true;
+      eventLoaded = false;
+    } else {
+      loadPracticeEvent(event, { mode: firstMode });
+      eventLoaded = true;
+      pollLoaded = false;
+    }
 
     // The deck is optional in the strongest sense: `PublicTextEndpoint` logs and
     // carries on when a text is unconfigured, so *every* deployment is in this
@@ -713,7 +740,7 @@
     } catch {
       /* no deck configured, or unreachable; the defaults carry it */
     }
-    tutorial.begin(track, event, copyFor(stepIds, DEFAULT_COPY, deck));
+    tutorial.begin(track, subject, copyFor(stepIds, DEFAULT_COPY, deck));
   }
 
   /**
@@ -728,6 +755,8 @@
     tutorial.stop();
     eventLoaded = false;
     event.reset();
+    pollLoaded = false;
+    poll.reset();
     route.goHome();
   }
 
@@ -889,8 +918,8 @@
     anchor={tutorial.step?.anchor ?? null}
     canGoBack={tutorial.index > 0}
     atEnd={tutorial.atEnd}
-    onBack={() => tutorial.back(event)}
-    onNext={() => tutorial.next(event)}
+    onBack={() => tutorial.back(tutorialSubject)}
+    onNext={() => tutorial.next(tutorialSubject)}
     onExit={exitTutorial}
   />
 {/if}

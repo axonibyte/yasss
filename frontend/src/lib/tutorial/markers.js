@@ -36,6 +36,21 @@ export const PRACTICE_ANSWER = 'A tutorial tray of practice brownies';
  */
 export const PRACTICE_EVENT_ID = 'tutorial-practice-event';
 
+/** The practice poll's title. */
+export const PRACTICE_POLL_TITLE = 'Team Lunch (tutorial practice poll)';
+
+/** The short code the poll tour shows when it explains sharing. */
+export const PRACTICE_POLL_CODE = 'PRACTICE2';
+
+/** The person whose answer the poll tour shows in its results. */
+export const PRACTICE_RESPONDENT = 'Practice Respondent';
+
+/**
+ * The synthetic poll id. Not a UUID, for the same reason the event's is not:
+ * anything reaching the API carrying this is unambiguously a leak.
+ */
+export const PRACTICE_POLL_ID = 'tutorial-practice-poll';
+
 /** Everything above, for a driver that wants to sweep for any of them. */
 export const PRACTICE_MARKERS = [
   PRACTICE_TITLE,
@@ -43,4 +58,8 @@ export const PRACTICE_MARKERS = [
   PRACTICE_VOLUNTEER,
   PRACTICE_ANSWER,
   PRACTICE_EVENT_ID,
+  PRACTICE_POLL_TITLE,
+  PRACTICE_POLL_CODE,
+  PRACTICE_RESPONDENT,
+  PRACTICE_POLL_ID,
 ];
