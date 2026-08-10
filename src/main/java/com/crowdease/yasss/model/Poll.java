@@ -1128,9 +1128,7 @@ public class Poll {
    * not silently retried into a different failure.
    */
   private static boolean isCodeCollision(SQLException e) {
-    return 1062 == e.getErrorCode()
-        && null != e.getMessage()
-        && e.getMessage().contains("idx_poll_code");
+    return AccessCode.isCodeCollision(e);
   }
 
   private void commitOnce() throws SQLException {
@@ -1144,11 +1142,19 @@ public class Poll {
     }
 
     // Assigned on first write and never reissued: a code is what people have
-    // written down and shared.
-    if(null == code) code = EventCode.generate();
+    // written down and shared. `minted` records whether this call is the one
+    // assigning it -- see the matching note in Event.commitOnce.
+    final boolean minted = (null == code);
+    if(minted) code = EventCode.generate();
 
     try {
       con = YasssCore.getDB().connect();
+
+      // Claimed against the shared registry before the row is written, which is
+      // what stops a poll and an event from ever holding the same eight
+      // characters. commit()'s retry loop handles the collision.
+      if(minted) AccessCode.claim(con, AccessCode.Kind.POLL, id, code);
+
       stmt = con.prepareStatement(
           new SQLBuilder()
               .update(
@@ -1283,6 +1289,8 @@ public class Poll {
    */
   public void delete() throws SQLException {
     if(null == id) return;
+
+    AccessCode.release(AccessCode.Kind.POLL, id);
 
     Connection con = null;
     PreparedStatement stmt = null;

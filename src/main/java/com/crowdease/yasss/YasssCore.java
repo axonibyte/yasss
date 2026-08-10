@@ -481,6 +481,18 @@ public class YasssCore {
         }
       }
 
+      // Codes issued before the shared registry existed get registered in it.
+      // Must come before the backfill below: a code minted for a legacy event
+      // is checked against this table, so the table has to know about the codes
+      // it could collide with first.
+      try {
+        int registered = com.crowdease.yasss.model.AccessCode.backfill();
+        if(0 < registered)
+          logger.info("registered {} existing short code(s)", registered);
+      } catch(SQLException e) {
+        logger.error("could not register existing short codes: {}", e.getMessage());
+      }
+
       // Events created before short codes existed get one now. No-ops on every
       // boot after the first, and a failure here is logged rather than fatal --
       // an event without a code is still perfectly usable by UUID.

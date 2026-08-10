@@ -1338,9 +1338,11 @@ public class Event {
    * silently retried into a different failure.
    */
   private static boolean isCodeCollision(SQLException e) {
-    return 1062 == e.getErrorCode()
-        && null != e.getMessage()
-        && e.getMessage().contains("idx_event_code");
+    // Delegated since codes became a shared namespace: a collision may now be
+    // caught by the registry's index rather than this table's, and matching
+    // only on `idx_event_code` here would let a real collision escape the retry
+    // loop as a 500.
+    return AccessCode.isCodeCollision(e);
   }
 
   private void commitOnce() throws SQLException {
@@ -1356,10 +1358,23 @@ public class Event {
     // Assigned on first write and never reissued: a code is what people have
     // written down and shared, so changing it would break links that are out in
     // the world on paper.
-    if(null == code) code = EventCode.generate();
+    //
+    // `minted` records whether *this* call is the one assigning it. An event
+    // that already has a code must not re-claim it: the registry's primary key
+    // is (kind, target), so a second claim for the same event is a duplicate,
+    // and every ordinary re-save would fail.
+    final boolean minted = (null == code);
+    if(minted) code = EventCode.generate();
     
     try {
       con = YasssCore.getDB().connect();
+
+      // Claimed before the row is written. A collision here fails the whole
+      // commit, and commit()'s retry loop clears the code and comes back round
+      // with a fresh one. See the note in 032 for why claiming first is the
+      // right order.
+      if(minted) AccessCode.claim(con, AccessCode.Kind.EVENT, id, code);
+
       stmt = con.prepareStatement(
           new SQLBuilder()
               .update(
@@ -1545,7 +1560,12 @@ public class Event {
    */
   public void delete() throws SQLException {
     if(null == getID()) return;
-    
+
+    // Released first. `target` names two tables and so cannot carry a foreign
+    // key that would do this by cascade, and a registry row outliving its event
+    // would keep eight characters reserved for something that no longer exists.
+    AccessCode.release(AccessCode.Kind.EVENT, id);
+
     Connection con = null;
     PreparedStatement stmt = null;
     
