@@ -1111,12 +1111,37 @@ public class Poll implements Ownable {
    * @throws SQLException if a database malfunction occurs
    */
   public void commit() throws SQLException {
+    Connection con = null;
+    try {
+      con = YasssCore.getDB().connect();
+      commit(con);
+    } finally {
+      YasssCore.getDB().close(con, null, null);
+    }
+  }
+
+  /**
+   * Saves this {@link Poll} on a caller-supplied connection.
+   *
+   * <p>Exists because creating a poll writes its columns, rows, questions and
+   * squares as well, and a poll whose columns landed and whose squares did not
+   * is a published grid with nothing on it that can be voted for. The
+   * connection is the caller's and is deliberately not closed here.
+   *
+   * <p>Note that the retry loop runs inside the caller's transaction. That is
+   * safe on InnoDB: a duplicate-key violation fails the statement and not the
+   * transaction, so a second attempt with a fresh code proceeds normally.
+   *
+   * @param con the {@link Connection} to use
+   * @throws SQLException if a database malfunction occurs
+   */
+  public void commit(Connection con) throws SQLException {
     // Retried rather than checked-then-inserted, for the reason Event.commit
     // gives: the unique index on the code is the authority, so a collision is a
     // duplicate-key violation to catch and not a race to lose.
     for(int attempt = 0; ; attempt++) {
       try {
-        commitOnce();
+        commitOnce(con);
         return;
       } catch(SQLException e) {
         if(CODE_ATTEMPTS <= attempt || !isCodeCollision(e)) throw e;
@@ -1138,8 +1163,7 @@ public class Poll implements Ownable {
     return AccessCode.isCodeCollision(e);
   }
 
-  private void commitOnce() throws SQLException {
-    Connection con = null;
+  private void commitOnce(Connection con) throws SQLException {
     PreparedStatement stmt = null;
 
     if(null == id) {
@@ -1155,8 +1179,6 @@ public class Poll implements Ownable {
     if(minted) code = EventCode.generate();
 
     try {
-      con = YasssCore.getDB().connect();
-
       // Claimed against the shared registry before the row is written, which is
       // what stops a poll and an event from ever holding the same eight
       // characters. commit()'s retry loop handles the collision.
@@ -1211,7 +1233,8 @@ public class Poll implements Ownable {
       }
 
     } finally {
-      YasssCore.getDB().close(con, stmt, null);
+      // The statement, not the connection: that belongs to the caller.
+      YasssCore.getDB().close(null, stmt, null);
     }
   }
 

@@ -69,6 +69,23 @@ import com.crowdease.yasss.api.SetSlotEndpoint;
 import com.crowdease.yasss.api.UnsetRSVPEndpoint;
 import com.crowdease.yasss.api.UnsetSlotEndpoint;
 import com.crowdease.yasss.api.VerifyUserEndpoint;
+import com.crowdease.yasss.api.AddPollDetailEndpoint;
+import com.crowdease.yasss.api.AddPollOptionEndpoint;
+import com.crowdease.yasss.api.AddPollWindowEndpoint;
+import com.crowdease.yasss.api.CreatePollEndpoint;
+import com.crowdease.yasss.api.ListPollsEndpoint;
+import com.crowdease.yasss.api.ModifyPollDetailEndpoint;
+import com.crowdease.yasss.api.ModifyPollEndpoint;
+import com.crowdease.yasss.api.ModifyPollOptionEndpoint;
+import com.crowdease.yasss.api.ModifyPollWindowEndpoint;
+import com.crowdease.yasss.api.RemovePollDetailEndpoint;
+import com.crowdease.yasss.api.RemovePollEndpoint;
+import com.crowdease.yasss.api.RemovePollOptionEndpoint;
+import com.crowdease.yasss.api.RemovePollWindowEndpoint;
+import com.crowdease.yasss.api.ResolveCodeEndpoint;
+import com.crowdease.yasss.api.RetrievePollEndpoint;
+import com.crowdease.yasss.api.SetPollCellEndpoint;
+import com.crowdease.yasss.api.UnsetPollCellEndpoint;
 import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.StripeDriver;
 import com.crowdease.yasss.daemon.ReminderEngine;
@@ -433,16 +450,25 @@ public class YasssCore {
               new PasskeyAuthEndpoint(PasskeyAuthEndpoint.Mode.FINISH),
               new AddActivityEndpoint(),
               new AddDetailEndpoint(),
+              new AddPollDetailEndpoint(),
+              new AddPollOptionEndpoint(),
+              new AddPollWindowEndpoint(),
               new AddVolunteerEndpoint(),
               new AddWindowEndpoint(),
               new CreateEventEndpoint(),
+              new CreatePollEndpoint(),
               new CreateUserEndpoint(),
               new EventReportEndpoint(),
               new ListEventsEndpoint(),
+              new ListPollsEndpoint(),
               new ListUsersEndpoint(),
               new ModifyActivityEndpoint(),
               new ModifyDetailEndpoint(),
               new ModifyEventEndpoint(),
+              new ModifyPollEndpoint(),
+              new ModifyPollDetailEndpoint(),
+              new ModifyPollOptionEndpoint(),
+              new ModifyPollWindowEndpoint(),
               new ModifyUserEndpoint(),
               new ModifyVolunteerEndpoint(),
               new ModifyWindowEndpoint(),
@@ -450,6 +476,10 @@ public class YasssCore {
               new RemoveActivityEndpoint(),
               new RemoveDetailEndpoint(),
               new RemoveEventEndpoint(),
+              new RemovePollEndpoint(),
+              new RemovePollDetailEndpoint(),
+              new RemovePollOptionEndpoint(),
+              new RemovePollWindowEndpoint(),
               new RemoveUserEndpoint(),
               new RemoveVolunteerEndpoint(),
               new ReminderSubscriptionEndpoint(ReminderSubscriptionEndpoint.Mode.CONFIRM),
@@ -458,11 +488,15 @@ public class YasssCore {
               new ResetUserEndpoint(),
               new RevokeSessionsEndpoint(RevokeSessionsEndpoint.Mode.ACCOUNT),
               new RevokeSessionsEndpoint(RevokeSessionsEndpoint.Mode.PLATFORM),
+              new ResolveCodeEndpoint(),
               new RetrieveEventEndpoint(),
+              new RetrievePollEndpoint(),
               new RetrieveUserEndpoint(),
               new SetRSVPEndpoint(),
+              new SetPollCellEndpoint(),
               new SetSlotEndpoint(),
               new UnsetRSVPEndpoint(),
+              new UnsetPollCellEndpoint(),
               new UnsetSlotEndpoint(),
               new VerifyUserEndpoint())
           .build();

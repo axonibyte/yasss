@@ -456,6 +456,61 @@ public abstract class APIEndpoint extends JSONEndpoint {
     return '0' <= c && '9' >= c;
   }
 
+  /**
+   * Validates and parses a calendar date, as {@code yyyy-MM-dd}.
+   *
+   * <p>{@link java.sql.Date#valueOf(String)} throws unchecked on anything it
+   * dislikes, and it is lenient in ways that matter here: it accepts
+   * {@code 2026-2-3} and it rolls {@code 2026-02-30} forward into March rather
+   * than refusing it. A caller who names the thirtieth of February has made a
+   * mistake, and silently moving their poll to the second of March is a worse
+   * answer than saying so.
+   *
+   * @param req the {@link Request}
+   * @param raw the candidate, as {@code yyyy-MM-dd}
+   * @param token the argument name, for the error message
+   * @return the parsed {@link java.sql.Date}
+   * @throws EndpointException with a 400 if it is not a date
+   */
+  protected static java.sql.Date validDate(Request req, String raw, String token)
+      throws EndpointException {
+    try {
+      // Parsed strictly by java.time and only then handed to java.sql, which is
+      // what rules out both the lenient spellings and the rolled-over days.
+      return java.sql.Date.valueOf(java.time.LocalDate.parse(raw));
+    } catch(java.time.format.DateTimeParseException | NullPointerException e) {
+      throw new EndpointException(req, "malformed argument (" + token + ")", 400);
+    }
+  }
+
+  /**
+   * Resolves an enum constant by name.
+   *
+   * <p>By name rather than by ordinal, matching how {@code detail.type} already
+   * travels. An ordinal on the wire is a client that breaks the day a value is
+   * inserted into the middle of an enum, and it makes every payload unreadable
+   * to a human debugging one.
+   *
+   * @param <T> the enum type
+   * @param req the {@link Request}
+   * @param type the enum class
+   * @param raw the candidate name, in any case
+   * @param token the argument name, for the error message
+   * @return the constant
+   * @throws EndpointException with a 400 if it names no constant
+   */
+  protected static <T extends Enum<T>> T enumOf(
+      Request req, Class<T> type, String raw, String token) throws EndpointException {
+    if(null != raw) {
+      try {
+        return Enum.valueOf(type, raw.strip().toUpperCase());
+      } catch(IllegalArgumentException e) {
+        // Falls through to the 400 below.
+      }
+    }
+    throw new EndpointException(req, "malformed argument (" + token + ")", 400);
+  }
+
   /** The largest page size any listing endpoint will serve. */
   public static final int MAX_PAGE_SIZE = 200;
 
