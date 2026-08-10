@@ -84,6 +84,68 @@ export function slotCell({ enabled, editing, hasRsvp, atCapacity, rsvpCount = 0,
   return { label: 'Available', aesthetics: 'is-outlined is-primary', state: 'available' };
 }
 
+/**
+ * Label and Bulma classes for one poll square.
+ *
+ * Beside `slotCell` rather than in a file of its own, so the two vocabularies
+ * can be read against each other -- they share the grid, the tile and the
+ * `data-slot-state` convention, and differ only in what the squares mean.
+ *
+ * The condition order is normative, and the first two carry the reasoning:
+ *
+ * - `suppressed` wins over everything. It means the column is set to All Day,
+ *   so the times within it are not on offer -- the squares still exist, and are
+ *   kept so that unsetting All Day restores the column, but nobody may vote for
+ *   one and the grid must not invite them to.
+ * - `editing` comes next because the organiser is being shown what the grid
+ *   *is*, not what they may do with it. A square they have withdrawn reads
+ *   "Unavailable" to them too, which is what their respondents will see.
+ *
+ * When a tally is visible the label becomes the count, and whether this
+ * respondent chose it is carried by the colour rather than by a second word --
+ * the tile is too small for "Voted (3)" and the number is the thing being
+ * looked at.
+ *
+ * @param {object} args
+ * @param {boolean} args.offered     a square exists for this pair
+ * @param {boolean} args.suppressed  the column is set to All Day
+ * @param {boolean} args.editing     the organiser is laying the grid out
+ * @param {boolean} args.voted       this respondent chose it
+ * @param {number|null} args.votes   the tally, or null when it is not disclosed
+ */
+export function pollCell({
+  offered,
+  suppressed = false,
+  editing = false,
+  voted = false,
+  votes = null,
+}) {
+  if (suppressed) {
+    return { label: 'All Day', aesthetics: 'is-outlined is-light', state: 'all-day' };
+  }
+  if (editing) {
+    return offered
+      ? { label: 'Available', aesthetics: 'is-outlined is-primary', state: 'editing' }
+      : { label: 'Unavailable', aesthetics: 'is-outlined is-light', state: 'editing-off' };
+  }
+  if (!offered) {
+    return { label: 'Unavailable', aesthetics: 'is-outlined is-light', state: 'unavailable' };
+  }
+  if (votes !== null) {
+    return {
+      label: String(votes),
+      aesthetics: voted ? 'is-outlined is-warning' : 'is-outlined is-primary',
+      state: voted ? 'voted' : 'available',
+    };
+  }
+  if (voted) return { label: 'Voted', aesthetics: 'is-outlined is-warning', state: 'voted' };
+  return { label: 'Available', aesthetics: 'is-outlined is-primary', state: 'available' };
+}
+
+/** Shown when the poll has neither columns nor rows. */
+export const EMPTY_POLL_MESSAGE =
+  "You haven't added any days or times to your poll yet!";
+
 /** The full `ul` class string for a cell, in the legacy's order. */
 export const cellClasses = (aesthetics) =>
   `block-list is-small is-centered${aesthetics ? ` ${aesthetics}` : ''}`;

@@ -36,6 +36,20 @@
      *
      */
     ariaLabel = null,
+    /**
+     * Extra controls rendered inside the tile, after the label.
+     *
+     * Added for the poll grid's "All Day" switch, which has to sit on the
+     * column header itself. Deliberately a snippet rather than a `checkbox`
+     * prop: this component knows about tiles and not about what any particular
+     * grid wants to put in one, and a second grid asking for a second control
+     * would otherwise mean a second branch here.
+     *
+     * Absent it renders nothing at all -- not an empty element -- so the event
+     * grid's DOM is unchanged, which is what lets the conformance suite go on
+     * asserting the tile markup byte for byte.
+     */
+    children = null,
   } = $props();
 
   const listClass = $derived(
@@ -76,6 +90,7 @@
       {:else}
         {label}{#if secondLine}<br />{secondLine}{/if}
       {/if}
+      {@render children?.()}
     </li>
   </ul>
 </div>
