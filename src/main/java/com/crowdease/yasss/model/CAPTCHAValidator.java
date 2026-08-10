@@ -13,6 +13,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.axonibyte.lib.http.captcha.CAPTCHAValidator.Credential;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,10 +36,9 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
   /**
    * Instantiates the CAPTCHA validator.
    *
-   * @param credsFile the path to the credentials JSON file associated with the
-   *        service account
-   * @param projectID the Google Cloud project ID associated with the service
-   *        account
+   * @param credential whether {@code secret} is a credentials file or an API key
+   * @param secret the path to a credentials JSON file, or the API key itself
+   * @param projectID the Google Cloud project ID
    * @param siteKey the reCAPTCHA site key
    * @param minScore the minimum score (between 0 and 1) that users must score
    *        in order to be considered legitimately human
@@ -46,8 +47,8 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
    *        subsequent requests
    * @throws IOException if the credentials could not be read
    */
-  public CAPTCHAValidator(String credsFile, String projectID, String siteKey, float minScore, long gracePeriod) throws IOException {
-    super(credsFile, projectID, siteKey);
+  public CAPTCHAValidator(Credential credential, String secret, String projectID, String siteKey, float minScore, long gracePeriod) throws IOException {
+    super(credential, secret, projectID, siteKey);
     this.minScore = minScore;
     this.gracePeriod = gracePeriod;
   }

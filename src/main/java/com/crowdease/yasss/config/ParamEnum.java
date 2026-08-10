@@ -54,9 +54,25 @@ public enum ParamEnum {
   AUTH_CAPTCHA_CLOUD_PROJECT(new Param("auth.captcha.cloudProject")),
 
   /**
-   * Required if CAPTCHAs are enabled. Path to the reCAPTCHA service account keyfile.
+   * One of this and {@link #AUTH_CAPTCHA_API_KEY} is required if CAPTCHAs are
+   * enabled. Path to the reCAPTCHA service account keyfile.
+   *
+   * <p>Any credential JSON Google's client library accepts will do, including a
+   * workload identity federation configuration -- it need not be a service
+   * account key, which newer Google organizations block by default.
    */
   AUTH_CAPTCHA_KEYFILE(new Param("auth.captcha.keyFile")),
+
+  /**
+   * One of this and {@link #AUTH_CAPTCHA_KEYFILE} is required if CAPTCHAs are
+   * enabled. An API key restricted to the reCAPTCHA Enterprise API.
+   *
+   * <p>Preferred where a service account key cannot be issued: it needs no file
+   * on disk and no application default credentials, so it works on a host with
+   * no Google credentials of any kind. It is still a bearer secret, so it wants
+   * the same care as any other value in this file.
+   */
+  AUTH_CAPTCHA_API_KEY(new Param("auth.captcha.apiKey")),
 
   /**
    * Optional. CAPTCHA IP cache TTL.
@@ -69,7 +85,11 @@ public enum ParamEnum {
   AUTH_CAPTCHA_MINIMUM_SCORE(new Param("auth.captcha.minScore", 0.7f)),
 
   /**
-   * Required if CAPTCHAs are enabled. Denotes the Google reCAPTCHA v2 site key.
+   * Required if CAPTCHAs are enabled. Denotes the reCAPTCHA Enterprise site key.
+   *
+   * <p>Enterprise, not classic: the frontend loads {@code enterprise.js} and
+   * renders through {@code grecaptcha.enterprise}, and the server scores through
+   * the Enterprise assessment API. A key from the classic console will not work.
    */
   AUTH_CAPTCHA_SITE_KEY(new Param("auth.captcha.siteKey")),
 

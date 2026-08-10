@@ -93,6 +93,7 @@ import com.crowdease.yasss.config.ParamEnum;
 import com.crowdease.yasss.daemon.StripeDriver;
 import com.crowdease.yasss.daemon.ReminderEngine;
 import com.crowdease.yasss.daemon.TicketEngine;
+import com.axonibyte.lib.http.captcha.CAPTCHAValidator.Credential;
 import com.crowdease.yasss.model.CAPTCHAValidator;
 import com.crowdease.yasss.model.CredentialMigrator;
 import com.crowdease.yasss.model.Mail;
@@ -379,13 +380,36 @@ public class YasssCore {
       
       authRequired = config.getBoolean(ParamEnum.AUTH_REQUIRE_SIGNIN);
 
-      if(config.getBoolean(ParamEnum.AUTH_CAPTCHA_REQUIRED))
+      if(config.getBoolean(ParamEnum.AUTH_CAPTCHA_REQUIRED)) {
+        // Exactly one of the two, and said so at boot rather than discovered
+        // later. Both set is ambiguous -- a silent precedence rule would mean a
+        // deployment thinking it uses one credential while it uses the other --
+        // and neither set is a server that starts, passes its health check, and
+        // refuses every anonymous signup.
+        final String apiKey = optionalString(ParamEnum.AUTH_CAPTCHA_API_KEY);
+        final String keyFile = optionalString(ParamEnum.AUTH_CAPTCHA_KEYFILE);
+
+        if(null != apiKey && null != keyFile)
+          throw new MisconfigurationException(
+              "auth.captcha.apiKey and auth.captcha.keyFile are both set; keep one");
+        if(null == apiKey && null == keyFile)
+          throw new MisconfigurationException(
+              "auth.captcha.required is true, so set either auth.captcha.apiKey "
+              + "(an API key restricted to the reCAPTCHA Enterprise API) or "
+              + "auth.captcha.keyFile (a path to a credentials JSON file)");
+
         captchaValidator = new CAPTCHAValidator(
-            config.getString(ParamEnum.AUTH_CAPTCHA_KEYFILE),
+            null != apiKey ? Credential.API_KEY : Credential.SERVICE_ACCOUNT,
+            null != apiKey ? apiKey : keyFile,
             config.getString(ParamEnum.AUTH_CAPTCHA_CLOUD_PROJECT),
             config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY),
             (float)config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE),
             config.getLong(ParamEnum.AUTH_CAPTCHA_GRACE_PERIOD));
+
+        logger.info(
+            "CAPTCHA verification is enabled, authenticating with {}",
+            null != apiKey ? "an API key" : "a credentials file");
+      }
 
       ticketEngine = new TicketEngine(
           config.getInteger(ParamEnum.TICKET_REFRESH_INTERVAL),
@@ -888,6 +912,27 @@ public class YasssCore {
    */
   public static long getResetTokenTTL() {
     return resetTokenTTL;
+  }
+
+  /**
+   * Reads an optional string, treating unset and blank alike.
+   *
+   * <p>The config layer throws when a parameter has no value and no default,
+   * which is the right behaviour for a required one and merely noise for a
+   * parameter whose absence is a legitimate choice. Blank is folded in with
+   * absent because a key left as an empty string in a config file means the
+   * same thing to the person who wrote it.
+   *
+   * @param param the parameter to read
+   * @return its value, or {@code null} if it was unset or blank
+   */
+  private static String optionalString(ParamEnum param) {
+    try {
+      String value = config.getString(param);
+      return null == value || value.isBlank() ? null : value;
+    } catch(BadParamException e) {
+      return null;
+    }
   }
 
   /**

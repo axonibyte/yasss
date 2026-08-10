@@ -73,6 +73,29 @@ somebody answering twice by accident, and it stops the laziest deliberate
 attempt. If a poll's result genuinely matters, the honest answer is to require
 sign-in.
 
+## Configuring it
+
+Two credentials, and only one of them is secret:
+
+- `auth.captcha.siteKey` — the **reCAPTCHA Enterprise** site key. Public; the
+  server hands it to browsers from `GET /v1`, so changing it needs a restart but
+  never a rebuild. A key from the classic reCAPTCHA console will not work: the
+  frontend loads `enterprise.js` and the server scores through the Enterprise
+  assessment API.
+- **one** of `auth.captcha.apiKey` or `auth.captcha.keyFile`. Setting both, or
+  neither, refuses to start rather than guessing.
+
+Prefer `apiKey` — an API key restricted to the reCAPTCHA Enterprise API. It
+needs no file on disk and no application default credentials, which matters
+because Google applies `iam.disableServiceAccountKeyCreation` by default to
+newer organizations and that blocks the service account key download entirely.
+`keyFile` still works and accepts any credential JSON Google's client library
+reads, including a workload identity federation configuration.
+
+Whichever you use, the service account or API key needs the **reCAPTCHA
+Enterprise Agent** role, and the validator is built once at startup — so a
+change to any of this takes a restart.
+
 ## What your privacy policy must say
 
 Yasss serves the policy you configure at `texts.privacyPolicy`; there is no
