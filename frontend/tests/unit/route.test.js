@@ -8,6 +8,15 @@ import { describe, it, expect } from 'vitest';
 import { parseRoute } from '../../src/state/route.svelte.js';
 
 describe('parseRoute', () => {
+  it('reads a poll id, and keeps it separate from an event id', () => {
+    expect(parseRoute('?poll=p-1').pollId).toBe('p-1');
+    expect(parseRoute('?poll=p-1').eventId).toBeNull();
+    // Two parameters rather than one that carries either kind: mail templates
+    // hardcode `?event=`, and one parameter would make every link ambiguous
+    // until the app had asked the server what it was holding.
+    expect(parseRoute('?event=e-1').pollId).toBeNull();
+  });
+
   it('reads an event id', () => {
     expect(parseRoute('?event=abc-123').eventId).toBe('abc-123');
   });
@@ -35,8 +44,8 @@ describe('parseRoute', () => {
 
   it('yields nulls for a bare URL', () => {
     expect(parseRoute('')).toEqual({
-      eventId: null, action: null, user: null, volunteer: null, token: null, share: false,
-      tutorial: null,
+      eventId: null, pollId: null, action: null, user: null, volunteer: null, token: null,
+      share: false, tutorial: null,
     });
   });
 

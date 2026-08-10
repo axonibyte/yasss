@@ -174,3 +174,85 @@ export const setRsvp = (eventId, activityId, windowId, volunteerId) =>
 
 export const unsetRsvp = (eventId, activityId, windowId, volunteerId) =>
   del(rsvpPath(eventId, activityId, windowId, volunteerId));
+
+// --- polls -----------------------------------------------------------------
+
+/**
+ * Ask what a short code names, so one entry box can open either kind.
+ *
+ * Anonymous on purpose: holding the code is the permission, and the endpoint it
+ * points at applies whatever rules that thing has.
+ *
+ * @param {string} code in any spelling a human might produce
+ * @returns {Promise<{kind: 'event'|'poll', id: string}>}
+ */
+export const resolveCode = (code) => get(`/codes/${encodeURIComponent(code)}`, { anonymous: true });
+
+export const createPoll = (payload, captcha) => post('/polls', payload, { captcha });
+
+/**
+ * Read a poll.
+ *
+ * `token` is the edit token an anonymous respondent was handed when they
+ * answered. It is what lets the server recognise them well enough to return
+ * their own answer, and to decide whether a "once you have answered" result
+ * setting has been satisfied.
+ */
+export const getPoll = (id, token = null) =>
+  get(`/polls/${id}`, token ? { query: { token } } : undefined);
+
+export const listPolls = (query) => get('/polls', { query });
+
+export const updatePoll = (id, changes) => patch(`/polls/${id}`, changes);
+
+export const deletePoll = (id) => del(`/polls/${id}`);
+
+export const addPollOption = (pollId, option) => post(`/polls/${pollId}/options`, option);
+
+export const updatePollOption = (pollId, optionId, changes) =>
+  patch(`/polls/${pollId}/options/${optionId}`, changes);
+
+export const deletePollOption = (pollId, optionId) =>
+  del(`/polls/${pollId}/options/${optionId}`);
+
+export const addPollWindow = (pollId, win) => post(`/polls/${pollId}/windows`, win);
+
+export const updatePollWindow = (pollId, windowId, changes) =>
+  patch(`/polls/${pollId}/windows/${windowId}`, changes);
+
+export const deletePollWindow = (pollId, windowId) =>
+  del(`/polls/${pollId}/windows/${windowId}`);
+
+export const addPollDetail = (pollId, detail) => post(`/polls/${pollId}/details`, detail);
+
+export const updatePollDetail = (pollId, detailId, changes) =>
+  patch(`/polls/${pollId}/details/${detailId}`, changes);
+
+export const deletePollDetail = (pollId, detailId) =>
+  del(`/polls/${pollId}/details/${detailId}`);
+
+export const setPollCell = (pollId, optionId, windowId) =>
+  put(`/polls/${pollId}/options/${optionId}/windows/${windowId}`, undefined);
+
+export const unsetPollCell = (pollId, optionId, windowId) =>
+  del(`/polls/${pollId}/options/${optionId}/windows/${windowId}`);
+
+/**
+ * Submit an answer.
+ *
+ * The fingerprint is computed by the caller and only when the poll allows one
+ * answer each -- a poll that permits several collects nothing, which is the
+ * default and so the default deployment collects nothing at all.
+ */
+export const addPollResponse = (pollId, payload, captcha) =>
+  post(`/polls/${pollId}/responses`, payload, { captcha });
+
+export const updatePollResponse = (pollId, responseId, changes, token = null) =>
+  patch(
+    `/polls/${pollId}/responses/${responseId}`,
+    changes,
+    token ? { query: { token } } : undefined,
+  );
+
+export const deletePollResponse = (pollId, responseId, token = null) =>
+  del(`/polls/${pollId}/responses/${responseId}`, token ? { query: { token } } : undefined);

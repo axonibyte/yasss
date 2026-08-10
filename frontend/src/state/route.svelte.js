@@ -25,6 +25,12 @@ function parse(search = window.location.search) {
   const params = new URLSearchParams(search);
   return {
     eventId: params.get('event'),
+    // A second parameter rather than an overload of `event`. Server-sent mail
+    // templates hardcode `?event=`, and one parameter carrying either kind
+    // would make a poll link indistinguishable from an event link at parse
+    // time -- so opening any link would need a resolver round trip before the
+    // app knew what it was looking at.
+    pollId: params.get('poll'),
     action: /** @type {Action|null} */ (params.get('action')),
     user: params.get('user'),
     // Reminder links identify a volunteer rather than an account -- an
@@ -45,6 +51,7 @@ function parse(search = window.location.search) {
 
 class Route {
   eventId = $state(null);
+  pollId = $state(null);
   action = $state(null);
   user = $state(null);
   volunteer = $state(null);
@@ -92,12 +99,31 @@ class Route {
     const url = `${this.eventUrl(eventId)}${share ? '&share' : ''}`;
     window.history.pushState({}, '', url);
     this.eventId = eventId;
+    // Cleared, not merely left: the two are mutually exclusive, and a stale
+    // poll id would keep the poll view on screen against an address naming an
+    // event -- the same class of bug `listen` exists to prevent.
+    this.pollId = null;
+    this.share = share;
+  }
+
+  /** Canonical link to a poll, as used by share. */
+  pollUrl(pollId) {
+    return `${window.location.origin}?poll=${pollId}`;
+  }
+
+  /** Navigate to a poll without a full reload. */
+  goToPoll(pollId, { share = false } = {}) {
+    const url = `${this.pollUrl(pollId)}${share ? '&share' : ''}`;
+    window.history.pushState({}, '', url);
+    this.eventId = null;
+    this.pollId = pollId;
     this.share = share;
   }
 
   goHome() {
     window.history.pushState({}, '', window.location.origin);
     this.eventId = null;
+    this.pollId = null;
     this.share = false;
   }
 

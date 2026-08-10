@@ -30,6 +30,31 @@ beforeEach(() => {
 });
 
 describe('credentials are sent only where they are wanted', () => {
+  it('resolving a short code carries no session', async () => {
+    installAuthBridge({ getToken: () => 'TOKEN' });
+    await api.resolveCode('ABCD-1234');
+
+    // Holding the code is the permission, and the endpoint says only what kind
+    // of thing exists. Sending a session to it would make the one call every
+    // visitor makes before they have an account the one call that carries one.
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBeUndefined();
+    expect(fetchMock.mock.calls[0][0]).toContain('/codes/ABCD-1234');
+  });
+
+  it('reads a poll with the respondent token as a query parameter', async () => {
+    await api.getPoll('p-1', 'tok-9');
+
+    // In the query rather than the body, because this is a GET -- and it is
+    // what lets the server return the caller their own answer, and decide
+    // whether an "after you answer" result setting has been met.
+    expect(fetchMock.mock.calls[0][0]).toContain('token=tok-9');
+  });
+
+  it('omits the token entirely when there is not one', async () => {
+    await api.getPoll('p-1');
+    expect(fetchMock.mock.calls[0][0]).not.toContain('token');
+  });
+
   it('registration carries no session', async () => {
     installAuthBridge({ getToken: () => 'STALE-TOKEN' });
     await api.registerUser('a@b.co', 'PUBKEY', 'captcha');
