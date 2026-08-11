@@ -17,6 +17,15 @@
     value = $bindable('09:00'),
     error = null,
     oninput = null,
+    /**
+     * Earliest acceptable reading, as `HH:mm`.
+     *
+     * The browser's own guard, not the only one: `min` shows up in the picker
+     * and in constraint validation, but it is advisory enough that the caller
+     * still has to check. Both are worth having -- the native one stops the
+     * mistake being made, and the explicit one stops it being submitted.
+     */
+    min = null,
   } = $props();
 </script>
 
@@ -27,6 +36,7 @@
     class="input"
     class:is-danger={error}
     type="time"
+    min={min ?? undefined}
     bind:value
     {oninput}
   />

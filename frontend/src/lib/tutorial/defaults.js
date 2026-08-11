@@ -351,9 +351,13 @@ a poll is settling the hour and the length is the event's business afterwards.`,
 Tick **Repeat** and give an interval, and one time becomes a column of them —
 every ninety minutes from nine, say.
 
-It stops at the end of the day, and it will not accept an interval longer than
-the time you have left. Asking to repeat every eight hours starting at six in
-the evening is a mistake, and it says so rather than quietly making one row.`,
+**Until** says where to stop, and the time you name is offered: “every hour
+until five” gives you a five o’clock row. Leave it empty to carry on to the end
+of the day. You cannot set it earlier than the time you started at.
+
+It will not accept an interval longer than the span you have given it. Asking to
+repeat every eight hours starting at six in the evening is a mistake, and it
+says so rather than quietly making one row.`,
 
   'p-apply': `## Which days a time applies to
 

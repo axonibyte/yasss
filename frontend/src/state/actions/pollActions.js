@@ -170,9 +170,12 @@ export async function setAllDay(poll, option, allDay) {
  *
  * @returns {Promise<boolean>}
  */
-export async function addWindows(poll, { start, repeat, hours, minutes, mode, selected, future }) {
+export async function addWindows(
+  poll,
+  { start, repeat, hours, minutes, until = null, mode, selected, future },
+) {
   const wanted = newOnly(
-    expandRepeat({ start, repeat, hours, minutes }),
+    expandRepeat({ start, repeat, hours, minutes, until }),
     poll.windows.map((w) => w.startTime),
   );
 

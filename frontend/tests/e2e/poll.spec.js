@@ -93,6 +93,38 @@ test('the repeat control fills the day and refuses an interval that will not fit
     await expect(page.locator('[data-slot-state="editing"]')).toHaveCount(6);
   });
 
+
+test('the repeat stops at an "until", and offers the time it names',
+  async ({ page }) => {
+    await page.goto('/');
+    await waitForApp(page);
+    await startPoll(page);
+
+    await page.getByRole('button', { name: 'Add a Time' }).click();
+    await page.getByLabel('Starts at').fill('09:00');
+    await page.getByLabel('Repeat through the day').check();
+    await page.getByLabel('Hours').fill('1');
+    await page.getByLabel('Until').fill('12:00');
+
+    // 09:00, 10:00, 11:00 and -- this is the decision -- 12:00 itself. The
+    // organiser typed that time to have it offered; dropping it would read as
+    // an off-by-one however the help text explained itself.
+    await expect(page.getByTestId('repeat-preview')).toContainText('4 times');
+    await expect(page.getByTestId('repeat-preview')).toContainText('12:00 PM');
+
+    // An until before the start is refused, and the complaint lands on the
+    // until rather than on the interval -- which is the one number that is
+    // right, and where the old single error slot would have pointed.
+    await page.getByLabel('Until').fill('08:00');
+    await expect(page.getByText(/That is before 09:00/)).toBeVisible();
+    await expect(page.getByTestId('repeat-preview')).toBeHidden();
+
+    await page.getByLabel('Until').fill('11:00');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    // 09:00, 10:00, 11:00 against two days.
+    await expect(page.locator('[data-slot-state="editing"]')).toHaveCount(6);
+  });
+
 test('All Day greys a column and gives it back when unticked', async ({ page }) => {
   await page.goto('/');
   await waitForApp(page);

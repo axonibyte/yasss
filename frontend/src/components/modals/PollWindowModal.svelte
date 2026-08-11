@@ -6,10 +6,15 @@
    * duration is the event's business once the poll has settled the hour.
    *
    * The repeat is an authoring convenience and nothing else: it produces a
-   * handful of start times here and is then forgotten. The bound on it is the
-   * organiser's own -- a repeat may not ask for more time than is left between
-   * the first window and the end of the day -- and it is checked as they type,
-   * because finding out at submit time which of six numbers was wrong is worse.
+   * handful of start times here and is then forgotten. It stops either at an
+   * "until" the organiser named or at the end of the day, and either way the
+   * bound is checked as they type -- finding out at submit time which of six
+   * numbers was wrong is worse.
+   *
+   * The "until" is inclusive: a time landing on the cadence is offered. That is
+   * argued out at length in lib/poll/windows.js, and the help text below says
+   * so plainly, because a boundary nobody can see the rule for is a boundary
+   * everybody gets wrong once.
    */
   import Modal from './Modal.svelte';
   import Field from '../inputs/Field.svelte';
@@ -36,6 +41,8 @@
   let repeat = $state(false);
   let hours = $state(1);
   let minutes = $state(0);
+  /** Blank means "carry on to the end of the day", which is what it did before. */
+  let until = $state('');
   let mode = $state('all');
   let selected = $state([]);
   // svelte-ignore state_referenced_locally
@@ -43,10 +50,21 @@
   let errors = $state({});
 
   /** Live, so the organiser sees what they are about to create. */
-  const verdict = $derived(repeat ? checkInterval(start, hours, minutes) : { ok: true });
+  const verdict = $derived(repeat ? checkInterval(start, hours, minutes, until) : { ok: true });
   const preview = $derived(
-    verdict.ok ? expandRepeat({ start, repeat, hours: Number(hours), minutes: Number(minutes) }) : [],
+    verdict.ok
+      ? expandRepeat({ start, repeat, hours: Number(hours), minutes: Number(minutes), until })
+      : [],
   );
+
+  /**
+   * The verdict, but only where it belongs.
+   *
+   * An "until" before the start is not a complaint about the interval, and
+   * showing it under "Repeat every" would send the organiser to correct the one
+   * number that is right.
+   */
+  const faultOf = (field) => (!verdict.ok && verdict.field === field ? verdict.reason : null);
 
   function submit() {
     const next = {};
@@ -60,6 +78,7 @@
       repeat,
       hours: Number(hours),
       minutes: Number(minutes),
+      until,
       mode,
       selected: [...selected],
       future,
@@ -77,8 +96,7 @@
     </div>
 
     {#if repeat}
-      <Field label="Repeat every" error={errors.repeat ?? (verdict.ok ? null : verdict.reason)}
-        id="poll-repeat-every">
+      <Field label="Repeat every" error={faultOf('interval')} id="poll-repeat-every">
         <div class="field has-addons" id="poll-repeat-every">
           <div class="control">
             <input class="input" type="number" min="0" max="23" style="width: 5rem"
@@ -92,6 +110,24 @@
           <div class="control"><span class="button is-static">m</span></div>
         </div>
       </Field>
+
+      <!--
+        `min` is the browser's guard against an until before the start; the
+        verdict above is ours. Both, because the native one stops the mistake
+        being made and ours stops it being submitted -- `min` is honoured
+        unevenly across pickers and not at all by a typed-in value.
+      -->
+      <TimeField
+        label="Until"
+        id="poll-repeat-until"
+        bind:value={until}
+        min={start}
+        error={faultOf('until')}
+      />
+      <p class="help mb-3" data-testid="repeat-until-help">
+        Leave this empty to carry on to the end of the day. A time that lands
+        exactly on the repeat is offered — “until 5:00 PM” includes 5:00 PM.
+      </p>
 
       {#if preview.length > 1}
         <p class="help mb-3" data-testid="repeat-preview">
