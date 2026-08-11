@@ -68,16 +68,29 @@
           </thead>
           <tbody>
             {#each ranked as row (row.key)}
-              <tr class:is-selected={row.votes === best && best > 0}>
-                <td>{row.when}</td>
+              <tr class:is-winner={row.votes === best && best > 0}>
+                <td>
+                  {row.when}
+                  <!--
+                    Ties are possible, so "the top row" does not identify the
+                    winner and nor does any purely visual treatment. Said in
+                    text, for anybody not reading the weight or the rule.
+                  -->
+                  {#if row.votes === best && best > 0}<span class="is-sr-only"> — most votes</span>{/if}
+                </td>
                 <td class="has-text-right">{row.votes}</td>
                 <td style="width: 40%">
                   <!--
                     A bar rather than a chart: one number per row, and the only
                     comparison that matters is against the best row.
+
+                    Every bar is the same colour, including the winner's. The
+                    panel exists to compare rows, and a row whose bar is drawn
+                    differently cannot be compared with the others by eye --
+                    which is the one thing this table is for.
                   -->
                   <progress
-                    class="progress is-primary is-small"
+                    class="progress is-small result-bar"
                     value={row.votes}
                     max={Math.max(poll.respondents, best, 1)}
                     aria-label={`${row.votes} of ${poll.respondents}`}
@@ -91,3 +104,47 @@
     </div>
   </div>
 </div>
+
+<style>
+  /*
+   * The winning row used Bulma's `.is-selected`, which fills it with
+   * `--bulma-primary` -- the same colour as the `.is-primary` bar inside it.
+   * Contrast ratio 1.00: the filled part of the winner's bar was invisible and
+   * only the pale track showed, so the row with the most votes rendered the
+   * emptiest-looking bar. The single most important row on the page read
+   * backwards.
+   *
+   * Recolouring the bar inside the filled row was the obvious fix and is the
+   * wrong one. On a bright turquoise row neither a darker nor a lighter track
+   * separates well from the row itself (measured: nothing reached 3:1 at any
+   * sensible alpha), and it would leave the winner's bar drawn differently from
+   * every other bar -- in a table whose only purpose is comparing them.
+   *
+   * So the winner is marked without touching the row's background: weight, a
+   * rule down the leading edge, and the text marker in the markup. Every bar
+   * keeps one colour and one track.
+   *
+   * `--bulma-primary` is too light to be a data colour: against the track it
+   * measures 1.65:1, under the 3:1 WCAG 1.4.11 asks of a graphical object that
+   * carries meaning. `--bulma-primary-on-scheme` is the palette's answer for
+   * "primary, but legible against the page" and is what the wordmark and links
+   * already use. Measured with it: 5.46 light / 6.51 dark against the track,
+   * 6.44 / 9.31 against the page. Both themes, because both variables are
+   * theme-derived and follow.
+   */
+  .result-bar {
+    --bulma-progress-value-background-color: var(--bulma-primary-on-scheme);
+  }
+
+  .is-winner td {
+    font-weight: 600;
+  }
+
+  /*
+   * `box-shadow` rather than `border-left`: a border changes the cell's box and
+   * shifts the text of that one row out of line with the others.
+   */
+  .is-winner td:first-child {
+    box-shadow: inset 0.1875rem 0 0 var(--bulma-primary-on-scheme);
+  }
+</style>
