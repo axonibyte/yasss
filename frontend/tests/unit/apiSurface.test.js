@@ -198,6 +198,101 @@ describe('requireCaptcha', () => {
     expect(present).not.toHaveBeenCalled();
   });
 
+  /**
+   * The regression that took anonymous publishing down in production.
+   *
+   * Google does not serve `enterprise.js?render=<siteKey>` for a checkbox key:
+   * it answers 400, the tag fires `onerror`, and `execute` is never defined. The
+   * fallback used to hang off `execute` rejecting, so it could not be reached in
+   * the one case it existed for -- the load threw a step earlier and every
+   * anonymous publish, RSVP, register and reset died with "sorry".
+   *
+   * Driven through real script tags rather than a supplied `grecaptcha`,
+   * because the entire defect lived in the injection path and supplying one
+   * skips it.
+   */
+  it('loads the explicit script and shows a widget when the key refuses render=<key>', async () => {
+    delete globalThis.grecaptcha;
+    captcha.configureCaptcha('site-key');
+
+    const requested = [];
+    const appendChild = vi.spyOn(document.head, 'appendChild').mockImplementation((el) => {
+      requested.push(el.src);
+      queueMicrotask(() => {
+        if (el.src.includes('render=explicit')) {
+          // The explicit script defines `render` and no `execute`.
+          globalThis.grecaptcha = { enterprise: { ready: (cb) => cb(), render: vi.fn() } };
+          el.onload();
+        } else el.onerror(); // Google's 400
+      });
+      return el;
+    });
+
+    const show = vi.fn().mockResolvedValue('widget-token');
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT, show))
+      .resolves.toBe('widget-token');
+
+    expect(requested[0]).toContain('render=site-key');
+    expect(requested[1]).toContain('render=explicit');
+    expect(show).toHaveBeenCalled();
+    appendChild.mockRestore();
+  });
+
+  /** A policy key loads first time, and the explicit script is never asked for. */
+  it('asks for the explicit script only when the first one fails', async () => {
+    delete globalThis.grecaptcha;
+    captcha.configureCaptcha('site-key');
+
+    const requested = [];
+    const appendChild = vi.spyOn(document.head, 'appendChild').mockImplementation((el) => {
+      requested.push(el.src);
+      queueMicrotask(() => {
+        globalThis.grecaptcha = {
+          enterprise: { ready: (cb) => cb(), execute: vi.fn().mockResolvedValue('a-token') },
+        };
+        el.onload();
+      });
+      return el;
+    });
+
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT)).resolves.toBe('a-token');
+    expect(requested).toHaveLength(1);
+    expect(requested[0]).toContain('render=site-key');
+    appendChild.mockRestore();
+  });
+
+  /**
+   * A checkbox key with nowhere to show a widget refuses rather than calling an
+   * `execute` that is not there -- which would be a TypeError, not a refusal.
+   */
+  it('reports a checkbox key it cannot present', async () => {
+    delete globalThis.grecaptcha;
+    globalThis.grecaptcha = { enterprise: { ready: (cb) => cb(), render: vi.fn() } };
+    captcha.configureCaptcha('site-key');
+
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT))
+      .rejects.toThrow('nowhere to show it');
+  });
+
+  /** One dropped request must not poison every challenge for the tab's life. */
+  it('retries the load after a failure rather than caching it', async () => {
+    delete globalThis.grecaptcha;
+    captcha.configureCaptcha('site-key');
+
+    let attempts = 0;
+    const appendChild = vi.spyOn(document.head, 'appendChild').mockImplementation((el) => {
+      attempts += 1;
+      queueMicrotask(() => el.onerror());
+      return el;
+    });
+
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT)).rejects.toThrow();
+    const afterFirst = attempts;
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT)).rejects.toThrow();
+    expect(attempts).toBeGreaterThan(afterFirst);
+    appendChild.mockRestore();
+  });
+
   it('gives every flow a distinct action', () => {
     const actions = Object.values(captcha.ACTION);
     expect(new Set(actions).size).toBe(actions.length);
