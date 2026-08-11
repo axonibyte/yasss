@@ -201,6 +201,13 @@ public abstract class APIEndpoint extends JSONEndpoint {
    */
   protected static boolean verifyHuman(String captchaToken, String ipAddr) {
     var validator = YasssCore.getCAPTCHAValidator();
+    // Deliberately no try/catch. This is called from `authenticate`, outside its
+    // own error handling, so anything thrown here becomes a 500 on every
+    // request carrying a CAPTCHA token -- which is what a rejected key or an
+    // exhausted quota used to produce. Since axb-lib-http-java 0.6.1 the
+    // library answers a service it cannot reach with an invalid verdict rather
+    // than an exception, so there is one shape of "no" and it arrives as
+    // `false`. Wrapping it here as well would only catch defects and hide them.
     return null == validator || validator.verify(captchaToken, null, ipAddr);
   }
 
