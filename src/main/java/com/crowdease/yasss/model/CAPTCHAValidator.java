@@ -43,10 +43,25 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
    */
   public static enum KeyType {
 
-    /** Reads {@code minScore} against the risk score. */
+    /**
+     * Decide from what the assessment actually said.
+     *
+     * <p>A policy-based key reports a verdict; a checkbox or score-based key
+     * reports {@code UNSPECIFIED} and a score. Reading whichever arrived is
+     * safe here in a way that inference usually is not, because <em>both
+     * branches are gates</em> -- guessing wrong applies the other check, never
+     * no check. The worst case is a policy-based key being scored against
+     * {@code minScore}, which is stricter than intended rather than laxer.
+     *
+     * <p>The default, so a deployment need not know which kind of key it was
+     * handed, and does not break if somebody swaps it for the other.
+     */
+    AUTO,
+
+    /** Always reads {@code minScore} against the risk score. */
     CHECKBOX,
 
-    /** Reads the policy engine's verdict and ignores {@code minScore}. */
+    /** Always reads the policy engine's verdict and ignores {@code minScore}. */
     POLICY_BASED
   }
 
@@ -121,12 +136,11 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
   /**
    * Decides whether a verdict clears this key's bar.
    *
-   * <p>On a policy-based key, {@code NOCAPTCHA} is a pass and not a gap: it
-   * means the policy engine looked at the request and chose not to challenge,
-   * which is the answer the whole key type exists to give. {@code UNSPECIFIED}
-   * is not, because it means nothing decided anything -- which on a key
-   * configured as policy-based is a misconfiguration, and failing closed is the
-   * only safe reading of it.
+   * <p>Under {@link KeyType#POLICY_BASED}, {@code UNSPECIFIED} fails closed:
+   * the key was declared to be one that decides, so nothing deciding is a
+   * misconfiguration rather than a pass. Under {@link KeyType#AUTO} the same
+   * response falls through to the score instead, because nothing was declared
+   * and a score is still a gate.
    *
    * @param verdict what the assessment said
    * @return {@code true} iff the caller should be treated as human
@@ -135,10 +149,32 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
     if(!verdict.tokenValid()) return false;
 
     return switch(keyType) {
-      case POLICY_BASED ->
-          Challenge.PASSED == verdict.challenge() || Challenge.NOCAPTCHA == verdict.challenge();
+      case POLICY_BASED -> policyPasses(verdict);
       case CHECKBOX -> minScore <= verdict.score();
+
+      // The verdict when there is one, the score when there is not. A key that
+      // decided something has already applied thresholds configured against it,
+      // and second-guessing that with a local number would override the very
+      // thing the key type exists to provide.
+      case AUTO -> Challenge.UNSPECIFIED == verdict.challenge()
+          ? minScore <= verdict.score()
+          : policyPasses(verdict);
     };
+  }
+
+  /**
+   * Whether a policy engine's verdict is a pass.
+   *
+   * <p>{@code NOCAPTCHA} is a pass and not a gap: it means the engine looked at
+   * the request and chose not to challenge, which is the answer this key type
+   * exists to give. Anything else -- including a value this build does not
+   * recognise -- is not.
+   *
+   * @param verdict what the assessment said
+   * @return {@code true} iff the policy engine was satisfied
+   */
+  private static boolean policyPasses(Verdict verdict) {
+    return Challenge.PASSED == verdict.challenge() || Challenge.NOCAPTCHA == verdict.challenge();
   }
 
   /**

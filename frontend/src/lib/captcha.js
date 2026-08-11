@@ -1,8 +1,11 @@
 /**
  * reCAPTCHA Enterprise, loaded on demand.
  *
- * This deployment uses a **policy-based challenge** key, which is instrumented
- * differently from the checkbox key this file used to drive:
+ * Both kinds of key are supported, because which one a deployment holds is not
+ * always known when it is configured, and a key can be swapped for the other.
+ *
+ * The usual path is a **policy-based challenge** key, which is instrumented
+ * differently from a checkbox key:
  *
  * - the script is loaded with `render=<siteKey>` rather than `render=explicit`,
  *   because there is no widget for us to place;
@@ -12,8 +15,14 @@
  *   against thresholds configured on the key. Most of the time they see
  *   nothing; when the policy says otherwise, Google draws its own overlay.
  *
- * That last point is why there is no CAPTCHA modal any more. One would have
- * opened empty and waited for a challenge that usually never comes.
+ * That last point is why the CAPTCHA modal is not the usual path any more: for
+ * a policy-based key it would open empty and wait for a challenge that usually
+ * never comes.
+ *
+ * A **checkbox** key has no `execute` at all, so the two are told apart by
+ * trying the policy path and falling back when it refuses. That is a runtime
+ * discovery rather than a guess about configuration, and the fallback is a
+ * rendered widget in a modal -- the integration this file used to have.
  *
  * Two legacy behaviors are still deliberately preserved here:
  *
@@ -103,16 +112,62 @@ async function ensureLoaded() {
   await whenReady();
 }
 
+/** Widget id for the checkbox fallback, so a re-render resets rather than stacks. */
+let widgetId = null;
+
+/**
+ * Render a checkbox widget and resolve with its token.
+ *
+ * The fallback path, for a deployment holding a checkbox key. Exported because
+ * the modal owns the container it renders into.
+ *
+ * @param {HTMLElement} container
+ * @returns {Promise<string>}
+ */
+export function renderWidget(container) {
+  return new Promise((resolve, reject) => {
+    if (widgetId !== null) {
+      globalThis.grecaptcha.enterprise.reset(widgetId);
+    }
+    try {
+      widgetId = globalThis.grecaptcha.enterprise.render(container, {
+        sitekey: siteKey,
+        callback: resolve,
+        'error-callback': () => reject(new Error('The CAPTCHA failed to verify.')),
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 /**
  * Obtain a CAPTCHA token if one is needed.
  *
+ * Tries the policy-based path first and falls back to a checkbox when the key
+ * turns out not to support it. The order matters: `execute` on a checkbox key
+ * refuses immediately and locally, whereas rendering a widget for a
+ * policy-based key would put an empty box in front of somebody and wait.
+ *
  * @param {string} action which flow this is for; see {@link ACTION}
+ * @param {() => Promise<string>} [present] shows the fallback modal, when there
+ *        is one to show; omitted, a checkbox key simply fails
  * @returns {Promise<string|null>} null when no challenge is required
  */
-export async function requireCaptcha(action) {
+export async function requireCaptcha(action, present = null) {
   if (!captchaEnabled()) return null;
   if (session.loggedIn) return null;
 
   await ensureLoaded();
-  return globalThis.grecaptcha.enterprise.execute(siteKey, { action });
+
+  try {
+    return await globalThis.grecaptcha.enterprise.execute(siteKey, { action });
+  } catch (e) {
+    // Any refusal, not a message match: reCAPTCHA's wording for "this key has
+    // no execute path" is not contractual, and a transient failure falling
+    // through to a widget that then reports its own error is a better outcome
+    // than one that reports nothing.
+    if (!present) throw e;
+    return present();
+  }
 }

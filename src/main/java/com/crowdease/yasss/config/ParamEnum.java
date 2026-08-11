@@ -78,16 +78,19 @@ public enum ParamEnum {
    * Optional. Which kind of reCAPTCHA key this is, which decides how its
    * verdict is read.
    *
-   * <p>{@code CHECKBOX} thresholds the risk score against
-   * {@link #AUTH_CAPTCHA_MINIMUM_SCORE}. {@code POLICY_BASED} reads the policy
-   * engine's own verdict instead and ignores that threshold entirely, because
-   * the decision was already made against thresholds configured on the key.
+   * <p>{@code AUTO}, the default, reads whichever answer the assessment gave:
+   * a verdict if the key produced one, the score if it did not. That is safe
+   * because both are gates -- guessing wrong applies the other check rather
+   * than no check.
    *
-   * <p>Stated rather than inferred from the response: a policy-based key that
-   * happened to report nothing would silently fall back to scoring, and a
-   * misconfigured threshold is a quiet failure rather than a loud one.
+   * <p>{@code CHECKBOX} always thresholds the risk score against
+   * {@link #AUTH_CAPTCHA_MINIMUM_SCORE}. {@code POLICY_BASED} always reads the
+   * policy engine's verdict and ignores that threshold, and fails closed if the
+   * key did not produce one -- which is the reason to set it explicitly rather
+   * than leaving it on {@code AUTO}: it turns a swapped key into a loud failure
+   * instead of a quiet change of rule.
    */
-  AUTH_CAPTCHA_KEY_TYPE(new Param("auth.captcha.keyType", "CHECKBOX")),
+  AUTH_CAPTCHA_KEY_TYPE(new Param("auth.captcha.keyType", "AUTO")),
 
   /**
    * Optional. CAPTCHA IP cache TTL.

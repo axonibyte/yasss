@@ -21,6 +21,7 @@
   import MarkdownModal from './components/modals/MarkdownModal.svelte';
   import VolunteerModal from './components/modals/VolunteerModal.svelte';
   import ShareModal from './components/modals/ShareModal.svelte';
+  import CaptchaModal from './components/modals/CaptchaModal.svelte';
   import GuestPromptModal from './components/modals/GuestPromptModal.svelte';
   import ConfirmModal from './components/modals/ConfirmModal.svelte';
   import SummaryModal from './components/modals/SummaryModal.svelte';
@@ -100,15 +101,38 @@
     onSessionLost: () => toastDanger('Your user session was lost! Please log in again.'),
   });
 
+  /** Resolves the pending CAPTCHA challenge, on the checkbox fallback path. */
+  let captchaResolve = null;
+  let captchaReject = null;
+
   /**
    * Obtain a CAPTCHA token for a flow, when one is needed.
    *
-   * A thin alias now. The policy-based key decides for itself whether to show
-   * the visitor anything, so there is no modal to present and nothing to
-   * dismiss -- which is why this no longer takes a presenter and no longer
-   * rejects on cancellation.
+   * A policy-based key mints its token without showing anybody anything, so the
+   * modal below is only reached if the deployment turns out to hold a checkbox
+   * key. The presenter is passed either way rather than decided here, because
+   * which kind of key it is is discovered inside `requireCaptcha` at the moment
+   * it asks for a token.
    */
-  const requestCaptcha = (action) => requireCaptcha(action);
+  const requestCaptcha = (action) => requireCaptcha(action, () => new Promise(
+    (resolve, reject) => {
+      captchaResolve = resolve;
+      captchaReject = reject;
+      modal = { kind: 'captcha' };
+    },
+  ));
+
+  function closeCaptcha() {
+    modal = null;
+    captchaReject?.(new Error('The CAPTCHA was dismissed.'));
+    captchaResolve = captchaReject = null;
+  }
+
+  function onCaptchaToken(token) {
+    modal = null;
+    captchaResolve?.(token);
+    captchaResolve = captchaReject = null;
+  }
 
   /** Inbound links from server-sent email. */
   async function handleRouteAction() {
@@ -947,6 +971,8 @@
     noun={pollLoaded ? 'poll' : 'event'}
     onClose={() => { modal = null; }}
   />
+{:else if modal?.kind === 'captcha'}
+  <CaptchaModal onToken={onCaptchaToken} onCancel={closeCaptcha} />
 {:else if modal?.kind === 'guest'}
   <GuestPromptModal
     context={modal.context}

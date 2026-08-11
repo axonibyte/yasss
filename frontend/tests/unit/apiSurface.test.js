@@ -164,6 +164,40 @@ describe('requireCaptcha', () => {
     expect(execute).toHaveBeenCalledWith('site-key', { action: 'reset_password' });
   });
 
+  /**
+   * A checkbox key has no execute path, so the token has to come from a
+   * rendered widget instead. Discovered by trying, not configured -- which is
+   * what lets one build serve a deployment holding either kind.
+   */
+  it('falls back to the checkbox widget when the key has no execute path', async () => {
+    captcha.configureCaptcha('site-key');
+    execute.mockRejectedValue(new Error('Invalid key type'));
+    const present = vi.fn().mockResolvedValue('widget-token');
+
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT, present))
+      .resolves.toBe('widget-token');
+    expect(present).toHaveBeenCalled();
+  });
+
+  /** With nowhere to show a widget, the refusal is reported rather than eaten. */
+  it('reports the failure when there is no fallback to show', async () => {
+    captcha.configureCaptcha('site-key');
+    execute.mockRejectedValue(new Error('Invalid key type'));
+
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT))
+      .rejects.toThrow('Invalid key type');
+  });
+
+  /** The usual path never shows anybody anything. */
+  it('does not present a widget when the policy key mints a token', async () => {
+    captcha.configureCaptcha('site-key');
+    const present = vi.fn();
+
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT, present))
+      .resolves.toBe('a-token');
+    expect(present).not.toHaveBeenCalled();
+  });
+
   it('gives every flow a distinct action', () => {
     const actions = Object.values(captcha.ACTION);
     expect(new Set(actions).size).toBe(actions.length);

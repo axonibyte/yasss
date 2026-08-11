@@ -404,7 +404,7 @@ public class YasssCore {
               config.getString(ParamEnum.AUTH_CAPTCHA_KEY_TYPE).strip().toUpperCase());
         } catch(IllegalArgumentException e) {
           throw new MisconfigurationException(
-              "auth.captcha.keyType must be CHECKBOX or POLICY_BASED");
+              "auth.captcha.keyType must be AUTO, CHECKBOX or POLICY_BASED");
         }
 
         captchaValidator = new CAPTCHAValidator(
@@ -424,9 +424,12 @@ public class YasssCore {
             "CAPTCHA verification is enabled: {} key, authenticating with {}{}",
             keyType.name(),
             null != apiKey ? "an API key" : "a credentials file",
-            CAPTCHAValidator.KeyType.CHECKBOX == keyType
-                ? ", minimum score " + config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE)
-                : ", thresholds configured on the key itself");
+            switch(keyType) {
+              case CHECKBOX -> ", minimum score "
+                  + config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE);
+              case POLICY_BASED -> ", thresholds configured on the key itself";
+              case AUTO -> ", reading whichever verdict the key gives";
+            });
       }
 
       ticketEngine = new TicketEngine(
