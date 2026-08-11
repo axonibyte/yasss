@@ -40,11 +40,15 @@ function parse(search = window.location.search) {
     // through email clients that mangle it (app.js:2752).
     token: params.get('token')?.replace(/ /g, '+') ?? null,
     share: params.has('share'),
-    // `?tutorial`, `?tutorial=organizer`, `?tutorial=volunteer`. The bare form
+    // `?tutorial`, or `?tutorial=<track>` for any of the four. The bare form
     // opens the chooser. Linkable on purpose: it is the only entry point that
-    // can be *sent* to somebody, and the people who most need the volunteer
-    // track arrive from a shared link and never see the landing page the other
-    // two entry points live on.
+    // can be *sent* to somebody, and the people who most need the participant
+    // tracks arrive from a shared link and never see the landing page the other
+    // entry points live on.
+    //
+    // Not validated here. `parseRoute` reports the URL and App decides what a
+    // name means -- including resolving one that has since been folded into
+    // another track.
     tutorial: params.has('tutorial') ? (params.get('tutorial') || '') : null,
   };
 }
