@@ -40,14 +40,42 @@
    * the learner claims squares, so an element captured at step 3 may not be in
    * the document by step 4. A missing anchor is not an error -- the step simply
    * has nothing to point at, which is also the null case.
+   *
+   * `querySelectorAll`, not `querySelector`. Some of what a step describes is
+   * not one element: "every column is a day" is four columns, and marking the
+   * first match meant marking the whole table instead -- which included the
+   * time axis and the blank corner, neither of which is a day. A step that
+   * genuinely points at one thing writes a selector that matches one thing.
+   *
+   * The retry is for the steps that open a modal. The panel and the modal are
+   * driven by two different effects off the same step change, so on the flush
+   * where the step advances the modal's fields may not be mounted yet; without
+   * a second look those steps would silently highlight nothing.
    */
   $effect(() => {
     if (!anchor) return undefined;
-    const el = document.querySelector(anchor);
-    if (!el) return undefined;
-    el.classList.add('tutorial-anchor');
-    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    return () => el.classList.remove('tutorial-anchor');
+
+    let marked = [];
+    const clear = () => {
+      for (const el of marked) el.classList.remove('tutorial-anchor');
+      marked = [];
+    };
+    const mark = () => {
+      marked = [...document.querySelectorAll(anchor)];
+      for (const el of marked) el.classList.add('tutorial-anchor');
+      // The first one, so a multi-element anchor scrolls to the top of the set
+      // rather than to whichever of them happens to be last.
+      marked[0]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return marked.length > 0;
+    };
+
+    let frame = 0;
+    if (!mark()) frame = requestAnimationFrame(() => { frame = 0; mark(); });
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      clear();
+    };
   });
 
   function onKeydown(e) {

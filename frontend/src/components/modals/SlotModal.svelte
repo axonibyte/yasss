@@ -67,7 +67,7 @@
     </div>
   </div>
 
-  <div class="field">
+  <div class="field" data-field="slot-enabled">
     <div class="label">Enable Slot</div>
     <div class="control">
       <input id="slot-enabled" type="checkbox" class="switch is-warning" bind:checked={enabled} />

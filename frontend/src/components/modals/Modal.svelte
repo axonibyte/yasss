@@ -43,12 +43,31 @@
    * "unlimited" switch, a field on a step that is not showing — because a trap
    * that cycles through invisible controls is worse than none.
    */
-  const focusable = () => Array.from(
-    card?.querySelectorAll(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), '
-      + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ) ?? [],
-  ).filter((el) => el.offsetParent !== null);
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), '
+    + 'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  /**
+   * The tutorial's step panel, when a running tour is what opened this dialog.
+   *
+   * The tour drives modals: a step describing "Repeat through the day" opens the
+   * time form and points at the switch. That makes the panel part of the dialog
+   * in every sense that matters -- it is the instructions for the form, and it
+   * holds Next and Exit, which are the only ways forward. Trapping focus in the
+   * card alone would leave a keyboard user inside a form the tour told them to
+   * look at with no way to advance and no way to leave.
+   *
+   * Read from the DOM rather than taken as a prop: every modal in the app would
+   * otherwise have to be told about the tutorial, and none of them has any other
+   * reason to know it exists.
+   */
+  const panel = () => document.querySelector('body.tutorial-running #tutorial-panel');
+
+  /** The whole ring, card first: the form, then the tour's own controls. */
+  const scopes = () => [card, panel()].filter(Boolean);
+
+  const focusable = () => scopes()
+    .flatMap((scope) => Array.from(scope.querySelectorAll(FOCUSABLE)))
+    .filter((el) => el.offsetParent !== null);
 
   /**
    * Move focus in, keep it in, and put it back.
@@ -78,9 +97,10 @@
       }
       const firstItem = items[0];
       const lastItem = items[items.length - 1];
+      const inside = scopes().some((scope) => scope.contains(document.activeElement));
       // Wrap at both ends. `document.activeElement` rather than `e.target`
       // because focus may be on the card itself, which is not in the list.
-      if (e.shiftKey && (document.activeElement === firstItem || !node.contains(document.activeElement))) {
+      if (e.shiftKey && (document.activeElement === firstItem || !inside)) {
         e.preventDefault();
         lastItem.focus();
       } else if (!e.shiftKey && document.activeElement === lastItem) {
@@ -89,11 +109,15 @@
       }
     }
 
-    node.addEventListener('keydown', onKeydownTrap);
+    // Every scope, not only the card: a Tab pressed while focus is on the tour
+    // panel has to wrap back into the form, and a listener bound to the card
+    // alone never sees it.
+    const listening = scopes();
+    for (const scope of listening) scope.addEventListener('keydown', onKeydownTrap);
 
     return {
       destroy() {
-        node.removeEventListener('keydown', onKeydownTrap);
+        for (const scope of listening) scope.removeEventListener('keydown', onKeydownTrap);
         // Back where they came from, if it is still there. A modal opened from
         // a grid tile should hand focus back to that tile, not to the top of
         // the document.

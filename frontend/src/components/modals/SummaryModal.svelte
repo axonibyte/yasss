@@ -108,7 +108,7 @@
     ></textarea>
   </Field>
 
-  <div class="field">
+  <div class="field" data-field="event-notify">
     <div class="control">
       <input id="event-notify" type="checkbox" class="switch" bind:checked={notifyOnSignup} />
       <label class="switch" for="event-notify">
@@ -117,7 +117,7 @@
     </div>
   </div>
 
-  <div class="field">
+  <div class="field" data-field="event-multiuser">
     <div class="control">
       <input id="event-multiuser" type="checkbox" class="switch" bind:checked={allowMultiuserSignups} />
       <label class="switch" for="event-multiuser">Allow multiple volunteers per signup?</label>

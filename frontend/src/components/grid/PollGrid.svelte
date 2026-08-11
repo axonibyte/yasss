@@ -117,9 +117,10 @@
         <!-- blank corner above the time labels -->
         <GridCell label="" aesthetics="" />
 
-        {#each shown as option (option.key)}
+        {#each shown as option, col (option.key)}
           {@const chosen = poll.chose(poll.cell(option, null))}
           <GridCell
+            {col}
             label={optionLabel(option)}
             aesthetics={option.allDay && chosen ? 'is-warning' : 'is-primary'}
             onclick={editing && onOptionClick
@@ -146,7 +147,7 @@
           </GridCell>
         {/each}
 
-        {#each poll.windows as win (win.key)}
+        {#each poll.windows as win, row (win.key)}
           {@const when = labelFor(win)}
           <GridCell
             label={when.primary}
@@ -154,9 +155,11 @@
             aesthetics="is-primary"
             onclick={editing && onWindowClick ? () => onWindowClick(win) : null}
           />
-          {#each shown as option (option.key)}
+          {#each shown as option, col (option.key)}
             {@const cell = cellFor(option, win)}
             <GridCell
+              {col}
+              {row}
               label={cell.label}
               aesthetics={cell.aesthetics}
               state={cell.state}

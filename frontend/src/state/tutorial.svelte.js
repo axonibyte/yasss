@@ -1,23 +1,53 @@
 /**
  * The guided tutorial: which track, which step, and what each step does.
  *
- * The step list is code and the words are not. Anchors, ordering and the
- * choreography a step performs on the practice event are structural -- they
- * break loudly when the UI moves -- while the prose is operator-authored and
- * shipped in `content/tutorial.md`. `lib/tutorial/deck.js` merges the two, and
- * every step carries a built-in default so a deployment with no file configured
- * still teaches somebody something.
+ * The step list is code and the words are not. Anchors, ordering, the surface a
+ * step is about and the choreography it performs on the practice model are
+ * structural -- they break loudly when the UI moves -- while the prose is
+ * operator-authored and shipped in `content/tutorial.md`.
+ * `lib/tutorial/deck.js` merges the two, and every step carries a built-in
+ * default so a deployment with no file configured still teaches somebody
+ * something.
  *
- * There are two tracks because there are two newcomers. The organizer is the
- * person on the landing page; the volunteer arrived from a link somebody sent
- * them and has never seen it. They share one practice event: the organizer
- * track ends by looking at what its volunteers will see, and the volunteer
- * track starts there.
+ * ## Show, do not describe
+ *
+ * The two creation tracks build their practice model in front of the learner,
+ * from the front page forwards: the step about "Create Poll" points at the
+ * navbar item, the step about "Whose clock?" opens the real settings form and
+ * highlights that field inside it, and the step about repeating a time opens
+ * the real time form with a repeat already configured so the preview is on
+ * screen while the copy explains it.
+ *
+ * This is not decoration. A tour that describes a modal from outside it is
+ * talking about something the reader cannot see, and every one of those steps
+ * reads as a non sequitur -- which is exactly what the first version of the
+ * poll track did, and exactly what was reported. Three things carry the rule:
+ *
+ *   - `stage` says whether the practice model is on screen at all, so a step
+ *     can sit on the landing page where the create buttons live;
+ *   - `modal` names a dialog the tour opens, so a step can point inside one;
+ *   - `enter` applies the change the step just described, so the grid grows a
+ *     column when the step about columns runs.
+ *
+ * The two participant tracks do none of this and should not: somebody who
+ * followed a link is handed something finished, and building it in front of
+ * them would teach a screen they will never see. They load the finished
+ * practice model, and their `modal` steps open the answering form -- which is
+ * the one dialog a participant does meet.
  */
-import { buildPracticeEvent } from '../lib/tutorial/sandbox.js';
-import { buildPracticePoll } from '../lib/tutorial/pollSandbox.js';
+import {
+  buildPracticeEvent, draftPracticeEvent, publishPracticeEvent,
+  seedPracticeActivities, seedPracticeQuestion as seedEventQuestion,
+  seedPracticeWindows,
+} from '../lib/tutorial/sandbox.js';
+import {
+  buildPracticePoll, draftPracticePoll, publishPracticePoll,
+  seedPracticeQuestion as seedPollQuestion, seedPracticeTimes,
+} from '../lib/tutorial/pollSandbox.js';
 import { Volunteer } from './entities.svelte.js';
-import { PRACTICE_ANSWER, PRACTICE_VOLUNTEER } from '../lib/tutorial/markers.js';
+import {
+  PRACTICE_ANSWER, PRACTICE_EVENT_ID, PRACTICE_POLL_ID, PRACTICE_VOLUNTEER,
+} from '../lib/tutorial/markers.js';
 import { Mode } from './event.svelte.js';
 
 /** @typedef {'organizer'|'volunteer'|'voter'|'poll'} Track */
@@ -30,11 +60,14 @@ import { Mode } from './event.svelte.js';
  * is. Without this the shell would be guessing from the track name, which is
  * the sort of thing that works until somebody adds a fifth track.
  *
+ * `build` is the other half of that. A creation track starts from a draft and
+ * assembles it as it goes; a participant track starts from something finished,
+ * because that is what being sent a link gives you.
+ *
  * There are four because there are four newcomers, not because four is tidy.
  * The organizer is deciding whether this tool does what they need; the
- * volunteer is holding a link and has never seen the landing page; the builder
- * already knows what it does and wants to know what every switch means; and the
- * poll organizer wants the other feature entirely.
+ * volunteer is holding a link and has never seen the landing page; the voter
+ * likewise; and the poll organizer wants the other feature entirely.
  */
 export const GROUPS = {
   organizing: { label: "I'm organizing an event" },
@@ -45,21 +78,25 @@ export const TRACKS = {
   poll: {
     group: 'organizing',
     subject: 'poll',
+    build: 'draft',
     label: 'I need to find a good event time',
   },
   organizer: {
     group: 'organizing',
     subject: 'event',
+    build: 'draft',
     label: 'I know when my event takes place already',
   },
   voter: {
     group: 'participant',
     subject: 'poll',
+    build: 'ready',
     label: "I'm voting for an event time",
   },
   volunteer: {
     group: 'participant',
     subject: 'event',
+    build: 'ready',
     label: "I'm signing up for an event",
   },
 };
@@ -85,13 +122,28 @@ export const tracksIn = (group) =>
 /** @param {Track} track @returns {'event'|'poll'} */
 export const subjectOf = (track) => TRACKS[track]?.subject ?? 'event';
 
+/** @param {Track} track @returns {'draft'|'ready'} */
+export const buildOf = (track) => TRACKS[track]?.build ?? 'ready';
+
+/**
+ * The sandbox id each practice model takes once the tour "publishes" it.
+ *
+ * A constant rather than whatever id the model happened to carry when the tour
+ * began: a creation track begins with no id at all, so an observed one would be
+ * null and the step that returns to the published surface would have nothing to
+ * restore.
+ */
+const PRACTICE_ID = { event: PRACTICE_EVENT_ID, poll: PRACTICE_POLL_ID };
+
 /**
  * One step.
  *
  * `anchor` is a selector for the thing being talked about; it gets a highlight
  * and nothing else -- never `inert` on its surroundings, because the learner has
  * to be able to click it. A null anchor means the step is about the page as a
- * whole.
+ * whole. It may match several elements, and does where the subject is plural:
+ * "every column is a day" is four columns, and highlighting the table instead
+ * highlights the time axis and the blank corner as well.
  *
  * `enter` runs when the step becomes current and must be idempotent: stepping
  * back and forward again re-runs it, and a learner who clicked ahead should not
@@ -103,40 +155,147 @@ export const subjectOf = (track) => TRACKS[track]?.subject ?? 'event';
  * Making it a property of the step rather than something twenty `enter` bodies
  * each assert means the tutorial applies it once, in one place, before the step
  * runs.
+ *
+ * `stage` is `'home'` for a step that belongs on the landing page -- where the
+ * create buttons are, and therefore where a creation tour has to start -- and
+ * `'subject'`, the default, for everything after.
+ *
+ * `modal` is a dialog the tour opens on arrival, and closes again on any step
+ * that does not name one. It is a plain descriptor because that is what the
+ * shell's own modal state is; the tour is using the same door every button in
+ * the app uses.
  */
 const STEPS = [
   // --- organizer -----------------------------------------------------------
   //
   // One track, because anybody who needs the grid explained needs the settings
-  // explained too -- they were split before, and the split asked a newcomer to
-  // know which half they wanted before they knew what either half contained.
-  //
-  // It orients on the grid first, in VIEW mode, then goes through the editor a
-  // setting at a time, then publishes and shares. `b-welcome` and `b-share` are
-  // gone: `welcome` and `share` already said those things, and saying them twice
-  // is how a 25-step tour feels like a 30-step one.
+  // explained too. It builds an event from the front page: the summary form
+  // first, then columns, then rows, then the questions, then publish -- which
+  // is the order the product itself imposes, so the tour cannot teach a
+  // sequence the app will not accept.
   {
     id: 'welcome',
     track: 'organizer',
     anchor: null,
+    stage: 'home',
+    mode: 'CREATE',
+  },
+  {
+    id: 'b-create',
+    track: 'organizer',
+    anchor: '[data-testid="nav-create-event"]',
+    stage: 'home',
+    mode: 'CREATE',
+  },
+  {
+    id: 'b-summary',
+    track: 'organizer',
+    anchor: '[data-field="event-title"], [data-field="event-description"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'summary', summary: null, isNew: true, prefill: true },
+  },
+  {
+    id: 'b-notify',
+    track: 'organizer',
+    anchor: '[data-field="event-notify"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'summary', summary: null, isNew: true, prefill: true },
+  },
+  {
+    id: 'b-one-each',
+    track: 'organizer',
+    anchor: '[data-field="event-multiuser"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'summary', summary: null, isNew: true, prefill: true },
+  },
+  {
+    id: 'b-timezone',
+    track: 'organizer',
+    anchor: '[data-field="event-timezone"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'summary', summary: null, isNew: true, prefill: true },
+  },
+  {
+    id: 'b-reminders',
+    track: 'organizer',
+    anchor: '[data-field="event-lead-time"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'summary', summary: null, isNew: true, prefill: true },
   },
   {
     id: 'grid',
     track: 'organizer',
     anchor: '#view-event-table',
+    mode: 'CREATE',
+  },
+  {
+    id: 'b-window',
+    track: 'organizer',
+    anchor: '[data-field="event-window"]',
+    mode: 'CREATE',
+    modal: { kind: 'window', win: null, isNew: true },
+  },
+  {
+    id: 'b-activity',
+    track: 'organizer',
+    anchor: '[data-field="activity-label"], [data-field="activity-description"]',
+    mode: 'CREATE',
+    modal: { kind: 'activity', activity: null, isNew: true },
+    enter(event) {
+      // What pressing "Save Window" on the step before would have done. The
+      // rows are on the grid behind this dialog now, which is what makes the
+      // next thing -- columns -- legible as the other axis.
+      seedPracticeWindows(event);
+    },
+  },
+  {
+    id: 'b-caps',
+    track: 'organizer',
+    anchor: '[data-field="activity-vol-cap"], [data-field="activity-slot-cap"]',
+    mode: 'CREATE',
+    modal: { kind: 'activity', activity: null, isNew: true },
+  },
+  {
+    id: 'b-columns',
+    track: 'organizer',
+    anchor: '#view-event-table [data-col]',
+    mode: 'CREATE',
+    enter(event) {
+      seedPracticeActivities(event);
+      event.step = 1;
+    },
   },
   {
     id: 'cells',
     track: 'organizer',
-    // A claimable square, not the blank corner -- which is the first
-    // `.event-cell` in document order and the one thing on the grid that
-    // cannot be clicked.
-    anchor: '#view-event-table [data-slot-state="available"]',
+    // One square, named by its coordinates rather than by its state: the copy
+    // describes what a single tile shows and then tells the learner to click
+    // it, and outlining all eight of them would say something plural about a
+    // singular instruction. It is also the square `b-slot-cap` opens next --
+    // that step resolves to the first activity and the first window.
+    anchor: '#view-event-table [data-col="0"][data-row="0"]',
+    mode: 'CREATE',
+    enter(event) {
+      event.step = 1;
+    },
+  },
+  {
+    id: 'b-slot-cap',
+    track: 'organizer',
+    anchor: '[data-field="slot-enabled"], [data-field="slot-cap"]',
+    mode: 'CREATE',
+    modal: { kind: 'slot', tutorial: true },
   },
   {
     id: 'paging',
     track: 'organizer',
     anchor: '#view-event-slider',
+    mode: 'CREATE',
     enter(event) {
       // Back to the first page, so the step describes what is on screen however
       // far the learner dragged it before reaching here.
@@ -144,94 +303,49 @@ const STEPS = [
     },
   },
   {
-    id: 'structure',
-    track: 'organizer',
-    anchor: '#view-event-section',
-    enter(event) {
-      // Back out of edit mode if the learner wandered into it, so the step
-      // describes the surface it names.
-      event.editing = false;
-    },
-  },
-  {
-    id: 'b-summary',
-    track: 'organizer',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-notify',
-    track: 'organizer',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-one-each',
-    track: 'organizer',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-timezone',
-    track: 'organizer',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-reminders',
-    track: 'organizer',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-activity',
-    track: 'organizer',
-    anchor: '[data-testid="add-activity"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-caps',
-    track: 'organizer',
-    anchor: '[data-testid="add-activity"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-slot-cap',
-    track: 'organizer',
-    anchor: '#view-event-table [data-slot-state="editing"]',
-    mode: 'EDIT',
-  },
-  {
     id: 'b-reorder',
     track: 'organizer',
-    anchor: '#view-event-table',
-    mode: 'EDIT',
+    anchor: '#view-event-table [data-col="0"]',
+    mode: 'CREATE',
     enter(event) {
       event.step = 1;
     },
   },
   {
-    id: 'b-window',
-    track: 'organizer',
-    anchor: '[data-testid="add-window"]',
-    mode: 'EDIT',
-  },
-  {
     id: 'b-fields',
     track: 'organizer',
-    anchor: '[data-testid="add-field"]',
-    mode: 'EDIT',
+    anchor: '[data-field="detail-type"], [data-field="detail-label"]',
+    mode: 'CREATE',
+    modal: { kind: 'detail', detail: null, isNew: true },
   },
   {
     id: 'b-required',
     track: 'organizer',
-    anchor: '#view-event-details',
-    mode: 'EDIT',
+    anchor: '[data-field="detail-required"]',
+    mode: 'CREATE',
+    modal: { kind: 'detail', detail: null, isNew: true },
+  },
+  {
+    id: 'b-publish',
+    track: 'organizer',
+    anchor: '[data-testid="publish-event"]',
+    mode: 'CREATE',
+    enter(event) {
+      seedEventQuestion(event);
+    },
+  },
+  {
+    id: 'share',
+    track: 'organizer',
+    anchor: '[data-testid="share"]',
+    enter(event) {
+      publishPracticeEvent(event);
+    },
   },
   {
     id: 'b-report',
     track: 'organizer',
-    anchor: '#view-event-buttons',
+    anchor: '[data-testid="view-report"]',
     mode: 'VIEW',
   },
   {
@@ -247,26 +361,23 @@ const STEPS = [
     mode: 'VIEW',
   },
   {
-    id: 'b-delete',
+    id: 'structure',
     track: 'organizer',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
+    anchor: '[data-testid="modify-event"]',
+    mode: 'VIEW',
   },
-  {
-    id: 'b-publish',
-    track: 'organizer',
-    anchor: '[data-testid="publish-event"]',
-    mode: 'CREATE',
-  },
-  {
-    id: 'share',
-    track: 'organizer',
-    anchor: '[data-testid="event-title"]',
-  },
+  // There was a `b-delete` step here, and it is gone rather than reworded.
+  // It said an event could be deleted from its editor. `DELETE /v1/events/:id`
+  // exists and `api.deleteEvent` wraps it, but nothing in the interface calls
+  // either -- there is no delete control on an event anywhere, so the step was
+  // confidently describing a button that has never existed. A poll has one and
+  // that is why the poll track can talk about deleting; an event does not.
+  // Saying nothing is the honest option until there is something to point at.
   {
     id: 'as-a-volunteer',
     track: 'organizer',
     anchor: '#view-event-volunteer',
+    mode: 'VIEW',
   },
   {
     id: 'b-done',
@@ -274,9 +385,7 @@ const STEPS = [
     anchor: null,
     // Deliberately no mode. It closes the track and points at nothing, so it
     // should stay on whatever surface the step before it left the learner on --
-    // which is the published event. It carried CREATE while it followed
-    // `b-publish`; once `share` and `as-a-volunteer` moved in between, that
-    // became a jump back to the editor to say "that is the tour".
+    // which is the published event.
   },
 
   // --- volunteer -----------------------------------------------------------
@@ -291,7 +400,19 @@ const STEPS = [
     anchor: '#view-event-volunteer',
   },
   {
+    id: 'v-form',
+    track: 'volunteer',
+    anchor: '[data-field="vol-name"]',
+    modal: { kind: 'volunteer', volunteer: null },
+  },
+  {
     id: 'v-fields',
+    track: 'volunteer',
+    anchor: '[data-field^="vol-detail-"]',
+    modal: { kind: 'volunteer', volunteer: null },
+  },
+  {
+    id: 'v-picker',
     track: 'volunteer',
     anchor: '#view-event-volunteer',
     enter(event) {
@@ -315,9 +436,6 @@ const STEPS = [
   {
     id: 'v-claim',
     track: 'volunteer',
-    // A claimable square, not the blank corner -- which is the first
-    // `.event-cell` in document order and the one thing on the grid that
-    // cannot be clicked.
     anchor: '#view-event-table [data-slot-state="available"]',
   },
   {
@@ -332,38 +450,158 @@ const STEPS = [
   },
 
   // --- poll (organizing: finding a time) -----------------------------------
+  //
+  // The track the rebuild started from. It used to open on a finished poll and
+  // describe a creation flow over the top of it: the step about choosing days
+  // pointed at columns that were already chosen and could no longer be changed,
+  // and the steps about repeating a time and about which days it applies to
+  // described a form the learner never saw and, on the surface they were
+  // standing on, could not have opened.
   {
     id: 'p-welcome',
     track: 'poll',
     anchor: null,
+    stage: 'home',
+    mode: 'CREATE',
+  },
+  {
+    id: 'p-create',
+    track: 'poll',
+    anchor: '[data-testid="nav-create-poll"]',
+    stage: 'home',
+    mode: 'CREATE',
   },
   {
     id: 'p-scope',
     track: 'poll',
-    anchor: '[data-testid="poll-summary"]',
+    anchor: '[data-field="poll-scope"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'poll-summary', isNew: true, prefill: true },
+  },
+  {
+    id: 'p-days',
+    track: 'poll',
+    anchor: '[data-field="day-picker"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'poll-summary', isNew: true, prefill: true },
+  },
+  {
+    id: 'p-time-mode',
+    track: 'poll',
+    anchor: '[data-field="poll-time-mode"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'poll-summary', isNew: true, prefill: true },
+  },
+  {
+    id: 'p-deadline',
+    track: 'poll',
+    anchor: '[data-field="poll-deadline"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'poll-summary', isNew: true, prefill: true },
+  },
+  {
+    id: 'p-visibility',
+    track: 'poll',
+    anchor: '[data-field="poll-visibility"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'poll-summary', isNew: true, prefill: true },
+  },
+  {
+    id: 'p-one-answer',
+    track: 'poll',
+    anchor: '[data-field="poll-multi"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'poll-summary', isNew: true, prefill: true },
+  },
+  {
+    id: 'p-edit-answers',
+    track: 'poll',
+    anchor: '[data-field="poll-edits"]',
+    stage: 'home',
+    mode: 'CREATE',
+    modal: { kind: 'poll-summary', isNew: true, prefill: true },
   },
   {
     id: 'p-columns',
     track: 'poll',
-    anchor: '#view-poll-table',
+    // Every day column, one highlight each. Not the table: that would box the
+    // time axis and the blank corner in with them, and neither is a day.
+    anchor: '#view-poll-table [data-col]',
+    mode: 'CREATE',
     enter(poll) {
       poll.step = 1;
     },
   },
   {
-    id: 'p-time-mode',
+    id: 'p-window',
     track: 'poll',
-    anchor: '[data-testid="poll-summary"]',
+    anchor: '[data-testid="add-poll-window"]',
+    mode: 'CREATE',
   },
   {
-    id: 'p-viewer-zone',
+    id: 'p-window-start',
     track: 'poll',
-    anchor: '#view-poll-answer',
+    anchor: '[data-field="poll-window-start"]',
+    mode: 'CREATE',
+    modal: {
+      kind: 'poll-window',
+      win: null,
+      // Opened with a repeat already set up, so the two steps after this one
+      // have their fields -- and the live preview of what they produce -- on
+      // screen. With the switch off, neither control is rendered at all.
+      preset: {
+        start: '09:00', repeat: true, hours: 4, minutes: 0, until: '17:00', mode: 'all',
+      },
+    },
+  },
+  {
+    id: 'p-repeat',
+    track: 'poll',
+    anchor: '[data-field="poll-repeat"], [data-field="poll-repeat-every"], '
+      + '[data-field="poll-repeat-until"]',
+    mode: 'CREATE',
+    modal: {
+      kind: 'poll-window',
+      win: null,
+      preset: {
+        start: '09:00', repeat: true, hours: 4, minutes: 0, until: '17:00', mode: 'all',
+      },
+    },
+  },
+  {
+    id: 'p-apply',
+    track: 'poll',
+    anchor: '[data-field="poll-apply-to"]',
+    mode: 'CREATE',
+    modal: {
+      kind: 'poll-window',
+      win: null,
+      preset: {
+        start: '09:00', repeat: true, hours: 4, minutes: 0, until: '17:00', mode: 'all',
+      },
+    },
+  },
+  {
+    id: 'p-cells',
+    track: 'poll',
+    anchor: '#view-poll-table [data-slot-state="editing"]',
+    mode: 'CREATE',
+    enter(poll) {
+      seedPracticeTimes(poll);
+      poll.step = 1;
+    },
   },
   {
     id: 'p-all-day',
     track: 'poll',
-    anchor: '#view-poll-table',
+    anchor: '#view-poll-table [data-testid="all-day-toggle"]',
+    mode: 'CREATE',
     enter(poll) {
       // The all-day column is the fifth, so the slider has to be at the end for
       // the step to be describing something on screen.
@@ -371,83 +609,50 @@ const STEPS = [
     },
   },
   {
-    id: 'p-window',
-    track: 'poll',
-    anchor: '[data-testid="add-poll-window"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'p-repeat',
-    track: 'poll',
-    anchor: '[data-testid="add-poll-window"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'p-apply',
-    track: 'poll',
-    anchor: '[data-testid="add-poll-window"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'p-cells',
-    track: 'poll',
-    anchor: '#view-poll-table [data-slot-state="available"]',
-    enter(poll) {
-      poll.step = 1;
-    },
-  },
-  {
     id: 'p-fields',
     track: 'poll',
-    anchor: '[data-testid="add-poll-field"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'p-deadline',
-    track: 'poll',
-    anchor: '[data-testid="poll-summary"]',
-  },
-  {
-    id: 'p-one-answer',
-    track: 'poll',
-    anchor: '[data-testid="poll-summary"]',
-  },
-  {
-    id: 'p-edit-answers',
-    track: 'poll',
-    anchor: '[data-testid="poll-summary"]',
-  },
-  {
-    id: 'p-visibility',
-    track: 'poll',
-    anchor: '[data-testid="poll-summary"]',
+    anchor: '[data-field="detail-type"], [data-field="detail-required"]',
+    mode: 'CREATE',
+    modal: { kind: 'poll-detail', detail: null, isNew: true },
   },
   {
     id: 'p-publish',
     track: 'poll',
     anchor: '[data-testid="publish-poll"]',
     mode: 'CREATE',
+    enter(poll) {
+      seedPollQuestion(poll);
+    },
   },
   {
     id: 'p-code',
     track: 'poll',
     anchor: '[data-testid="poll-share"]',
+    mode: 'VIEW',
+    enter(poll) {
+      publishPracticePoll(poll);
+    },
   },
   {
     id: 'p-answer',
     track: 'poll',
-    anchor: '#view-poll-buttons',
+    anchor: '[data-field="poll-answer-name"]',
+    mode: 'VIEW',
+    modal: { kind: 'poll-answer' },
   },
   {
     id: 'p-results',
     track: 'poll',
     anchor: '[data-testid="poll-results"]',
+    mode: 'VIEW',
   },
   {
     id: 'p-done',
     track: 'poll',
     anchor: null,
+    mode: 'VIEW',
   },
+
   // --- voter (participant: voting on a time) -------------------------------
   //
   // The poll counterpart of the volunteer track, and it exists for the same
@@ -465,7 +670,7 @@ const STEPS = [
   {
     id: 'vo-grid',
     track: 'voter',
-    anchor: '#view-poll-table',
+    anchor: '#view-poll-table [data-col]',
     enter(poll) {
       // Back to the first page, so the step describes what is on screen however
       // far the learner dragged it before reaching here.
@@ -480,12 +685,14 @@ const STEPS = [
   {
     id: 'vo-answer',
     track: 'voter',
-    anchor: '#view-poll-answer',
+    anchor: '[data-field="poll-answer-name"]',
+    modal: { kind: 'poll-answer' },
   },
   {
     id: 'vo-once',
     track: 'voter',
-    anchor: '#view-poll-answer',
+    anchor: '[data-testid="fingerprint-notice"]',
+    modal: { kind: 'poll-answer' },
   },
   {
     id: 'vo-submit',
@@ -530,30 +737,36 @@ class Tutorial {
 
   html = $derived(this.step ? (this.copy[this.step.id] ?? '') : '');
 
+  /**
+   * The sandbox id this tour's practice model takes once it is published.
+   *
+   * A step whose mode is CREATE clears the id and a later one puts it back, and
+   * the value is a constant of the sandbox rather than something observed --
+   * see `PRACTICE_ID`.
+   */
+  practiceID = $derived(this.track ? PRACTICE_ID[subjectOf(this.track)] : null);
+
+  /** Whether the current step belongs on the landing page rather than the model. */
+  atHome = $derived(this.step?.stage === 'home');
+
+  /** The dialog this step wants open, or null for none. */
+  modal = $derived(this.step?.modal ?? null);
+
   open() {
     this.choosing = true;
   }
 
   /**
    * @param {Track} track
-   * @param {object} event the practice event, already built
+   * @param {object} subject the practice event or poll, already built
    * @param {Record<string,string>} copy
    */
-  /**
-   * The practice model's id, captured when the tour starts.
-   *
-   * Needed because a step whose mode is CREATE has to clear the id and a later
-   * one has to put it back, and only the sandbox knows what it was.
-   */
-  practiceID = null;
-
   begin(track, subject, copy) {
     this.track = track;
     this.copy = copy;
     this.index = 0;
     this.choosing = false;
     this.running = true;
-    this.practiceID = subject?.id ?? null;
     this.#arrive(subject);
   }
 
@@ -587,7 +800,6 @@ class Tutorial {
 
   stop() {
     this.running = false;
-    this.practiceID = null;
     this.choosing = false;
     this.track = null;
     this.index = 0;
@@ -626,18 +838,17 @@ export function applyMode(subject, mode, practiceID) {
 /**
  * Load the practice event into the app's event model.
  *
- * One event for all three of its tracks, not three. The volunteer track starts
- * partway into the organizer's world -- already built, already shared, which is
- * what a volunteer is handed -- and the builder track goes behind it into the
- * editor. They differ in where the tour begins and what it looks at, not in
- * what it is about.
+ * `build` is the track's, not the caller's guess: the organizer track assembles
+ * an event from a draft and the volunteer track is handed a finished one, and
+ * which of those a track wants is declared beside the track.
  *
  * @param {object} event the model to load into
- * @param {{mode?: 'VIEW'|'EDIT'|'CREATE'}} [opts] the surface to start on
+ * @param {{mode?: 'VIEW'|'EDIT'|'CREATE', build?: 'draft'|'ready'}} [opts]
  */
-export function loadPracticeEvent(event, { mode = 'VIEW' } = {}) {
-  buildPracticeEvent(event);
-  applyMode(event, mode, event.id);
+export function loadPracticeEvent(event, { mode = 'VIEW', build = 'ready' } = {}) {
+  if (build === 'draft') draftPracticeEvent(event);
+  else buildPracticeEvent(event);
+  applyMode(event, mode, PRACTICE_EVENT_ID);
 
   // The assertion is kept and generalised rather than dropped. Its job was
   // always to catch a stale flag silently putting the tour on a surface it was
@@ -653,11 +864,12 @@ export function loadPracticeEvent(event, { mode = 'VIEW' } = {}) {
  * Load the practice poll into the app's poll model.
  *
  * @param {object} poll the model to load into
- * @param {{mode?: 'VIEW'|'EDIT'|'CREATE'}} [opts] the surface to start on
+ * @param {{mode?: 'VIEW'|'EDIT'|'CREATE', build?: 'draft'|'ready'}} [opts]
  */
-export function loadPracticePoll(poll, { mode = 'VIEW' } = {}) {
-  buildPracticePoll(poll);
-  applyMode(poll, mode, poll.id);
+export function loadPracticePoll(poll, { mode = 'VIEW', build = 'ready' } = {}) {
+  if (build === 'draft') draftPracticePoll(poll);
+  else buildPracticePoll(poll);
+  applyMode(poll, mode, PRACTICE_POLL_ID);
 
   if (poll.mode !== Mode[mode]) {
     throw new Error(`the practice poll must be in ${mode} mode for this track`);

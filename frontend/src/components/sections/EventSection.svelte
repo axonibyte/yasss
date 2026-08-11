@@ -64,8 +64,21 @@
    * anonymously has a null `admin`, and an anonymous viewer has a null
    * `account`, so a bare equality makes every passer-by look like the owner of
    * every unowned event.
+   *
+   * The sandbox clause is not an exception to that rule but an instance of it:
+   * the practice event exists only in this tab and the person looking at it is
+   * unambiguously the only organizer it will ever have. Without it the
+   * organizer tutorial could not show the organizer's own surface -- Modify
+   * Event and View Report are both owner-only, and a tour that described two
+   * buttons the learner cannot see is the thing this was reported for.
+   *
+   * Nothing behind them escapes: every structural write is gated on `isRemote`,
+   * which is false for a sandbox model, and the report is gated in
+   * `openReport`, which is the one call here that is a read rather than a write.
    */
-  const isOwner = $derived(session.account !== null && session.account === event.admin);
+  const isOwner = $derived(
+    event.sandbox || (session.account !== null && session.account === event.admin),
+  );
 
   /** Only the event's owner may see the sign-in sheet. */
   const canViewReport = $derived(event.persisted && isOwner);

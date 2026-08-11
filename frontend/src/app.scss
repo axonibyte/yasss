@@ -347,6 +347,36 @@ body.tutorial-running {
   border-radius: 4px;
 }
 
+// --- the tour, and the dialogs it opens --------------------------------------
+//
+// Steps that describe a control inside a modal open that modal themselves,
+// which puts two fixed layers on screen at once. Bulma centres a modal in the
+// viewport at z-index 40 and the panel sits at 30, so left alone the dialog
+// covers the instructions for using it and the learner has no way to reach
+// Next -- the tour's only exit.
+//
+// So while a tour is running the panel outranks the modal, and the modal is
+// pushed up out of the space the panel occupies rather than being centred
+// through it. `.modal-card-body` already scrolls, so a tall form loses no
+// content; it just gets a shorter window onto it.
+body.tutorial-running {
+  .tutorial-panel {
+    z-index: 45;
+  }
+
+  .modal {
+    align-items: flex-start;
+    padding-top: 1rem;
+  }
+
+  // Specificity, not order: the phone rules below restate `.modal-card` inside
+  // an `@supports`, and a bare class here would lose to whichever came last.
+  .modal-card,
+  .modal-content {
+    max-height: calc(55vh - 2rem);
+  }
+}
+
 // --- scrollbars -------------------------------------------------------------
 
 // Two syntaxes, because neither is universal yet: `scrollbar-width`/`-color` is

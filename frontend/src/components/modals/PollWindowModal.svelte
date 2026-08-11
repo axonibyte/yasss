@@ -29,6 +29,19 @@
     options = [],
     scope = 'RELATIVE',
     busy = false,
+    /**
+     * Initial values for the fields this form invents rather than reads.
+     *
+     * `win` seeds the two things an existing row actually has; everything about
+     * the repeat is authoring-only and has no stored counterpart, so opening
+     * the form with a repeat already configured cannot come from the model.
+     *
+     * The tutorial is why this exists. Steps describing "Repeat", "Until" and
+     * "Apply to" open this form and point at those fields -- and with the
+     * repeat switched off, two of the three are not rendered at all, which is
+     * how a tour ends up describing controls the learner cannot see.
+     */
+    preset = null,
     onSave,
     onDelete = null,
     onClose,
@@ -37,14 +50,20 @@
   const isNew = $derived(win === null);
 
   // svelte-ignore state_referenced_locally
-  let start = $state(win?.startTime ?? '09:00');
-  let repeat = $state(false);
-  let hours = $state(1);
-  let minutes = $state(0);
+  let start = $state(preset?.start ?? win?.startTime ?? '09:00');
+  // svelte-ignore state_referenced_locally
+  let repeat = $state(preset?.repeat ?? false);
+  // svelte-ignore state_referenced_locally
+  let hours = $state(preset?.hours ?? 1);
+  // svelte-ignore state_referenced_locally
+  let minutes = $state(preset?.minutes ?? 0);
   /** Blank means "carry on to the end of the day", which is what it did before. */
-  let until = $state('');
-  let mode = $state('all');
-  let selected = $state([]);
+  // svelte-ignore state_referenced_locally
+  let until = $state(preset?.until ?? '');
+  // svelte-ignore state_referenced_locally
+  let mode = $state(preset?.mode ?? 'all');
+  // svelte-ignore state_referenced_locally
+  let selected = $state(preset?.selected ? [...preset.selected] : []);
   // svelte-ignore state_referenced_locally
   let future = $state(win?.appliesToNewOptions ?? false);
   let errors = $state({});
@@ -90,7 +109,7 @@
   <TimeField label="Starts at" id="poll-window-start" bind:value={start} error={errors.start} />
 
   {#if isNew}
-    <div class="field">
+    <div class="field" data-field="poll-repeat">
       <input id="poll-repeat" type="checkbox" class="switch is-rtl" bind:checked={repeat} />
       <label class="switch" for="poll-repeat">Repeat through the day</label>
     </div>
@@ -139,7 +158,7 @@
 
     <ApplyToField bind:mode bind:selected bind:future {options} {scope} />
   {:else}
-    <div class="field">
+    <div class="field" data-field="poll-window-future">
       <input id="poll-window-future" type="checkbox" class="switch is-rtl" bind:checked={future} />
       <label class="switch" for="poll-window-future">
         Also apply this time to any day I add later

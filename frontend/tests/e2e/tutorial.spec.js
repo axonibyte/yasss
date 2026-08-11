@@ -80,13 +80,33 @@ async function startTutorial(page, track) {
 /** Walk to the end, returning the text of every step seen. */
 async function walkToEnd(page) {
   const seen = [];
-  for (let i = 0; i < 40; i += 1) {
+  for (let i = 0; i < 60; i += 1) {
     seen.push(await page.getByTestId('tutorial-step').innerText());
     const next = page.getByRole('button', { name: 'Next' });
     if (await next.count() === 0) break;
     await next.click();
   }
   return seen;
+}
+
+/**
+ * Step forward until something is on screen, or give up.
+ *
+ * The creation tracks open on the landing page -- that is where "Create Poll"
+ * is -- and build the practice model as they go, so nothing about the grid is
+ * true at step one any more. Tests that want the grid have to walk to it, and
+ * walking by *condition* rather than by a step count means they survive a step
+ * being inserted, which is the whole reason the tour is a list and not a
+ * switch statement.
+ */
+async function advanceUntil(page, locator, limit = 20) {
+  for (let i = 0; i < limit; i += 1) {
+    if (await locator.count() > 0 && await locator.first().isVisible()) return true;
+    const next = page.getByRole('button', { name: 'Next' });
+    if (await next.count() === 0) break;
+    await next.click();
+  }
+  return await locator.count() > 0 && await locator.first().isVisible();
 }
 
 test('the chooser asks which side you are on before which tour', async ({ page }) => {
@@ -148,14 +168,20 @@ for (const track of ['organizer', 'volunteer', 'poll', 'voter']) {
       calls.length = 0;
 
       await startTutorial(page, track);
+
+      const steps = await walkToEnd(page);
+
       // Two of these tracks teach on the practice poll and two on the practice
       // event, and they render different headings. Asserting the event's for all
       // four would fail the poll tracks for the wrong reason.
+      //
+      // Asserted at the end rather than the start: the creation tracks begin on
+      // the landing page, because the first thing they teach is where the
+      // button is. By the last step every track is standing on its own
+      // published practice model.
       const poll = ['poll', 'voter'].includes(track);
       await expect(page.getByTestId(poll ? 'poll-title' : 'event-title'))
         .toHaveText(poll ? PRACTICE_POLL_TITLE : PRACTICE_TITLE);
-
-      const steps = await walkToEnd(page);
       // The one call the tour is allowed: the operator's copy deck, once.
       expect(calls.filter((c) => c.includes('/v1/texts/tutorial'))).toHaveLength(1);
       expect(steps.length).toBeGreaterThan(3);
@@ -241,7 +267,9 @@ test('exiting puts the visitor back where they started', async ({ page }) => {
   await page.goto('/');
   await waitForApp(page);
   await startTutorial(page, 'organizer');
-  await expect(page.getByTestId('event-title')).toBeVisible();
+  // Far enough in that there is a practice event on screen to be got rid of --
+  // which is the thing this test is about.
+  expect(await advanceUntil(page, page.getByTestId('event-title'))).toBe(true);
 
   await page.getByRole('button', { name: 'Exit tutorial' }).click();
 
@@ -410,6 +438,9 @@ test.describe('the practice grid pages', () => {
     await waitForApp(page);
 
     const slider = page.locator('#view-event-slider');
+    // The activities arrive when the step about activities runs, so the slider
+    // arrives with them rather than at step one.
+    expect(await advanceUntil(page, slider)).toBe(true);
     await expect(slider).toBeVisible();
     // Six activities, four visible columns, so the last page starts at three.
     await expect(slider).toHaveAttribute('max', '3');
@@ -433,6 +464,7 @@ test.describe('the practice grid pages', () => {
       await page.goto('/?tutorial=organizer');
       await waitForApp(page);
       const slider = page.locator('#view-event-slider');
+      expect(await advanceUntil(page, slider)).toBe(true);
 
       // Wander off before reaching the step that describes paging.
       await slider.fill('3');
@@ -444,5 +476,128 @@ test.describe('the practice grid pages', () => {
       await expect(page.getByTestId('tutorial-step')).toContainText(/slider/i);
       // Whatever the learner dragged it to, the step describes page one.
       await expect(slider).toHaveValue('1');
+    });
+});
+
+/**
+ * What the tour shows, rather than what it says.
+ *
+ * These are the regression tests for the rewrite. The old poll track described
+ * a creation flow over a finished poll: the step about repeating a time named
+ * controls that live in a dialog the tour never opened, and the step about
+ * columns highlighted the whole table -- time axis and blank corner included --
+ * because the highlighter only ever marked one element.
+ *
+ * Each test here fails if any part of that comes back.
+ */
+test.describe('the creation tracks build rather than describe', () => {
+  test('opens the real settings form and points inside it', async ({ page }) => {
+    await page.goto('/?tutorial=poll');
+    await waitForApp(page);
+
+    // Step one is the landing page, because that is where the button is.
+    await expect(page.getByTestId('nav-create-poll')).toBeVisible();
+    await expect(page.getByTestId('poll-title')).toHaveCount(0);
+
+    const scope = page.locator('[data-field="poll-scope"]');
+    expect(await advanceUntil(page, scope)).toBe(true);
+
+    // The real dialog, not a description of one -- and filled in, because an
+    // empty form teaches nothing about the choice being described.
+    await expect(page.locator('.modal.is-active')).toBeVisible();
+    await expect(scope).toHaveClass(/tutorial-anchor/);
+    await expect(page.locator('[data-testid="day-picker"] button[aria-pressed="true"]'))
+      .not.toHaveCount(0);
+  });
+
+  test('opens the time form with the repeat already on', async ({ page }) => {
+    await page.goto('/?tutorial=poll');
+    await waitForApp(page);
+
+    const until = page.locator('[data-field="poll-repeat-until"]');
+    expect(await advanceUntil(page, until, 30)).toBe(true);
+
+    // "Until" and the interval only exist while Repeat is ticked. The old track
+    // described both from a surface where neither was rendered.
+    await expect(page.locator('#poll-repeat')).toBeChecked();
+    await expect(page.locator('[data-field="poll-repeat-every"]')).toBeVisible();
+    // And the form's own preview of what that produces is on screen while the
+    // copy explains it.
+    await expect(page.getByTestId('repeat-preview')).toBeVisible();
+  });
+
+  test('boxes each day column, not the table', async ({ page }) => {
+    await page.goto('/?tutorial=poll');
+    await waitForApp(page);
+
+    const table = page.locator('#view-poll-table');
+    expect(await advanceUntil(page, table, 30)).toBe(true);
+
+    // Walk on to the step that is actually about the columns.
+    for (let i = 0; i < 6; i += 1) {
+      if (await page.locator('#view-poll-table [data-col].tutorial-anchor').count() > 0) break;
+      await page.getByRole('button', { name: 'Next' }).click();
+    }
+
+    const marked = page.locator('.tutorial-anchor');
+    await expect(marked).not.toHaveCount(0);
+    // Several, one per column -- the whole point of the change.
+    expect(await marked.count()).toBeGreaterThan(1);
+    // And never the table itself, which is what boxed the time axis in with the
+    // days.
+    await expect(table).not.toHaveClass(/tutorial-anchor/);
+    for (const el of await marked.all()) {
+      await expect(el).toHaveAttribute('data-col', /\d+/);
+    }
+  });
+
+  test('keeps its own controls reachable above the dialog it opened',
+    async ({ page }) => {
+      await page.goto('/?tutorial=poll');
+      await waitForApp(page);
+      expect(await advanceUntil(page, page.locator('[data-field="poll-scope"]'))).toBe(true);
+      await expect(page.locator('.modal.is-active')).toBeVisible();
+
+      // Bulma puts a modal at z-index 40 and the panel sat at 30, so without the
+      // override the tour's only exit is underneath the dialog it just opened.
+      const next = page.getByRole('button', { name: 'Next' });
+      const onTop = await next.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return el === hit || el.contains(hit);
+      });
+      expect(onTop, 'the tutorial panel is buried under its own dialog').toBe(true);
+
+      // And it works: pressing it advances rather than hitting the backdrop.
+      const before = await page.getByTestId('tutorial-position').innerText();
+      await next.click();
+      await expect(page.getByTestId('tutorial-position')).not.toHaveText(before);
+    });
+
+  test('never leaves the sandbox, even if the learner uses the navbar',
+    async ({ page }) => {
+      // `reset()` clears the sandbox flag, and "Create Poll" resets. Without
+      // the guard in `savePollSummaryModal` a learner who pressed it mid-tour
+      // would be building a real poll inside the tutorial and publishing it for
+      // real at the end.
+      const calls = await watchRequests(page);
+      await page.goto('/?tutorial=poll');
+      await waitForApp(page);
+      calls.length = 0;
+
+      await page.getByTestId('nav-create-poll').click();
+      await page.getByLabel('Poll title').fill('Escaped the sandbox');
+      // The day buttons are named by their `aria-label`, which is the long form.
+      await page.getByRole('button', { name: 'Monday' }).click();
+      await page.getByRole('button', { name: 'Start building' }).click();
+
+      await page.getByTestId('publish-poll').click();
+      await expect(
+        page.getByText('This is a practice poll, so it is not published anywhere.'),
+      ).toBeVisible();
+      await page.waitForTimeout(500);
+      expect(leaks(calls), `the tutorial wrote to the API: ${leaks(calls).join(', ')}`)
+        .toEqual([]);
+      expect(calls.filter((c) => c.includes('/v1/polls'))).toEqual([]);
     });
 });

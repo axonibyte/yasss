@@ -248,7 +248,7 @@
     {/if}
   </Field>
 
-  <div class="field">
+  <div class="field" data-field="poll-multi">
     <input id="poll-multi" type="checkbox" class="switch is-rtl" bind:checked={allowMultiAnswers} />
     <label class="switch" for="poll-multi">Allow more than one answer per person</label>
   </div>
@@ -269,7 +269,7 @@
     </article>
   {/if}
 
-  <div class="field">
+  <div class="field" data-field="poll-edits">
     <input id="poll-edits" type="checkbox" class="switch is-rtl" bind:checked={allowAnswerEdits} />
     <label class="switch" for="poll-edits">Let people change their answer afterwards</label>
   </div>

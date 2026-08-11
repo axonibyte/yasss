@@ -79,8 +79,15 @@
 
   <div id="navbar-menu" class="navbar-menu" class:is-active={menuOpen}>
     <div class="navbar-end">
-      <a class="navbar-item" href="#create-poll" onclick={act(onCreatePoll)}>Create Poll</a>
-      <a class="navbar-item" href="#create-event" onclick={act(onCreateEvent)}>Create Event</a>
+      <!--
+        `data-testid` on these two because the tutorial's creation tracks point
+        at them: the first thing it teaches is where the button is, and a tour
+        that starts with the form already open never shows anybody that.
+      -->
+      <a class="navbar-item" href="#create-poll" data-testid="nav-create-poll"
+        onclick={act(onCreatePoll)}>Create Poll</a>
+      <a class="navbar-item" href="#create-event" data-testid="nav-create-event"
+        onclick={act(onCreateEvent)}>Create Event</a>
       <a class="navbar-item" href="#tutorial" onclick={act(onTutorial)}>Tutorial</a>
       {#if loggedIn}
         <a class="navbar-item" href="#account" onclick={act(onAccount)}>Account</a>

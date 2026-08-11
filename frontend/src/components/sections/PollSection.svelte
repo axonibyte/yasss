@@ -45,7 +45,15 @@
    * anonymous viewer has a null account, so a bare equality would make every
    * passer-by the owner of every unowned poll.
    */
-  const isOwner = $derived(session.account !== null && session.account === poll.admin);
+  /**
+   * The sandbox clause is the same one `EventSection` carries, for the same
+   * reason: the practice poll is the learner's, and the poll tutorial has to be
+   * able to show them the owner's surface. Every write behind it is gated on
+   * `isRemote`, which is false for a sandbox model.
+   */
+  const isOwner = $derived(
+    poll.sandbox || (session.account !== null && session.account === poll.admin),
+  );
 
   const canEnterEdit = $derived(poll.mode === Mode.VIEW && isOwner);
 

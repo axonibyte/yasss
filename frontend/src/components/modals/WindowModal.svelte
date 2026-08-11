@@ -33,7 +33,7 @@
 </script>
 
 <Modal title={isNew ? 'Add a Window' : 'Update a Window'} {onClose} onSubmit={save}>
-  <div class="field">
+  <div class="field" data-field="event-window">
     <div class="label">Window</div>
     <!-- Only a new window is floored at tomorrow; an existing one may sit in
          the past and must stay editable. -->

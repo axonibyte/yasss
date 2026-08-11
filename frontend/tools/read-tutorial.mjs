@@ -32,7 +32,11 @@ const steps = [...src.slice(start, end).matchAll(/\n {2}\{\n([\s\S]*?)\n {2}\},/
   id: /id: '([^']+)',/.exec(m[1])?.[1],
   track: /track: '([^']+)',/.exec(m[1])?.[1],
   mode: /mode: '(\w+)',/.exec(m[1])?.[1] ?? 'VIEW',
+  stage: /stage: '(\w+)',/.exec(m[1])?.[1] ?? 'subject',
   anchor: /anchor: '([^']+)'/.exec(m[1])?.[1] ?? null,
+  // The dialog the step opens, which is most of what a creation track is doing
+  // and the thing a reader of the prose alone cannot see.
+  modal: /modal: \{[\s\S]*?kind: '([^']+)'/.exec(m[1])?.[1] ?? null,
 }));
 
 const wanted = process.argv[2];
@@ -49,13 +53,30 @@ for (const track of tracks) {
   console.log(`\n${'='.repeat(74)}\n  ${track.toUpperCase()}  —  ${mine.length} steps\n${'='.repeat(74)}`);
 
   let mode = null;
+  let stage = null;
+  let modal = null;
   mine.forEach((step, i) => {
-    // Surfaced because it is the thing a reader cannot see from the words: the
-    // page changes shape here, and the copy has to account for it.
+    // Surfaced because they are the things a reader cannot see from the words:
+    // the page changes shape here, and the copy has to account for it.
+    if (stage !== null && step.stage !== stage) {
+      console.log(step.stage === 'home'
+        ? '\n    ~~~ back to the landing page here ~~~'
+        : `\n    ~~~ the landing page gives way to the practice ${
+          ['poll', 'voter'].includes(track) ? 'poll' : 'event'} here ~~~`);
+    }
+    stage = step.stage;
+
     if (mode !== null && step.mode !== mode) {
       console.log(`\n    ~~~ the page switches to ${step.mode} here ~~~`);
     }
     mode = step.mode;
+
+    if (step.modal !== modal) {
+      console.log(step.modal
+        ? `\n    ~~~ the "${step.modal}" dialog opens here ~~~`
+        : '\n    ~~~ the dialog closes here ~~~');
+    }
+    modal = step.modal;
 
     console.log(`\n--- ${i + 1}/${mine.length}  ${step.id}${step.anchor ? `  → ${step.anchor}` : '  (whole page)'}`);
     console.log();

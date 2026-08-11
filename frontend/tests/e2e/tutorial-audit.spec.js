@@ -118,7 +118,7 @@ for (const track of TRACKS) {
     const transcript = [];
     const failures = [];
 
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 60; i += 1) {
       const panel = page.getByTestId('tutorial-step');
       const text = (await panel.innerText()).trim();
 
@@ -163,32 +163,53 @@ for (const track of TRACKS) {
       // removed in a refactor -- the words survive and stop referring to
       // anything, which is the failure this whole spec exists for. A step with
       // no anchor is about the page as a whole and is exempt by design.
-      const anchored = await page.evaluate(() => {
-        const el = document.querySelector('[data-tutorial-anchor], .tutorial-anchor');
-        if (!el) return null;
-        const box = el.getBoundingClientRect();
-        const style = getComputedStyle(el);
-        return {
-          area: box.width * box.height,
-          onScreen: box.bottom > 0 && box.right > 0
-            && box.top < window.innerHeight && box.left < window.innerWidth,
-          outline: style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0,
-          boxShadow: style.boxShadow !== 'none',
-        };
-      });
+      // Every marked element, not the first. A step's anchor may name a set --
+      // "every column is a day" is four columns -- and checking only one of
+      // them would have passed the version of this that highlighted the whole
+      // table, which is the defect that prompted the rewrite.
+      const anchored = await page.evaluate(() => [...document.querySelectorAll('.tutorial-anchor')]
+        .map((el) => {
+          const box = el.getBoundingClientRect();
+          const style = getComputedStyle(el);
+          return {
+            area: box.width * box.height,
+            onScreen: box.bottom > 0 && box.right > 0
+              && box.top < window.innerHeight && box.left < window.innerWidth,
+            outline: style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0,
+            boxShadow: style.boxShadow !== 'none',
+          };
+        }));
 
-      if (anchored) {
-        if (anchored.area === 0) failures.push(`step ${i}: the thing it points at has no size`);
-        if (!anchored.onScreen) failures.push(`step ${i}: the thing it points at is off screen`);
+      for (const [n, mark] of anchored.entries()) {
+        if (mark.area === 0) failures.push(`step ${i}: highlight ${n} has no size`);
+        if (!mark.onScreen) failures.push(`step ${i}: highlight ${n} is off screen`);
         // --- (e) would greyscale still work? --------------------------------
         //
         // The highlight must not be colour alone. An outline or a shadow
         // survives rasterising to grey; a hue change does not, and neither does
         // it survive the reader.
-        if (!anchored.outline && !anchored.boxShadow) {
-          failures.push(`step ${i}: the highlight is colour alone -- nothing survives greyscale`);
+        if (!mark.outline && !mark.boxShadow) {
+          failures.push(`step ${i}: highlight ${n} is colour alone -- nothing survives greyscale`);
         }
       }
+
+      // --- (c), the half a modal changes ------------------------------------
+      //
+      // Creation steps open real dialogs, and a dialog is fixed, opaque and
+      // above the page. If the tour's own panel ends up under it, the learner
+      // is looking at a form with no instructions and no way to advance -- and
+      // Escape closes the tour rather than the dialog. So: whenever a dialog is
+      // open, Next has to be the thing at Next's coordinates.
+      const buried = await page.evaluate(() => {
+        if (!document.querySelector('.modal.is-active')) return false;
+        const buttons = [...document.querySelectorAll('#tutorial-panel button')];
+        const next = buttons.find((b) => /^(Next|Finish)$/.test(b.textContent.trim()));
+        if (!next) return 'the panel has no Next';
+        const box = next.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return next === hit || next.contains(hit) ? false : 'Next is covered';
+      });
+      if (buried) failures.push(`step ${i}: a dialog is open and ${buried}`);
 
       // --- (c) am I allowed to click anything else? --------------------------
       //
@@ -216,7 +237,7 @@ for (const track of TRACKS) {
 
       // Evidence for (d), and for anybody who wants to see what (a)-(c) saw.
       await page.screenshot({ path: `${OUT}/${track}/${String(i).padStart(2, '0')}.png` });
-      transcript.push({ index: i, text, anchored: Boolean(anchored), ...readable });
+      transcript.push({ index: i, text, highlights: anchored.length, ...readable });
 
       const next = page.getByRole('button', { name: 'Next' });
       if (await next.count() === 0) break;
@@ -248,7 +269,7 @@ test('every track ends rather than stopping', async ({ page }) => {
     await startTutorial(page, track);
 
     let last = '';
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 60; i += 1) {
       last = await page.getByTestId('tutorial-step').innerText();
       const next = page.getByRole('button', { name: 'Next' });
       if (await next.count() === 0) break;

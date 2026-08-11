@@ -27,7 +27,14 @@
   let { label = '', error = null, id = null, children } = $props();
 </script>
 
-<div class="field">
+<!--
+  `data-field` mirrors the id onto the wrapper so something outside can point at
+  the whole field -- label, control and help line together -- rather than at the
+  input alone. The tutorial is the caller that needs it: a step describing
+  "Whose clock?" has to highlight the question as well as the radios, and for a
+  radio group there is no element carrying the id at all.
+-->
+<div class="field" data-field={id || undefined}>
   {#if label}
     <label class="label" for={id}>{label}</label>
   {/if}

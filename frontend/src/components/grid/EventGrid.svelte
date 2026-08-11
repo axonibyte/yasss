@@ -85,8 +85,9 @@
         <!-- blank corner above the window labels -->
         <GridCell label="" aesthetics="" />
 
-        {#each shown as activity (activity.key)}
+        {#each shown as activity, col (activity.key)}
           <GridCell
+            {col}
             label={activity.label}
             tooltip={activity.description}
             aesthetics="is-primary"
@@ -94,16 +95,18 @@
           />
         {/each}
 
-        {#each event.windows as win (win.key)}
+        {#each event.windows as win, row (win.key)}
           <GridCell
             label={win.labelParts.begin}
             secondLine={win.labelParts.end}
             aesthetics="is-primary"
             onclick={onWindowClick ? () => onWindowClick(win) : null}
           />
-          {#each shown as activity (activity.key)}
+          {#each shown as activity, col (activity.key)}
             {@const cell = cellFor(activity, win)}
             <GridCell
+              {col}
+              {row}
               label={cell.label}
               aesthetics={cell.aesthetics}
               state={cell.state}

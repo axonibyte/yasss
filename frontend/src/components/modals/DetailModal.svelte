@@ -76,7 +76,7 @@
     ></textarea>
   </Field>
 
-  <div class="field">
+  <div class="field" data-field="detail-required">
     <div class="control">
       <input id="detail-required" type="checkbox" class="switch" bind:checked={required} />
       <label class="switch" for="detail-required">Should users be required to answer this?</label>

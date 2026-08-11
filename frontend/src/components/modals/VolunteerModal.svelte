@@ -128,7 +128,7 @@
     {@const spec = DETAIL_TYPES[detail.type]}
     {@const id = `vol-detail-${detail.key}`}
     {#if spec.input === 'switch'}
-      <div class="field">
+      <div class="field" data-field={id}>
         <div class="control">
           <input
             {id}

@@ -176,3 +176,74 @@ describe('row headers', () => {
     expect(header).toMatch(/[23]:00 PM/);
   });
 });
+
+/**
+ * Which column a tile belongs to.
+ *
+ * The grid is one flat CSS grid, so a column has no element of its own and
+ * "the Tuesday column" is only expressible as the set of tiles that share a
+ * value here. The tutorial highlights columns that way, and before this
+ * existed its only option was to highlight the table -- which boxed the time
+ * axis and the blank corner in with the days, and was what got reported.
+ */
+describe('column identity', () => {
+  it('marks each day column, and only the day columns', () => {
+    const { container } = render(PollGrid, { poll: buildPoll(3, 2) });
+
+    const cells = [...container.querySelectorAll('.event-cell')];
+    const cols = cells.map((c) => c.getAttribute('data-col'));
+
+    // One blank corner, three day headers, then per window a row label and
+    // three squares.
+    expect(cols).toEqual([
+      null, '0', '1', '2',
+      null, '0', '1', '2',
+      null, '0', '1', '2',
+    ]);
+
+    // And the set a step would highlight is the days, top to bottom: three
+    // columns of three tiles, never the table itself.
+    expect(container.querySelectorAll('[data-col]')).toHaveLength(9);
+    expect(container.querySelectorAll('[data-col="1"]')).toHaveLength(3);
+  });
+
+  it('follows the slider, so a highlighted column is one on screen', () => {
+    // Six days against four visible columns: the last two are off page one, and
+    // a highlight has to land on what is rendered rather than on what exists.
+    const poll = buildPoll(6, 1);
+    poll.step = 3;
+    const { container } = render(PollGrid, { poll });
+
+    expect(container.querySelectorAll('[data-col]')).toHaveLength(8);
+    const labels = [...container.querySelectorAll('[data-col="0"] li')]
+      .map((li) => li.textContent.trim());
+    // Page three starts at the third day, which is Wednesday.
+    expect(labels[0]).toBe('Wed');
+  });
+});
+
+/**
+ * Addressing one square rather than a column of them.
+ *
+ * `data-col` alone names a set, which is right for "every column is a day" and
+ * wrong for "click this square". The pair together makes every tile
+ * addressable, and the tutorial uses both.
+ */
+describe('square identity', () => {
+  it('gives every square a row as well as a column', () => {
+    const { container } = render(PollGrid, { poll: buildPoll(2, 2) });
+
+    const one = container.querySelectorAll('[data-col="1"][data-row="0"]');
+    expect(one).toHaveLength(1);
+
+    // Headers belong to a column but to no row: they are the axis, not a square.
+    const headers = [...container.querySelectorAll('[data-col]')]
+      .filter((el) => !el.hasAttribute('data-row'));
+    expect(headers).toHaveLength(2);
+
+    // And the row index follows the windows, not document order.
+    const rows = [...container.querySelectorAll('[data-row]')]
+      .map((el) => el.getAttribute('data-row'));
+    expect(rows).toEqual(['0', '0', '1', '1']);
+  });
+});

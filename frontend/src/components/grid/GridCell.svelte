@@ -50,6 +50,25 @@
      * asserting the tile markup byte for byte.
      */
     children = null,
+    /**
+     * Which column of the grid this tile sits in, when it sits in one.
+     *
+     * Absent on the row headers and the blank corner, which belong to no
+     * column. It exists so something outside can point at a column: the grid is
+     * a flat CSS grid with no per-column element, so "the Tuesday column" is
+     * only expressible as the set of tiles carrying the same value here. The
+     * tutorial highlights columns that way.
+     */
+    col = null,
+    /**
+     * Which row of the grid this tile sits in, when it sits in one.
+     *
+     * The other half of `col`, and it exists so a caller can name *one* square
+     * rather than a column of them. Absent on the header row and the blank
+     * corner. Together the two make every tile addressable: `[data-col="0"]` is
+     * a column, `[data-col="0"][data-row="0"]` is a square.
+     */
+    row = null,
   } = $props();
 
   const listClass = $derived(
@@ -64,6 +83,8 @@
   class:has-tooltip-top={Boolean(tooltip)}
   data-tooltip={tooltip || undefined}
   data-slot-state={state || undefined}
+  data-col={col ?? undefined}
+  data-row={row ?? undefined}
 >
   <ul class={listClass}>
     <li>

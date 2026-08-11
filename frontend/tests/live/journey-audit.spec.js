@@ -262,8 +262,6 @@ describe('the tutorial, over an accumulated world', () => {
       await page.goto(`/?tutorial=${track}`);
       await ready(page);
 
-      await expect(page.getByTestId('event-title')).toHaveText(PRACTICE_TITLE);
-
       // Discard the boot traffic. A signed-in visitor's page legitimately lists
       // their own events before anything tutorial-shaped happens -- that is the
       // dashboard doing its job, and counting it would make this assertion
@@ -301,6 +299,13 @@ describe('the tutorial, over an accumulated world', () => {
       if (track === 'volunteer') {
         expect(submitted, 'the volunteer tour never reached an enabled Submit').toBe(true);
       }
+
+      // Asserted here rather than before the walk. The organizer track opens on
+      // the landing page -- the first thing it teaches is where the button is --
+      // and builds the practice event as it goes, so there is no title to read
+      // until the tour has been through the form. By the last step both tracks
+      // are standing on it.
+      await expect(page.getByTestId('event-title')).toHaveText(PRACTICE_TITLE);
 
       // Writes of any kind, and any traffic about events at all. The deck is a
       // public GET of /v1/texts and is allowed; see tests/e2e/tutorial.spec.js

@@ -44,6 +44,14 @@
   }
 </script>
 
+<!--
+  Wrapped rather than given the `Field` an id: the id would become a `for` on
+  the label pointing at nothing, because what this labels is two controls and
+  neither of them can carry it. The wrapper is what something outside points at
+  -- the tutorial highlights the pair together, since "which days a time applies
+  to" is the radios and the standing-rule checkbox, not either alone.
+-->
+<div data-field="poll-apply-to">
 <Field label="Apply to">
   <div class="control">
     <label class="radio">
@@ -78,3 +86,4 @@
     &ensp;...and any day I add to this poll later
   </label>
 </Field>
+</div>

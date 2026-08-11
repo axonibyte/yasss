@@ -27,7 +27,7 @@ browser, the operator's file reached the page.
 <!-- step: grid -->
 ## Fixture: the grid
 
-Rows are activities, columns are windows. This paragraph exists to be
+Columns are activities, rows are windows. This paragraph exists to be
 distinguishable from the default one.
 
 <!-- step: cells -->

@@ -64,11 +64,14 @@ function appText() {
  * these must exist verbatim in a component: that is the whole point.
  */
 const UI_LABELS = new Set([
-  'Add a Field', 'Add a Time', 'Add a Window', 'Add an Activity',
-  'Modify Event', 'Publish Event', 'Publish Poll', 'View Report', 'Edit Summary',
+  'Create Event', 'Create Poll',
+  'Add a Field', 'Add a Question', 'Add a Time', 'Add a Window', 'Add an Activity',
+  'Modify Event', 'Publish Event', 'Publish Poll', 'View Report', 'Share',
+  'Save', 'Save Window', 'Start building',
   'Answer This Poll', 'All Day', 'Repeat', 'Until', 'Submit',
   'Available', 'Booked', 'Full', 'Unavailable',
   'Activity Volunteer Cap', 'Slot Volunteer Cap Default', 'Reminder lead time',
+  'Enable Slot', 'Slot Volunteer Cap',
   'Email Address', 'Phone Number', 'Text', 'True/False', 'Whole Number',
   'Days of the week', 'Specific dates', 'A fixed time zone', 'Wall clock',
 ]);
@@ -79,10 +82,10 @@ const UI_LABELS = new Set([
  * of quietly landing in whichever bucket a heuristic guessed.
  */
 const PROSE_EMPHASIS = new Set([
-  'practice event', 'poll', 'deadline', 'required', 'every', 'time zone',
-  'it is trivial to bypass.', 'when should this happen at all?', '(+1d)',
-  'anyone with the link, at any time', 'only me',
-  'the code goes in the same\nbox on the front page that an event code goes in',
+  'practice event', 'poll', 'every',
+  'it is trivial to\nbypass.', 'when should this happen at all?', '(+1d)',
+  'anyone with the link, at any\ntime', 'only me',
+  'the code goes\nin the same box on the front page that an event code goes in',
 ]);
 
 const boldIn = (text) => [...text.matchAll(/\*\*([^*]+)\*\*/g)].map((m) => m[1]);
@@ -162,15 +165,17 @@ describe('tutorial copy', () => {
 /**
  * Being dropped onto a different surface without being told.
  *
- * A step carries the mode it wants -- VIEW, EDIT, CREATE -- and the tour applies
- * it before the step runs. So when consecutive steps disagree, the page visibly
- * changes shape between one click of Next and the next, and the copy is the only
- * thing that can account for it.
+ * A step carries the mode it wants -- VIEW, EDIT, CREATE -- and whether it
+ * belongs on the landing page or on the practice model, and the tour applies
+ * both before the step runs. So when consecutive steps disagree, the page
+ * visibly changes shape between one click of Next and the next, and the copy is
+ * the only thing that can account for it.
  *
- * Only *entering* an editor is checked. Coming back to the grid is returning to
- * the surface the track opened on and the one every reader has seen most of; a
- * sentence announcing it would be noise. That asymmetry is the whole rule, and
- * it is why this is not simply "flag every mode change".
+ * Only *entering* an editor is checked, and only *leaving* the landing page.
+ * Coming back to the grid is returning to the surface the track opened on and
+ * the one every reader has seen most of; a sentence announcing it would be
+ * noise. That asymmetry is the whole rule, and it is why this is not simply
+ * "flag every change".
  *
  * This found four real cases on the day it was written, one of them a step that
  * ended the organizer track by jumping back to the create surface to say "that
@@ -185,15 +190,17 @@ describe('surface changes', () => {
       id: /id: '([^']+)',/.exec(m[1])?.[1],
       track: /track: '([^']+)',/.exec(m[1])?.[1],
       mode: /mode: '(\w+)',/.exec(m[1])?.[1] ?? 'VIEW',
+      stage: /stage: '(\w+)',/.exec(m[1])?.[1] ?? 'subject',
+      modal: /modal: \{[\s\S]*?kind: '([^']+)'/.exec(m[1])?.[1] ?? null,
     }));
   };
 
-  it('says so when a step opens an editor', () => {
-    // Words that account for the page having changed. Loose on purpose: this is
-    // looking for *any* acknowledgement, not a fixed phrase, because the copy
-    // should read like prose rather than like it is satisfying a checker.
-    const cue = /editor|edit mode|opens?|opened|now (in|editing)|switch|building|create|creating|form|publish/i;
+  // Words that account for the page having changed. Loose on purpose: this is
+  // looking for *any* acknowledgement, not a fixed phrase, because the copy
+  // should read like prose rather than like it is satisfying a checker.
+  const cue = /editor|edit mode|opens?|opened|now (in|editing)|switch|building|create|creating|form|publish|here (is|it)|closed/i;
 
+  it('says so when a step opens an editor', () => {
     const all = stepBlocks();
     expect(all.length).toBeGreaterThan(10);
 
@@ -206,6 +213,54 @@ describe('surface changes', () => {
       if (after.mode === 'VIEW') continue;
       if (!cue.test(DEFAULT_COPY[after.id] ?? '')) {
         silent.push(`${after.track}: ${before.id}(${before.mode}) -> ${after.id}(${after.mode})`);
+      }
+    }
+    expect(silent).toEqual([]);
+  });
+
+  /**
+   * The larger jolt of the two, and the newer one. A creation track opens on
+   * the landing page -- because that is where "Create Poll" is -- and at some
+   * point the whole page is replaced by the thing being built. A step that let
+   * that happen without a word would read exactly like the steps this rewrite
+   * was reported for: correct sentences about a screen that arrived unannounced.
+   */
+  it('says so when the landing page gives way to what you are building', () => {
+    const all = stepBlocks();
+    const silent = [];
+    for (let i = 1; i < all.length; i += 1) {
+      const [before, after] = [all[i - 1], all[i]];
+      if (before.track !== after.track) continue;
+      if (before.stage !== 'home' || after.stage === 'home') continue;
+      if (!cue.test(DEFAULT_COPY[after.id] ?? '')) {
+        silent.push(`${after.track}: ${before.id}(home) -> ${after.id}`);
+      }
+    }
+    expect(silent).toEqual([]);
+  });
+
+  /**
+   * A dialog arriving unannounced.
+   *
+   * The sharpest version of the same rule, and the one the rewrite is for. A
+   * step whose copy points at a control inside a form the reader did not see
+   * open reads as a non sequitur -- it was accurate prose about a screen that
+   * was not there, which is precisely how the old poll track described
+   * "Repeat through the day" and "which days a time applies to".
+   *
+   * Only the *opening* is checked, and only the first step of a run: once the
+   * form is up, the steps that walk its fields are plainly about the thing in
+   * front of the reader.
+   */
+  it('says so when a step opens a dialog', () => {
+    const all = stepBlocks();
+    const silent = [];
+    for (let i = 1; i < all.length; i += 1) {
+      const [before, after] = [all[i - 1], all[i]];
+      if (before.track !== after.track) continue;
+      if (!after.modal || before.modal === after.modal) continue;
+      if (!cue.test(DEFAULT_COPY[after.id] ?? '')) {
+        silent.push(`${after.track}: ${after.id} opens "${after.modal}" without saying so`);
       }
     }
     expect(silent).toEqual([]);

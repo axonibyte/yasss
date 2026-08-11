@@ -32,6 +32,7 @@
   import PollSummaryModal from './components/modals/PollSummaryModal.svelte';
   import PollWindowModal from './components/modals/PollWindowModal.svelte';
   import PollAnswerModal from './components/modals/PollAnswerModal.svelte';
+  import { untrack } from 'svelte';
   import TutorialPanel from './components/TutorialPanel.svelte';
   import TutorialChooser from './components/TutorialChooser.svelte';
 
@@ -58,7 +59,8 @@
   import * as api from './lib/api/index.js';
   import { theme } from './state/theme.svelte.js';
   import {
-    loadPracticeEvent, loadPracticePoll, resolveTrack, stepsFor, stepIds, subjectOf, tutorial,
+    buildOf, loadPracticeEvent, loadPracticePoll, resolveTrack, stepsFor, stepIds,
+    subjectOf, tutorial,
   } from './state/tutorial.svelte.js';
   import { DEFAULT_COPY } from './lib/tutorial/defaults.js';
   import { copyFor } from './lib/tutorial/deck.js';
@@ -121,6 +123,21 @@
       modal = { kind: 'captcha' };
     },
   ));
+
+  /**
+   * A CAPTCHA token, unless what is being submitted is a practice model.
+   *
+   * `requestCaptcha` is a real round trip to the CAPTCHA provider, and on a
+   * deployment with a checkbox key it is a puzzle in front of the user. A
+   * tutorial's model never reaches the server -- every action behind these
+   * buttons short-circuits on `sandbox` and discards the token -- so asking for
+   * one spends a third-party assessment on a submission that is not going to
+   * happen, and interrupts a tour to do it.
+   *
+   * It matters more now than it did: the tour opens the answer form itself and
+   * tells the learner to use it, so this is on the path rather than off it.
+   */
+  const captchaFor = (model, action) => (model?.sandbox ? null : requestCaptcha(action));
 
   function closeCaptcha() {
     modal = null;
@@ -394,7 +411,7 @@
     if (eventBusy) return;
     eventBusy = true;
     try {
-      const captcha = await requestCaptcha(ACTION.PUBLISH_EVENT);
+      const captcha = await captchaFor(event, ACTION.PUBLISH_EVENT);
       await submitVolunteers(event, { account: session.account, captcha });
     } catch (e) {
       toastError(e, "Couldn't submit your RSVP, sorry.");
@@ -448,6 +465,12 @@
       // screen when the wizard was opened.
       if (route.eventId) route.goHome();
       event.reset();
+      // `reset` clears `sandbox`, and the tutorial's containment rests entirely
+      // on that flag -- so a learner who presses "Create Event" in the navbar
+      // mid-tour would otherwise walk out of the sandbox and publish for real.
+      // Re-armed here rather than guarded at the reset, because this is the one
+      // place a running tour can lose it.
+      if (tutorial.running) event.sandbox = true;
       eventLoaded = true;
     }
     Object.assign(event, values);
@@ -457,7 +480,7 @@
   async function publish() {
     if (eventBusy) return;
     const run = async () => {
-      const captcha = await requestCaptcha(ACTION.ADD_VOLUNTEER);
+      const captcha = await captchaFor(event, ACTION.ADD_VOLUNTEER);
       const result = await publishEvent(event, { account: session.account, captcha });
       if (result.sandbox) {
         toastDanger('This is a practice event, so it is not published anywhere.');
@@ -589,6 +612,9 @@
     event.reset();
     eventLoaded = false;
     poll.reset();
+    // See `saveSummaryModal`: `reset` clears the one flag that keeps a running
+    // tutorial off the network.
+    if (tutorial.running) poll.sandbox = true;
     Object.assign(poll, {
       title: values.title,
       description: values.description,
@@ -611,7 +637,7 @@
   async function publishPollNow() {
     if (pollBusy) return;
     const run = async () => {
-      const captcha = await requestCaptcha(ACTION.PUBLISH_POLL);
+      const captcha = await captchaFor(poll, ACTION.PUBLISH_POLL);
       const result = await pollActions.publishPoll(poll, {
         account: session.account,
         captcha,
@@ -664,7 +690,7 @@
       const answer = { ...values, votes: [...poll.votes] };
       const result = poll.ownResponse
         ? await reviseAnswer(poll, answer)
-        : await submitAnswer(poll, answer, { captcha: await requestCaptcha(ACTION.ANSWER_POLL) });
+        : await submitAnswer(poll, answer, { captcha: await captchaFor(poll, ACTION.ANSWER_POLL) });
       if (result.ok) modal = null;
     } catch (e) {
       toastError(e, "Couldn't record your answer... sorry.");
@@ -725,17 +751,22 @@
     // from a name check here, so adding a fifth track does not mean editing
     // the shell.
     const subject = subjectOf(track) === 'poll' ? poll : event;
-    const firstMode = stepsFor(track)[0]?.mode ?? 'VIEW';
+    const first = stepsFor(track)[0];
+    const firstMode = first?.mode ?? 'VIEW';
+    // A creation track opens on the landing page, because that is where the
+    // button it starts by naming actually is.
+    const onHome = first?.stage === 'home';
+    const build = buildOf(track);
 
     event.reset();
     poll.reset();
     if (subject === poll) {
-      loadPracticePoll(poll, { mode: firstMode });
-      pollLoaded = true;
+      loadPracticePoll(poll, { mode: firstMode, build });
+      pollLoaded = !onHome;
       eventLoaded = false;
     } else {
-      loadPracticeEvent(event, { mode: firstMode });
-      eventLoaded = true;
+      loadPracticeEvent(event, { mode: firstMode, build });
+      eventLoaded = !onHome;
       pollLoaded = false;
     }
 
@@ -763,12 +794,68 @@
    */
   function exitTutorial() {
     tutorial.stop();
+    // A step may have had a dialog open. Exit lives in the panel, which floats
+    // above that dialog on purpose, so leaving from one is entirely reachable
+    // -- and would otherwise strand the form on an empty page.
+    modal = null;
     eventLoaded = false;
     event.reset();
     pollLoaded = false;
     poll.reset();
     route.goHome();
   }
+
+  /**
+   * Fill in the parts of a step's dialog that only the shell can know.
+   *
+   * The step list names a dialog; it cannot name a square, because which
+   * activity and which window the practice event has is decided by the step
+   * before it. Anything the shell cannot resolve yields null, and the tour
+   * shows the page instead of a half-built dialog.
+   *
+   * @param {object} spec the step's `modal` descriptor
+   */
+  function resolveTutorialModal(spec) {
+    if (spec.kind !== 'slot') return { ...spec };
+    const activity = event.activities[0] ?? null;
+    const win = event.windows[0] ?? null;
+    if (!activity || !win) return null;
+    return { ...spec, activity, win };
+  }
+
+  /**
+   * Put the page where the current step needs it: the right section on screen,
+   * and the right dialog open over it.
+   *
+   * The tour drives the shell's own `modal` rather than owning a second one, so
+   * a step that describes "Repeat through the day" opens the identical form the
+   * button opens, with the identical handlers behind it. A step naming no
+   * dialog closes whatever the last one opened -- otherwise stepping past a
+   * form would leave it covering the thing the next step points at.
+   *
+   * Keyed on the step, so this runs once per Next rather than fighting with the
+   * learner: closing a dialog the tour opened leaves it closed until they move.
+   */
+  $effect(() => {
+    const step = tutorial.step;
+    if (!tutorial.running || !step) return;
+
+    const onHome = step.stage === 'home';
+    if (subjectOf(tutorial.track) === 'poll') {
+      pollLoaded = !onHome;
+      eventLoaded = false;
+    } else {
+      eventLoaded = !onHome;
+      pollLoaded = false;
+    }
+
+    // `untrack`, because resolving a slot dialog reads the practice event's
+    // activities and windows -- and this effect must depend on the *step*, not
+    // on the model the step is building. Without it, adding an activity would
+    // re-run this and slam whatever dialog the current step names back open
+    // over the learner.
+    modal = step.modal ? untrack(() => resolveTutorialModal(step.modal)) : null;
+  });
 
   // A platform admin outranks an event's expiry. Kept in an effect rather than
   // set once at load: the access level arrives from `session.refresh()` after
@@ -849,7 +936,7 @@
     busy={eventBusy}
     onEditSummary={() => { modal = { kind: 'summary', summary: event, isNew: false }; }}
     onShare={() => { modal = { kind: 'share' }; }}
-    onViewReport={() => openReport(event.id)}
+    onViewReport={() => openReport(event)}
     onAddVolunteer={addVolunteer}
     onUpdateVolunteer={() => {
       modal = { kind: 'volunteer', volunteer: event.selectedVolunteer };
@@ -909,7 +996,20 @@
 {:else}
   <IntroSection />
   <EventCodeEntry onGo={openByCode} />
-  {#if session.loggedIn}
+  <!--
+    Neither section while a tour is standing on the landing page.
+
+    The creation tracks start here because "Create Event" is in the menu and
+    that is the first thing they teach, and what belongs under it is nothing
+    else at all. The dashboard is somebody's *real* events -- cards that
+    navigate out of the sandbox mid-tour, and a listing whose fetch would
+    otherwise land inside the window the containment tests are watching. The
+    call to action is a second way in that the step does not name, plus a button
+    that restarts the tutorial the reader is already in.
+  -->
+  {#if tutorial.running}
+    <!-- nothing: the step points at the menu, so the menu is the only way on -->
+  {:else if session.loggedIn}
     <DashboardSection onSelect={openEvent} />
   {:else}
     <CoaSection onCreateEvent={startWizard} onTutorial={startTutorial} />
@@ -1013,7 +1113,7 @@
   />
 {:else if modal?.kind === 'summary'}
   <SummaryModal
-    summary={modal.summary}
+    summary={modal.prefill ? event : modal.summary}
     isNew={modal.isNew}
     onSave={saveSummaryModal}
     onClose={() => { modal = null; }}
@@ -1102,8 +1202,15 @@
     onClose={() => { modal = null; }}
   />
 {:else if modal?.kind === 'poll-summary'}
+  <!--
+    `prefill` is the tutorial's, and only the tutorial's. A creation step has to
+    show the real form with real answers in it -- an empty one teaches nothing
+    about the choice it is describing -- while a visitor pressing "Create Poll"
+    must still get a blank form. Both are `isNew`; only one of them has a poll
+    to read from.
+  -->
   <PollSummaryModal
-    poll={modal.isNew ? null : poll}
+    poll={modal.isNew && !modal.prefill ? null : poll}
     isNew={modal.isNew}
     loggedIn={session.loggedIn}
     busy={pollBusy}
@@ -1139,6 +1246,7 @@
 {:else if modal?.kind === 'poll-window'}
   <PollWindowModal
     win={modal.win}
+    preset={modal.preset ?? null}
     options={poll.options}
     scope={poll.scope}
     busy={pollBusy}
