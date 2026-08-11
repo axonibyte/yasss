@@ -88,18 +88,65 @@
 //
 // Dark keeps Bulma's 41%: on the dark navbar that is 9.28:1 and is already the
 // brand turquoise, so there is nothing to fix there.
+// --- links follow the brand, everywhere ---------------------------------------
+//
+// Bulma ships `--bulma-link` as hsl(233, 100%, 63%) -- a genuine blue, and the
+// only hue in the product that comes from nowhere in its palette. It has been
+// patched three times, once per place somebody happened to notice it: the
+// wordmark, the navbar burger, the theme toggle. Each patch fixed one element
+// and left the rule that produced it intact, so the next link-coloured thing
+// arrived blue again. Two did: the ghost buttons in the detail table and the
+// tutorial chooser's back button. So did every `<select>` arrow, via
+// `--bulma-arrow-color`, and every link in operator-authored markdown -- the
+// terms, the privacy policy, the tutorial deck -- which is the one nobody can
+// patch per-element because the markup is not ours.
+//
+// So it is fixed at the source instead: link *is* the brand.
+//
+// Overriding these five carries the whole set, because Bulma composes every
+// derived link colour -- `-text`, `-on-scheme`, `-invert`, `-light`, `-dark`,
+// and the hover and active variants -- out of the same triplet with `var()` at
+// use time rather than baking a literal. Verified in the compiled output, not
+// assumed; a version that resolved them at build time would need all fifteen.
+//
+// `--bulma-link-on-scheme-l` matters as much as the hue. It is the lightness
+// used when a link is *text on the page*, which is the case that has to clear
+// WCAG. Pointing it at `--bulma-primary-on-scheme-l` inherits the contrast work
+// already done for primary text -- 21% in light, and the comment above records
+// why it is that and not brighter. Setting only h and s would keep Bulma's 58%
+// and produce a turquoise that fails the same check the wordmark had to pass.
+//
+// `-rgb` is a baked literal upstream, used for translucent shadows, so it needs
+// naming separately.
+//
+// Not covered: the `--bulma-link-NN-l` lightness ladder, whose steps are
+// computed at build time from Bulma's 63% and still describe a blue. Nothing
+// reads them -- no `.is-link` in any component -- and they are inert until
+// something does. If a `.is-link` button ever appears, this is the reason it
+// looks wrong, and the fix is to set the ladder too rather than to patch the
+// button.
+@mixin link-follows-brand {
+  --bulma-link-h: var(--bulma-primary-h);
+  --bulma-link-s: var(--bulma-primary-s);
+  --bulma-link-l: var(--bulma-primary-l);
+  --bulma-link-on-scheme-l: var(--bulma-primary-on-scheme-l);
+  --bulma-link-rgb: var(--bulma-primary-rgb);
+}
+
 $brand-l-light: 24%;
 $brand-l-dark: 41%;
 
 #{iv.$variables-host} {
   @include light.light-theme;
   @include setup.setup-theme;
+  @include link-follows-brand;
   --yasss-brand-l: #{$brand-l-light};
 }
 
 @include cv.system-theme($name: 'dark') {
   @include dark.dark-theme;
   @include setup.setup-theme;
+  @include link-follows-brand;
   --yasss-brand-l: #{$brand-l-dark};
 }
 
@@ -119,12 +166,14 @@ $brand-l-dark: 41%;
 [data-theme='dark'] {
   @include dark.dark-theme;
   @include setup.setup-theme;
+  @include link-follows-brand;
   --yasss-brand-l: #{$brand-l-dark};
 }
 
 [data-theme='light'] {
   @include light.light-theme;
   @include setup.setup-theme;
+  @include link-follows-brand;
   --yasss-brand-l: #{$brand-l-light};
 }
 
@@ -392,10 +441,11 @@ html {
   );
 }
 
-// Bulma draws the burger in `--bulma-link`, which was the last genuinely blue
-// thing on the page -- found by walking every rendered element and looking for a
-// blue channel dominating the other two. It belongs with the items it sits
-// beside.
+// Bulma draws the burger in `--bulma-link`. This predates the global fix above
+// and is *not* made redundant by it: with link following the brand, an
+// unpatched burger would be turquoise rather than blue, and still the one item
+// on the bar not matching the items beside it. What this asserts is "match the
+// navbar", which is a different claim from "do not be blue".
 //
 // Both the bars and the hover tint, which come from different variables: the
 // bars follow `--bulma-navbar-burger-color`, while
@@ -413,9 +463,12 @@ html {
 // --- theme toggle -----------------------------------------------------------
 
 // `is-ghost` is a link-styled button: its color comes from
-// `--bulma-button-ghost-color`, which resolves to `--bulma-link-text`. That is
-// Bulma's link hue, so the toggle sat in the navbar as the one blue thing on
-// the bar, next to items that take `--bulma-navbar-item-color`.
+// `--bulma-button-ghost-color`, which resolves to `--bulma-link-text`.
+//
+// Also survives the global fix, and for the same reason as the burger: ghost
+// buttons elsewhere (the detail table, the tutorial chooser's back button) now
+// correctly take the brand, because they are links and should look like links.
+// This one should not -- it sits among navbar items and takes their color.
 //
 // Set through Bulma's own variables rather than by declaring `color` again.
 // The first attempt did the latter and lost silently: `.theme-toggle` is one
