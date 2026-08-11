@@ -15,7 +15,7 @@ import { PollOption, PollWindow, cellKey } from '../pollEntities.svelte.js';
 import { expandRepeat, newOnly } from '../../lib/poll/windows.js';
 import { applyToNow } from '../../lib/poll/applyTo.js';
 import { isRemote } from './remote.js';
-import { toastError, toastSuccess } from '../toast.js';
+import { toastDanger, toastError, toastSuccess } from '../toast.js';
 
 /**
  * Fetch a poll and load it.
@@ -316,8 +316,22 @@ export async function removeDetail(poll, detail) {
   return true;
 }
 
-/** Delete the whole poll. */
+/**
+ * Delete the whole poll.
+ *
+ * The sandbox clause is not decoration. Every other write in this module runs
+ * through `isRemote`, which is false for a practice poll; this one did not,
+ * because "Delete Poll" is owner-only and a practice poll had no owner, so the
+ * button could never be reached. It can be now -- the tutorial's practice poll
+ * is owned by the learner looking at it, which is what lets the poll track show
+ * the organiser's own surface -- and without this the button would DELETE
+ * against an id the server has never heard of.
+ */
 export async function deletePoll(poll) {
+  if (poll.sandbox) {
+    toastDanger('This is a practice poll, so there is nothing to delete.');
+    return false;
+  }
   try {
     await api.deletePoll(poll.id);
     toastSuccess('Deleted your poll.');

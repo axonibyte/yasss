@@ -49,7 +49,17 @@ export async function saveSummary(event, next, previous) {
  * The response is HTML rather than JSON. The legacy never revoked the object
  * URL it created here.
  */
-export async function openReport(eventId) {
+export async function openReport(event) {
+  // The one read in the app that is not routed through `isRemote`, because it
+  // is not a model write -- it fetches a document. The practice event has an id
+  // the server has never heard of, so without this the tutorial's own "View
+  // Report" step would be a GET against it. Same shape as `publishEvent`'s
+  // clause, and there for the same reason.
+  if (event?.sandbox) {
+    toastDanger('This is a practice event, so there is no sign-in sheet to print.');
+    return false;
+  }
+  const eventId = event?.id ?? event;
   let url = null;
   try {
     const blob = await api.getEventReport(eventId);

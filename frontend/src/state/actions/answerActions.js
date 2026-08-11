@@ -113,6 +113,15 @@ export async function reviseAnswer(poll, answer) {
 
 /** Withdraw an answer. */
 export async function withdrawAnswer(poll) {
+  // The sandbox clause its two siblings above already carry. It was missing
+  // here because Withdraw is only rendered when `ownResponse` is set and the
+  // practice poll never sets one, so it could not be reached -- which is an
+  // argument about the current UI, not about this function. Every other write
+  // in this module is gated; leaving one ungated makes the rule look optional.
+  if (!isRemote(poll)) {
+    poll.votes.clear();
+    return true;
+  }
   try {
     await api.deletePollResponse(poll.id, poll.ownResponse.id, storedToken(poll.id));
     poll.ownResponse = null;
