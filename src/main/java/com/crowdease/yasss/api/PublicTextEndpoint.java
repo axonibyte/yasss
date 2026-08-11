@@ -95,6 +95,25 @@ public final class PublicTextEndpoint extends Endpoint {
 
   /**
    * {@inheritDoc}
+   *
+   * <p>These four texts -- the call to action on the landing page, the terms,
+   * the privacy policy and the tutorial's operator deck -- are the operator's
+   * public copy. They carry nothing about anybody, they are what an anonymous
+   * visitor is meant to read before deciding whether to sign up at all, and
+   * {@code getText} in the frontend deliberately sends no credentials to
+   * them.</p>
+   *
+   * <p>Without this the base class fails closed and answers 401 to everybody,
+   * signed in or not, because the request carries no session by design. That is
+   * the correct default and the reason it is a default; this endpoint is one of
+   * the few that genuinely has to opt out of it.</p>
+   */
+  @Override public boolean authRequired() {
+    return false;
+  }
+
+  /**
+   * {@inheritDoc}
    */
   @Override public String answer(Request req, Response res, AuthStatus as) throws EndpointException {
     TextFile textFile = TextFile.fromID(req.params("text"));
