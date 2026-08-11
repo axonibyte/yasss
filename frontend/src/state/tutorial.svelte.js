@@ -272,7 +272,11 @@ const STEPS = [
     id: 'b-done',
     track: 'organizer',
     anchor: null,
-    mode: 'CREATE',
+    // Deliberately no mode. It closes the track and points at nothing, so it
+    // should stay on whatever surface the step before it left the learner on --
+    // which is the published event. It carried CREATE while it followed
+    // `b-publish`; once `share` and `as-a-volunteer` moved in between, that
+    // became a jump back to the editor to say "that is the tour".
   },
 
   // --- volunteer -----------------------------------------------------------

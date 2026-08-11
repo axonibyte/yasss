@@ -127,8 +127,12 @@ the event starts.`,
 
   'b-summary': `## Title and description
 
-**Edit Summary** holds both. The title is the heading people see and the thing
-that appears in your dashboard; the description is the paragraph underneath it.
+The editor is open now — this is what **Modify Event** gives you, and most of
+what follows lives here rather than on the grid.
+
+**Edit Summary** holds the title and description. The title is the heading
+people see and the thing that appears in your dashboard; the description is the
+paragraph underneath it.
 
 The description is where the detail goes — where to park, what to bring, who to
 ask. People read it once, at the moment they are deciding whether to sign up.`,
@@ -406,7 +410,7 @@ trying it.`,
 
   'p-window': `## Times are just start times
 
-**Add a Time** asks for one thing: when it starts. There is no end time, because
+The poll's editor is open now. **Add a Time** asks for one thing: when it starts. There is no end time, because
 a poll is settling the hour and the length is the event's business afterwards.`,
 
   'p-repeat': `## Repeat through the day
@@ -441,7 +445,7 @@ point of a poll.`,
 
   'p-fields': `## Asking respondents something
 
-A poll can ask its own questions, exactly as an event can, with the same five
+Back in the editor: a poll can ask its own questions, exactly as an event can, with the same five
 kinds of field.
 
 Keep it short. Somebody answering a poll is doing you a favour on their way to

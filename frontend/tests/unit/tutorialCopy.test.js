@@ -158,3 +158,56 @@ describe('tutorial copy', () => {
     expect(stale).toEqual([]);
   });
 });
+
+/**
+ * Being dropped onto a different surface without being told.
+ *
+ * A step carries the mode it wants -- VIEW, EDIT, CREATE -- and the tour applies
+ * it before the step runs. So when consecutive steps disagree, the page visibly
+ * changes shape between one click of Next and the next, and the copy is the only
+ * thing that can account for it.
+ *
+ * Only *entering* an editor is checked. Coming back to the grid is returning to
+ * the surface the track opened on and the one every reader has seen most of; a
+ * sentence announcing it would be noise. That asymmetry is the whole rule, and
+ * it is why this is not simply "flag every mode change".
+ *
+ * This found four real cases on the day it was written, one of them a step that
+ * ended the organizer track by jumping back to the create surface to say "that
+ * is the tour" -- a sequencing wobble from merging two tracks, invisible in the
+ * diff that caused it because no copy changed at all.
+ */
+describe('surface changes', () => {
+  const stepBlocks = () => {
+    const start = src.indexOf('const STEPS = [');
+    const end = src.indexOf('\n];', start);
+    return [...src.slice(start, end).matchAll(/\n {2}\{\n([\s\S]*?)\n {2}\},/g)].map((m) => ({
+      id: /id: '([^']+)',/.exec(m[1])?.[1],
+      track: /track: '([^']+)',/.exec(m[1])?.[1],
+      mode: /mode: '(\w+)',/.exec(m[1])?.[1] ?? 'VIEW',
+    }));
+  };
+
+  it('says so when a step opens an editor', () => {
+    // Words that account for the page having changed. Loose on purpose: this is
+    // looking for *any* acknowledgement, not a fixed phrase, because the copy
+    // should read like prose rather than like it is satisfying a checker.
+    const cue = /editor|edit mode|opens?|opened|now (in|editing)|switch|building|create|creating|form|publish/i;
+
+    const all = stepBlocks();
+    expect(all.length).toBeGreaterThan(10);
+
+    const silent = [];
+    for (let i = 1; i < all.length; i += 1) {
+      const [before, after] = [all[i - 1], all[i]];
+      if (before.track !== after.track) continue;
+      if (before.mode === after.mode) continue;
+      // Returning to VIEW is going back to what they already know.
+      if (after.mode === 'VIEW') continue;
+      if (!cue.test(DEFAULT_COPY[after.id] ?? '')) {
+        silent.push(`${after.track}: ${before.id}(${before.mode}) -> ${after.id}(${after.mode})`);
+      }
+    }
+    expect(silent).toEqual([]);
+  });
+});

@@ -17,7 +17,8 @@
     "test:e2e:compat": "playwright test --project=firefox --project=webkit --project=mobile-chromium",
     "test:e2e:ui": "playwright test --ui --project=chromium",
     "test:all": "vitest run && playwright test --project=chromium",
-    "test:coverage": "vitest run --coverage --coverage.include='src/**'"
+    "test:coverage": "vitest run --coverage --coverage.include='src/**'",
+    "tutorial:read": "node tools/read-tutorial.mjs"
   },
   "dependencies": {
     "@creativebulma/bulma-tooltip": "1.2.0",
