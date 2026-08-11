@@ -293,6 +293,28 @@ describe('requireCaptcha', () => {
     appendChild.mockRestore();
   });
 
+  /**
+   * The incident's second half: the visitor was told "Couldn't publish your
+   * poll... sorry" when the poll was fine and the CAPTCHA had failed to load.
+   *
+   * `toastError` renders `error.info` and falls back to the caller's generic
+   * sentence otherwise, so an error from here without one is guaranteed to
+   * reach somebody as the wrong explanation.
+   */
+  it('throws errors the toast layer can show, rather than a generic sorry', async () => {
+    delete globalThis.grecaptcha;
+    captcha.configureCaptcha('site-key');
+
+    const appendChild = vi.spyOn(document.head, 'appendChild').mockImplementation((el) => {
+      queueMicrotask(() => el.onerror());
+      return el;
+    });
+
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT))
+      .rejects.toMatchObject({ info: expect.stringContaining('CAPTCHA') });
+    appendChild.mockRestore();
+  });
+
   it('gives every flow a distinct action', () => {
     const actions = Object.values(captcha.ACTION);
     expect(new Set(actions).size).toBe(actions.length);

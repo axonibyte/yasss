@@ -95,6 +95,29 @@ export const captchaEnabled = () => siteKey !== null;
 
 const present = () => Boolean(globalThis.grecaptcha?.enterprise);
 
+
+/**
+ * An error the toast layer will actually show.
+ *
+ * `toastError` renders `error.info` and falls back to the caller's generic
+ * sentence otherwise, so a bare `Error` from here reached the visitor as
+ * "Couldn't publish your poll... sorry" -- discarding the one sentence that
+ * said what had gone wrong. A CAPTCHA that cannot load is not a failure of the
+ * thing the visitor was doing, and telling them it was sends them off editing a
+ * poll that was fine.
+ *
+ * Safe to surface: every message here is authored in this file, and none of
+ * them carries anything about the request or the visitor.
+ */
+function captchaError(message, cause = null) {
+  const error = new Error(message);
+  error.info = message;
+  if (cause) error.cause = cause;
+  // The visitor gets a sentence; whoever is looking at devtools gets the rest.
+  console.error('[captcha]', message, cause ?? '');
+  return error;
+}
+
 const SCRIPT = 'https://www.google.com/recaptcha/enterprise.js';
 
 /** Inject one script tag and settle when it loads or errors. */
@@ -105,7 +128,7 @@ function inject(src) {
     el.async = true;
     el.defer = true;
     el.onload = () => resolve();
-    el.onerror = () => reject(new Error('Failed to load the CAPTCHA.'));
+    el.onerror = () => reject(captchaError('The CAPTCHA could not be loaded.', src));
     document.head.appendChild(el);
   });
 }
@@ -114,7 +137,7 @@ function inject(src) {
 function whenReady() {
   return new Promise((resolve, reject) => {
     if (!globalThis.grecaptcha?.enterprise?.ready) {
-      reject(new Error('The CAPTCHA failed to load.'));
+      reject(captchaError('The CAPTCHA loaded but never became ready.'));
       return;
     }
     globalThis.grecaptcha.enterprise.ready(resolve);
@@ -186,7 +209,7 @@ export function renderWidget(container) {
       widgetId = globalThis.grecaptcha.enterprise.render(container, {
         sitekey: siteKey,
         callback: resolve,
-        'error-callback': () => reject(new Error('The CAPTCHA failed to verify.')),
+        'error-callback': () => reject(captchaError('The CAPTCHA could not verify you.')),
       });
     } catch (e) {
       reject(e);
@@ -211,7 +234,7 @@ export async function requireCaptcha(action, show = null) {
   // Settled by the load, because for a checkbox key there is no `execute` to
   // ask and never was.
   if (keyKind === CHECKBOX) {
-    if (!show) throw new Error('This CAPTCHA needs a checkbox, and there is nowhere to show it.');
+    if (!show) throw captchaError('This CAPTCHA needs a checkbox, and there is nowhere to show it.');
     return show();
   }
 
