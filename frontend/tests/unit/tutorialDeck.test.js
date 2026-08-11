@@ -103,12 +103,51 @@ describe('the tracks', () => {
     const src = readFileSync(
       resolve(process.cwd(), 'src/state/tutorial.svelte.js'), 'utf8',
     );
-    const declared = [...src.matchAll(/^  (\w+): \{ subject: '(?:event|poll)'/gm)].map((m) => m[1]);
+    const tracksBlock = /export const TRACKS = \{\n([\s\S]*?)\n\};/.exec(src)?.[1] ?? '';
+    const declared = [...tracksBlock.matchAll(/^  (\w+): \{$/gm)].map((m) => m[1]);
     const used = new Set([...src.matchAll(/^    track: '([^']+)',$/gm)].map((m) => m[1]));
 
     expect(declared.length).toBeGreaterThan(1);
     expect(declared.filter((track) => !used.has(track))).toEqual([]);
     expect([...used].filter((track) => !declared.includes(track))).toEqual([]);
+  });
+
+  /**
+   * The chooser asks two questions, so a track is only reachable through the
+   * group it names. A track whose group does not exist renders nowhere at all
+   * -- and it fails silently, because the first question still looks right.
+   */
+  it('puts every track in a group that exists, and leaves no group empty', () => {
+    const src = readFileSync(
+      resolve(process.cwd(), 'src/state/tutorial.svelte.js'), 'utf8',
+    );
+    const groupsBlock = /export const GROUPS = \{\n([\s\S]*?)\n\};/.exec(src)?.[1] ?? '';
+    const groups = [...groupsBlock.matchAll(/^  (\w+): \{/gm)].map((m) => m[1]);
+    const claimed = [...src.matchAll(/^    group: '([^']+)',$/gm)].map((m) => m[1]);
+
+    expect(groups.length).toBeGreaterThan(1);
+    // Every group a track claims is one the first question will offer.
+    expect(claimed.filter((g) => !groups.includes(g))).toEqual([]);
+    // And every button on the first question leads somewhere.
+    expect(groups.filter((g) => !claimed.includes(g))).toEqual([]);
+  });
+
+  /**
+   * The retired names exist so old links keep working. One that pointed at a
+   * track which no longer exists would send somebody to a chooser while looking
+   * like it had worked.
+   */
+  it('retires old track names onto tracks that exist', () => {
+    const src = readFileSync(
+      resolve(process.cwd(), 'src/state/tutorial.svelte.js'), 'utf8',
+    );
+    const tracksBlock = /export const TRACKS = \{\n([\s\S]*?)\n\};/.exec(src)?.[1] ?? '';
+    const declared = [...tracksBlock.matchAll(/^  (\w+): \{$/gm)].map((m) => m[1]);
+    const retired = /const RETIRED = \{([^}]*)\}/.exec(src)?.[1] ?? '';
+    const targets = [...retired.matchAll(/: '([^']+)'/g)].map((m) => m[1]);
+
+    expect(targets.length).toBeGreaterThan(0);
+    expect(targets.filter((t) => !declared.includes(t))).toEqual([]);
   });
 });
 

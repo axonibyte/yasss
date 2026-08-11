@@ -20,7 +20,7 @@ import { Volunteer } from './entities.svelte.js';
 import { PRACTICE_ANSWER, PRACTICE_VOLUNTEER } from '../lib/tutorial/markers.js';
 import { Mode } from './event.svelte.js';
 
-/** @typedef {'organizer'|'volunteer'|'builder'|'poll'} Track */
+/** @typedef {'organizer'|'volunteer'|'voter'|'poll'} Track */
 
 /**
  * The tracks, and which practice model each one teaches on.
@@ -36,15 +36,51 @@ import { Mode } from './event.svelte.js';
  * already knows what it does and wants to know what every switch means; and the
  * poll organizer wants the other feature entirely.
  */
-export const TRACKS = {
-  organizer: { subject: 'event', label: "I'm organizing an event" },
-  volunteer: { subject: 'event', label: "I'm signing up for an event" },
-  builder: { subject: 'event', label: 'Show me every event setting' },
-  poll: { subject: 'poll', label: "I'm finding a time that suits everybody" },
+export const GROUPS = {
+  organizing: { label: "I'm organizing an event" },
+  participant: { label: "I'm an event participant" },
 };
 
-/** @param {string} track @returns {boolean} */
-export const isTrack = (track) => Object.hasOwn(TRACKS, track);
+export const TRACKS = {
+  poll: {
+    group: 'organizing',
+    subject: 'poll',
+    label: 'I need to find a good event time',
+  },
+  organizer: {
+    group: 'organizing',
+    subject: 'event',
+    label: 'I know when my event takes place already',
+  },
+  voter: {
+    group: 'participant',
+    subject: 'poll',
+    label: "I'm voting for an event time",
+  },
+  volunteer: {
+    group: 'participant',
+    subject: 'event',
+    label: "I'm signing up for an event",
+  },
+};
+
+/**
+ * Tracks that no longer exist, and where they went.
+ *
+ * `?tutorial=builder` was a working entry point before the event settings were
+ * folded into the organizer track. Silently opening the chooser would turn a
+ * broken link into one that merely looks unhelpful, so the old name resolves to
+ * the track that absorbed it.
+ */
+const RETIRED = { builder: 'organizer' };
+
+/** @param {string} track @returns {Track|null} */
+export const resolveTrack = (track) =>
+  Object.hasOwn(TRACKS, track) ? track : (RETIRED[track] ?? null);
+
+/** The tracks in one group, in declaration order. @param {string} group */
+export const tracksIn = (group) =>
+  Object.entries(TRACKS).filter(([, meta]) => meta.group === group);
 
 /** @param {Track} track @returns {'event'|'poll'} */
 export const subjectOf = (track) => TRACKS[track]?.subject ?? 'event';
@@ -70,6 +106,15 @@ export const subjectOf = (track) => TRACKS[track]?.subject ?? 'event';
  */
 const STEPS = [
   // --- organizer -----------------------------------------------------------
+  //
+  // One track, because anybody who needs the grid explained needs the settings
+  // explained too -- they were split before, and the split asked a newcomer to
+  // know which half they wanted before they knew what either half contained.
+  //
+  // It orients on the grid first, in VIEW mode, then goes through the editor a
+  // setting at a time, then publishes and shares. `b-welcome` and `b-share` are
+  // gone: `welcome` and `share` already said those things, and saying them twice
+  // is how a 25-step tour feels like a 30-step one.
   {
     id: 'welcome',
     track: 'organizer',
@@ -109,6 +154,111 @@ const STEPS = [
     },
   },
   {
+    id: 'b-summary',
+    track: 'organizer',
+    anchor: '[data-testid="edit-summary"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-notify',
+    track: 'organizer',
+    anchor: '[data-testid="edit-summary"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-one-each',
+    track: 'organizer',
+    anchor: '[data-testid="edit-summary"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-timezone',
+    track: 'organizer',
+    anchor: '[data-testid="edit-summary"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-reminders',
+    track: 'organizer',
+    anchor: '[data-testid="edit-summary"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-activity',
+    track: 'organizer',
+    anchor: '[data-testid="add-activity"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-caps',
+    track: 'organizer',
+    anchor: '[data-testid="add-activity"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-slot-cap',
+    track: 'organizer',
+    anchor: '#view-event-table [data-slot-state="editing"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-reorder',
+    track: 'organizer',
+    anchor: '#view-event-table',
+    mode: 'EDIT',
+    enter(event) {
+      event.step = 1;
+    },
+  },
+  {
+    id: 'b-window',
+    track: 'organizer',
+    anchor: '[data-testid="add-window"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-fields',
+    track: 'organizer',
+    anchor: '[data-testid="add-field"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-required',
+    track: 'organizer',
+    anchor: '#view-event-details',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-report',
+    track: 'organizer',
+    anchor: '#view-event-buttons',
+    mode: 'VIEW',
+  },
+  {
+    id: 'b-expiry',
+    track: 'organizer',
+    anchor: '#view-event-buttons',
+    mode: 'VIEW',
+  },
+  {
+    id: 'b-dashboard',
+    track: 'organizer',
+    anchor: null,
+    mode: 'VIEW',
+  },
+  {
+    id: 'b-delete',
+    track: 'organizer',
+    anchor: '[data-testid="edit-summary"]',
+    mode: 'EDIT',
+  },
+  {
+    id: 'b-publish',
+    track: 'organizer',
+    anchor: '[data-testid="publish-event"]',
+    mode: 'CREATE',
+  },
+  {
     id: 'share',
     track: 'organizer',
     anchor: '[data-testid="event-title"]',
@@ -117,6 +267,12 @@ const STEPS = [
     id: 'as-a-volunteer',
     track: 'organizer',
     anchor: '#view-event-volunteer',
+  },
+  {
+    id: 'b-done',
+    track: 'organizer',
+    anchor: null,
+    mode: 'CREATE',
   },
 
   // --- volunteer -----------------------------------------------------------
@@ -170,137 +326,8 @@ const STEPS = [
     track: 'volunteer',
     anchor: null,
   },
-  // --- builder -------------------------------------------------------------
-  //
-  // The event editor, which the other two tracks deliberately never enter. Most
-  // of what an organizer can decide lives behind "Modify Event", so before this
-  // track existed the tour could describe the grid and almost nothing about the
-  // settings that govern it.
-  {
-    id: 'b-welcome',
-    track: 'builder',
-    anchor: null,
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-summary',
-    track: 'builder',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-notify',
-    track: 'builder',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-one-each',
-    track: 'builder',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-timezone',
-    track: 'builder',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-reminders',
-    track: 'builder',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-activity',
-    track: 'builder',
-    anchor: '[data-testid="add-activity"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-caps',
-    track: 'builder',
-    anchor: '[data-testid="add-activity"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-slot-cap',
-    track: 'builder',
-    anchor: '#view-event-table [data-slot-state="editing"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-reorder',
-    track: 'builder',
-    anchor: '#view-event-table',
-    mode: 'EDIT',
-    enter(event) {
-      event.step = 1;
-    },
-  },
-  {
-    id: 'b-window',
-    track: 'builder',
-    anchor: '[data-testid="add-window"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-fields',
-    track: 'builder',
-    anchor: '[data-testid="add-field"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-required',
-    track: 'builder',
-    anchor: '#view-event-details',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-report',
-    track: 'builder',
-    anchor: '#view-event-buttons',
-    mode: 'VIEW',
-  },
-  {
-    id: 'b-share',
-    track: 'builder',
-    anchor: '[data-testid="event-title"]',
-    mode: 'VIEW',
-  },
-  {
-    id: 'b-expiry',
-    track: 'builder',
-    anchor: '#view-event-buttons',
-    mode: 'VIEW',
-  },
-  {
-    id: 'b-dashboard',
-    track: 'builder',
-    anchor: null,
-    mode: 'VIEW',
-  },
-  {
-    id: 'b-delete',
-    track: 'builder',
-    anchor: '[data-testid="edit-summary"]',
-    mode: 'EDIT',
-  },
-  {
-    id: 'b-publish',
-    track: 'builder',
-    anchor: '[data-testid="publish-event"]',
-    mode: 'CREATE',
-  },
-  {
-    id: 'b-done',
-    track: 'builder',
-    anchor: null,
-    mode: 'CREATE',
-  },
 
-  // --- poll ----------------------------------------------------------------
+  // --- poll (organizing: finding a time) -----------------------------------
   {
     id: 'p-welcome',
     track: 'poll',
@@ -415,6 +442,60 @@ const STEPS = [
   {
     id: 'p-done',
     track: 'poll',
+    anchor: null,
+  },
+  // --- voter (participant: voting on a time) -------------------------------
+  //
+  // The poll counterpart of the volunteer track, and it exists for the same
+  // reason: somebody holding a link did not come to build anything. It stays in
+  // VIEW mode throughout -- a respondent has no editor and never sees one.
+  //
+  // No step anchors the zone picker. It renders only on a ZONED poll and the
+  // practice poll is wall-clock, so an anchor there would point at nothing; the
+  // copy describes it instead.
+  {
+    id: 'vo-welcome',
+    track: 'voter',
+    anchor: '[data-testid="poll-title"]',
+  },
+  {
+    id: 'vo-grid',
+    track: 'voter',
+    anchor: '#view-poll-table',
+    enter(poll) {
+      // Back to the first page, so the step describes what is on screen however
+      // far the learner dragged it before reaching here.
+      poll.step = 1;
+    },
+  },
+  {
+    id: 'vo-pick',
+    track: 'voter',
+    anchor: '#view-poll-table [data-slot-state="available"]',
+  },
+  {
+    id: 'vo-answer',
+    track: 'voter',
+    anchor: '#view-poll-answer',
+  },
+  {
+    id: 'vo-once',
+    track: 'voter',
+    anchor: '#view-poll-answer',
+  },
+  {
+    id: 'vo-submit',
+    track: 'voter',
+    anchor: '#view-poll-buttons',
+  },
+  {
+    id: 'vo-results',
+    track: 'voter',
+    anchor: '[data-testid="poll-results"]',
+  },
+  {
+    id: 'vo-done',
+    track: 'voter',
     anchor: null,
   },
 ];

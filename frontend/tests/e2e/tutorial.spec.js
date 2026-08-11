@@ -15,7 +15,9 @@
 import { test, expect } from '@playwright/test';
 import { seed, signIn, waitForApp } from './helpers.js';
 import { SUBMIT_RSVPS } from '../shared/labels.js';
-import { PRACTICE_TITLE, PRACTICE_VOLUNTEER } from '../../src/lib/tutorial/markers.js';
+import {
+  PRACTICE_POLL_TITLE, PRACTICE_TITLE, PRACTICE_VOLUNTEER,
+} from '../../src/lib/tutorial/markers.js';
 
 /**
  * Record every request the page makes, so a test can ask what it did.
@@ -53,9 +55,24 @@ const leaks = (calls) => calls.filter(
   (c) => !c.startsWith('GET ') || c.includes('/v1/events'),
 );
 
-/** Open the tutorial from the landing page and pick a track. */
+/**
+ * Which of the chooser's two questions each track sits behind.
+ *
+ * Duplicated from TRACKS rather than imported, deliberately: this suite drives
+ * the real UI, and a map derived from the same source it is checking would
+ * agree with itself no matter what the buttons actually said.
+ */
+const GROUP_OF = {
+  poll: 'organizing',
+  organizer: 'organizing',
+  voter: 'participant',
+  volunteer: 'participant',
+};
+
+/** Open the tutorial from the landing page and pick a track, two clicks deep. */
 async function startTutorial(page, track) {
   await page.getByTestId('tutorial-start').click();
+  await page.getByTestId(`tutorial-group-${GROUP_OF[track]}`).click();
   await page.getByTestId(`tutorial-track-${track}`).click();
   await expect(page.getByTestId('tutorial-step')).toBeVisible();
 }
@@ -72,15 +89,43 @@ async function walkToEnd(page) {
   return seen;
 }
 
-test('the chooser offers both tracks and starts neither on its own', async ({ page }) => {
+test('the chooser asks which side you are on before which tour', async ({ page }) => {
   await page.goto('/');
   await waitForApp(page);
   await page.getByTestId('tutorial-start').click();
 
+  // First question: organizing or attending. The tracks themselves are not on
+  // screen yet -- that is the whole point of splitting the question.
+  await expect(page.getByTestId('tutorial-group-organizing')).toBeVisible();
+  await expect(page.getByTestId('tutorial-group-participant')).toBeVisible();
+  await expect(page.getByTestId('tutorial-track-organizer')).toHaveCount(0);
+  await expect(page.getByTestId('tutorial-track-volunteer')).toHaveCount(0);
+
+  // Second question, and only the two that belong to the chosen side.
+  await page.getByTestId('tutorial-group-organizing').click();
+  await expect(page.getByTestId('tutorial-track-poll')).toBeVisible();
   await expect(page.getByTestId('tutorial-track-organizer')).toBeVisible();
-  await expect(page.getByTestId('tutorial-track-volunteer')).toBeVisible();
+  await expect(page.getByTestId('tutorial-track-volunteer')).toHaveCount(0);
+
   // Nothing has begun yet: the panel appears only once a track is chosen.
   await expect(page.getByTestId('tutorial-step')).toHaveCount(0);
+
+  // Answering the first question wrongly is recoverable without losing the modal.
+  await page.getByTestId('tutorial-back').click();
+  await page.getByTestId('tutorial-group-participant').click();
+  await expect(page.getByTestId('tutorial-track-voter')).toBeVisible();
+  await expect(page.getByTestId('tutorial-track-volunteer')).toBeVisible();
+  await expect(page.getByTestId('tutorial-track-poll')).toHaveCount(0);
+});
+
+/** A link to a track that has since been absorbed still starts a tour. */
+test('a retired track name still opens the tour that absorbed it', async ({ page }) => {
+  await page.goto('/?tutorial=builder');
+  await waitForApp(page);
+
+  await expect(page.getByTestId('tutorial-step')).toBeVisible();
+  // The organizer track, not the chooser.
+  await expect(page.getByTestId('tutorial-group-organizing')).toHaveCount(0);
 });
 
 /**
@@ -92,7 +137,7 @@ test('the chooser offers both tracks and starts neither on its own', async ({ pa
  * click nothing, and would pass with the sandbox clause deleted. That claim is
  * the next test's, which is the one to look at when this file is edited.
  */
-for (const track of ['organizer', 'volunteer']) {
+for (const track of ['organizer', 'volunteer', 'poll', 'voter']) {
   test(`the ${track} track steps from end to end without fetching anything`,
     async ({ page }) => {
       const calls = await watchRequests(page);
@@ -103,7 +148,12 @@ for (const track of ['organizer', 'volunteer']) {
       calls.length = 0;
 
       await startTutorial(page, track);
-      await expect(page.getByTestId('event-title')).toHaveText(PRACTICE_TITLE);
+      // Two of these tracks teach on the practice poll and two on the practice
+      // event, and they render different headings. Asserting the event's for all
+      // four would fail the poll tracks for the wrong reason.
+      const poll = ['poll', 'voter'].includes(track);
+      await expect(page.getByTestId(poll ? 'poll-title' : 'event-title'))
+        .toHaveText(poll ? PRACTICE_POLL_TITLE : PRACTICE_TITLE);
 
       const steps = await walkToEnd(page);
       // The one call the tour is allowed: the operator's copy deck, once.

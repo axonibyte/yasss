@@ -67,8 +67,8 @@ claim squares. The code is for saying out loud.`,
 This is it — the same grid, from the other side. They add themselves here, answer
 anything you asked, and pick their squares.
 
-That is the whole tour. Have a poke around; nothing you do to this practice event
-goes anywhere.`,
+Everything you just set up is what shapes this view: the questions you added, the
+caps you set, the windows you chose.`,
 
   // --- volunteer -----------------------------------------------------------
   'v-welcome': `## Somebody sent you a link
@@ -124,12 +124,6 @@ If the organizer asked for your email, you can also have a reminder sent before
 the event starts.`,
   // --- builder -------------------------------------------------------------
 
-  'b-welcome': `## Every setting, one at a time
-
-You are in the **event editor** now. This is where everything an organizer can
-decide actually lives, and most of it is not on the grid.
-
-Still a practice event: nothing here is saved and nobody else can see it.`,
 
   'b-summary': `## Title and description
 
@@ -242,13 +236,6 @@ answers to your questions.
 Only you can see it. It is the thing to print on the morning of the event and
 carry around on a clipboard.`,
 
-  'b-share': `## Sharing it
-
-Every published event has a link and an eight-character code, both on the
-**Share** button.
-
-The code exists so it can be read down a telephone or printed on a flyer. Its
-alphabet has no I, L, O or U, so it cannot be misread as something else.`,
 
   'b-expiry': `## When an event expires
 
@@ -282,13 +269,89 @@ anonymously has no owner, and nobody — including you — will ever be able to 
 it again. Signing in first takes a few seconds and is the difference between an
 event you can fix and one you cannot.`,
 
-  'b-done': `## That is the editor
+  'b-done': `## That is the tour
 
-Every setting on an event, and what each one is for.
+The grid, every setting behind it, and what the people you invite will see.
 
-Nothing you did here was saved. When you build a real one, sign in first.`,
+Nothing you did here was saved — it only ever existed in this tab. When you build
+a real one, sign in first, so you can come back and change it.`,
 
   // --- poll ----------------------------------------------------------------
+
+  // --- voter ---------------------------------------------------------------
+  //
+  // Written for somebody who was sent a link and has no idea what a "poll" is
+  // in this product. It never mentions the editor, because they will never see
+  // one.
+
+  'vo-welcome': `## Somebody wants to know when you are free
+
+This is a **poll**. It is not a sign-up — nothing here commits you to doing
+anything. Whoever made it is trying to pick a time, and they want to know which
+of these would work for you.
+
+This one is practice. Nothing you do goes anywhere.`,
+
+  'vo-grid': `## Days across, times down
+
+Each column is a day the organizer offered. Each row is a starting time.
+
+A square is one of those times on one of those days. There is no end time — the
+question is only whether you could make the start.
+
+If there are more days than fit, drag the slider to see the rest.`,
+
+  'vo-pick': `## Click everything that works
+
+Tick **every** square you could make, not just the one you like best. That is
+the whole point: the more you can offer, the easier it is to find something that
+suits everybody.
+
+A column marked **All Day** means any time that day.
+
+Times are shown as the organizer set them. If they pinned the poll to a
+particular time zone, you will get a picker to read them in your own.`,
+
+  'vo-answer': `## Who you are
+
+Put your name in so the organizer knows whose answer this is.
+
+They may have asked for other things too — a phone number, a note. Anything
+marked required has to be filled in before you can send it.`,
+
+  'vo-once': `## One answer each
+
+Most polls take one answer per person. If you try to answer twice, you will
+usually be told you already have.
+
+Be honest about this rather than clever: it is a courtesy, not a lock, and
+stuffing a poll only produces a time that does not actually suit anybody.
+
+If the organizer allowed it, you can come back and change your answer later.`,
+
+  'vo-submit': `## Send it
+
+Nothing is recorded until you submit — clicking squares only moves a selection
+around on your screen.
+
+Polls can have a deadline. Once it passes, the poll closes and no more answers
+go in, so do not sit on it.`,
+
+  'vo-results': `## What everybody else said
+
+If the organizer chose to show results, you will see how many people can make
+each square once you have answered.
+
+Some polls hide this until the deadline, and some never show it at all. That is
+the organizer's choice, and it is enforced by the server — not just hidden on
+the page.`,
+
+  'vo-done': `## That is all there is to it
+
+Read the grid, tick everything that works, put your name on it, send it.
+
+This was a practice poll and nothing was recorded. The real one will look exactly
+like this.`,
 
   'p-welcome': `## A poll finds the time
 

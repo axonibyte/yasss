@@ -58,7 +58,7 @@
   import * as api from './lib/api/index.js';
   import { theme } from './state/theme.svelte.js';
   import {
-    isTrack, loadPracticeEvent, loadPracticePoll, stepsFor, stepIds, subjectOf, tutorial,
+    loadPracticeEvent, loadPracticePoll, resolveTrack, stepsFor, stepIds, subjectOf, tutorial,
   } from './state/tutorial.svelte.js';
   import { DEFAULT_COPY } from './lib/tutorial/defaults.js';
   import { copyFor } from './lib/tutorial/deck.js';
@@ -250,9 +250,12 @@
     // over the top of it would be the tutorial overriding the user's intent
     // rather than serving it.
     if (route.tutorial !== null && !eventLoaded && !pollLoaded) {
-      const track = route.tutorial;
+      // `resolveTrack` rather than a membership test, so a link to a track that
+      // has since been folded into another still lands on the tour that
+      // absorbed it instead of silently becoming a chooser.
+      const track = resolveTrack(route.tutorial);
       route.clearTutorial();
-      if (isTrack(track)) await beginTutorial(track);
+      if (track) await beginTutorial(track);
       // A bare `?tutorial`, or a track nobody recognizes: ask rather than guess.
       else tutorial.open();
     }
