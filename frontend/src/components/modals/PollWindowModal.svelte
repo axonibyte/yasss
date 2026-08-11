@@ -148,10 +148,12 @@
   {/if}
 
   {#snippet footer()}
-    <LoadingButton loading={busy} onclick={submit}>{isNew ? 'Add' : 'Save'}</LoadingButton>
-    {#if !isNew && onDelete}
-      <button class="button is-danger is-light" onclick={onDelete}>Delete</button>
-    {/if}
-    <button class="button" onclick={onClose}>Cancel</button>
+    <div class="buttons">
+      <LoadingButton loading={busy} onclick={submit}>{isNew ? 'Add' : 'Save'}</LoadingButton>
+      {#if !isNew && onDelete}
+        <button class="button is-danger is-light" onclick={onDelete}>Delete</button>
+      {/if}
+      <button class="button" onclick={onClose}>Cancel</button>
+    </div>
   {/snippet}
 </Modal>

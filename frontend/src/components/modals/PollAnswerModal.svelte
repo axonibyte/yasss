@@ -141,12 +141,20 @@
   {/if}
 
   {#snippet footer()}
-    <LoadingButton loading={busy} onclick={submit}>
-      {isRevision ? 'Update' : 'Submit'}
-    </LoadingButton>
-    {#if isRevision && onWithdraw}
-      <button class="button is-danger is-light" onclick={onWithdraw}>Withdraw</button>
-    {/if}
-    <button class="button" onclick={onClose}>Cancel</button>
+    <!--
+      `.buttons` rather than bare children, as every other modal does: it is
+      what carries the gap and the wrap. Without it the footer is a bare flex
+      row that neither spaces nor wraps, so three controls run off the side of a
+      phone.
+    -->
+    <div class="buttons">
+      <LoadingButton loading={busy} onclick={submit}>
+        {isRevision ? 'Update' : 'Submit'}
+      </LoadingButton>
+      {#if isRevision && onWithdraw}
+        <button class="button is-danger is-light" onclick={onWithdraw}>Withdraw</button>
+      {/if}
+      <button class="button" onclick={onClose}>Cancel</button>
+    </div>
   {/snippet}
 </Modal>

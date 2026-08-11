@@ -443,3 +443,69 @@ html {
     display: none;
   }
 }
+
+// --- modals on a phone ------------------------------------------------------
+//
+// Reported as "clipping in mobile view", and there were three separate causes.
+//
+// 1. `100vh` is not the visible viewport on a phone. Mobile browsers size it to
+//    the window with the URL bar *retracted*, so while the bar is showing the
+//    card is taller than what you can actually see and its bottom edge -- the
+//    footer, which is where the submit button lives -- sits below the fold with
+//    no way to scroll to it, because the card itself does not scroll. Only the
+//    body does. `100dvh` is the same number minus exactly that error.
+//
+//    Behind `@supports` rather than replacing the declaration, so a browser
+//    without `dvh` keeps Bulma's `vh` rule instead of inheriting no max-height
+//    at all -- which would be a worse bug than the one being fixed.
+//
+// 2. `.modal-card-foot` is a flex row with no `flex-wrap`, so a footer with
+//    three or four controls runs off the side instead of wrapping. Bulma's
+//    `.buttons` supplies both wrap and gap and every modal here now uses it;
+//    this is the backstop for the next one that forgets.
+//
+// 3. `.modal-card-title` is `flex-shrink: 0`, so a long title cannot give way
+//    and pushes the close button off the header entirely -- the one control a
+//    trapped user needs most.
+@supports (max-height: 100dvh) {
+  .modal-content,
+  .modal-card {
+    max-height: calc(100dvh - var(--bulma-modal-content-spacing-mobile));
+  }
+
+  // Bulma re-states this for `.modal-card` at both widths, so both need answering.
+  .modal-card {
+    max-height: calc(100dvh - var(--bulma-modal-card-spacing));
+  }
+
+  @media screen and (min-width: 769px) {
+    .modal-content {
+      max-height: calc(100dvh - var(--bulma-modal-content-spacing-tablet));
+    }
+  }
+}
+
+.modal-card-foot {
+  flex-wrap: wrap;
+}
+
+.modal-card-title {
+  // `min-width: 0` as well as the shrink: a flex item's default minimum is its
+  // content width, so shrink alone still refuses to go below the longest word.
+  flex-shrink: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+// 2rem of padding on each side spends 64px of a 360px screen before any content
+// exists. Roomy on a desktop, which is where it stays.
+@media screen and (max-width: 768px) {
+  .modal-card-head,
+  .modal-card-foot {
+    padding: 1rem;
+  }
+
+  .modal-card-body {
+    padding: 1rem;
+  }
+}

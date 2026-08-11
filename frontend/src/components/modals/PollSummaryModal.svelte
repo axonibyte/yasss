@@ -275,9 +275,11 @@
   </div>
 
   {#snippet footer()}
-    <LoadingButton loading={busy} onclick={submit}>
-      {isNew ? 'Start building' : 'Save'}
-    </LoadingButton>
-    <button class="button" onclick={onClose}>Cancel</button>
+    <div class="buttons">
+      <LoadingButton loading={busy} onclick={submit}>
+        {isNew ? 'Start building' : 'Save'}
+      </LoadingButton>
+      <button class="button" onclick={onClose}>Cancel</button>
+    </div>
   {/snippet}
 </Modal>
