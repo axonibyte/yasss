@@ -124,35 +124,43 @@ test.describe('in-flight guards', () => {
     });
 
   /**
-   * `requestCaptcha` *rejects* when the visitor dismisses the challenge, and
-   * publish was the only caller without a catch — so the rejection escaped an
-   * unawaited promise and nothing happened at all.
+   * A CAPTCHA that cannot mint a token must say so, not fail silently.
+   *
+   * Publish was once the only CAPTCHA caller without a catch, so a rejection
+   * escaped an unawaited promise: no toast, no state change, and the button
+   * still live with nothing to explain why nothing had happened.
+   *
+   * The trigger has changed with the key type -- a policy-based challenge has
+   * no modal to dismiss, so the reachable failure is reCAPTCHA not loading --
+   * but the guard is the same one, and it is the failure a visitor on a
+   * blocked network actually meets.
    */
-  test('dismissing the CAPTCHA during publish reports it', async ({ page, request }) => {
-    await seedSignedIn(page, request);
-    // A site key is what makes the CAPTCHA modal appear at all.
-    await page.route('**/v1', async (route) => {
-      const res = await route.fetch();
-      const body = await res.json();
-      return route.fulfill({ json: { ...body, captcha: 'test-site-key' } });
+  test('a CAPTCHA that will not load is reported rather than swallowed',
+    async ({ page, request }) => {
+      await seedSignedIn(page, request);
+
+      // A site key is what makes the app reach for reCAPTCHA at all.
+      await page.route('**/v1', async (route) => {
+        const res = await route.fetch();
+        const body = await res.json();
+        return route.fulfill({ json: { ...body, captcha: 'test-site-key' } });
+      });
+      // ...and this is what stops it arriving, the way an ad blocker or a
+      // firewalled network would.
+      await page.route('**/recaptcha/**', (route) => route.abort());
+
+      await page.goto('/');
+      await waitForApp(page);
+      await page.getByRole('link', { name: 'Create Event' }).click();
+      await page.locator('#event-title').fill('Captcha Unavailable');
+      await page.getByRole('button', { name: 'Save' }).click();
+      await page.getByRole('button', { name: 'Add an Activity' }).click();
+      await page.locator('#activity-label').fill('Setup');
+      await page.getByRole('button', { name: 'Save Activity' }).click();
+
+      await page.getByRole('button', { name: 'Publish Event' }).click();
+
+      await expect(page.locator('.notification.is-danger')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Publish Event' })).toBeEnabled();
     });
-
-    await page.goto('/');
-    await waitForApp(page);
-    await page.getByRole('link', { name: 'Create Event' }).click();
-    await page.locator('#event-title').fill('Captcha Dismissed');
-    await page.getByRole('button', { name: 'Save' }).click();
-    await page.getByRole('button', { name: 'Add an Activity' }).click();
-    await page.locator('#activity-label').fill('Setup');
-    await page.getByRole('button', { name: 'Save Activity' }).click();
-
-    await page.getByRole('button', { name: 'Publish Event' }).click();
-    await expect(page.locator('.modal.is-active')).toHaveCount(1);
-    await page.locator('.modal.is-active button.delete').click();
-
-    // Before the catch this was silent: no toast, no state change, and the
-    // button still live with nothing to explain why nothing had happened.
-    await expect(page.locator('.notification.is-danger')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Publish Event' })).toBeEnabled();
-  });
 });

@@ -1,4 +1,5 @@
 <script>
+  import { ACTION } from '../../lib/captcha.js';
   /**
    * Consumes an emailed reset link: `?action=reset-user&user=…&token=…`.
    *
@@ -34,7 +35,7 @@
 
     busy = true;
     try {
-      const captcha = await requestCaptcha();
+      const captcha = await requestCaptcha(ACTION.RESET_PASSWORD);
       const { pubkey } = await genCreds('', verdict.values.password);
       await api.applyPasswordReset(userId, token, pubkey, captcha);
       toastSuccess('Successfully reset your account!');

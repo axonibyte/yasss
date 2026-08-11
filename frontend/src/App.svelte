@@ -19,7 +19,6 @@
   import ProfileModal from './components/modals/ProfileModal.svelte';
   import PasswordResetModal from './components/modals/PasswordResetModal.svelte';
   import MarkdownModal from './components/modals/MarkdownModal.svelte';
-  import CaptchaModal from './components/modals/CaptchaModal.svelte';
   import VolunteerModal from './components/modals/VolunteerModal.svelte';
   import ShareModal from './components/modals/ShareModal.svelte';
   import GuestPromptModal from './components/modals/GuestPromptModal.svelte';
@@ -42,7 +41,7 @@
   import { PollOption } from './state/pollEntities.svelte.js';
   import { Volunteer } from './state/entities.svelte.js';
   import { toastSuccess, toastDanger, toastError } from './state/toast.js';
-  import { configureCaptcha, requireCaptcha } from './lib/captcha.js';
+  import { ACTION, configureCaptcha, requireCaptcha } from './lib/captcha.js';
   import { setPasswordMinLength } from './lib/validation/policy.js';
   import { loadEvent, openReport, saveSummary } from './state/actions/eventActions.js';
   import { pollSummaryDiff } from './state/serialize/pollPayload.js';
@@ -96,36 +95,20 @@
   let pollLoaded = $state(false);
   let pollBusy = $state(false);
 
-  /** Resolves the pending CAPTCHA challenge, when one is on screen. */
-  let captchaResolve = null;
-  let captchaReject = null;
 
   connectSessionToApi({
     onSessionLost: () => toastDanger('Your user session was lost! Please log in again.'),
   });
 
   /**
-   * Present the CAPTCHA modal and resolve with its token. Short-circuits when
-   * the deployment has no site key or the visitor is already signed in, so
-   * callers can await this unconditionally.
+   * Obtain a CAPTCHA token for a flow, when one is needed.
+   *
+   * A thin alias now. The policy-based key decides for itself whether to show
+   * the visitor anything, so there is no modal to present and nothing to
+   * dismiss -- which is why this no longer takes a presenter and no longer
+   * rejects on cancellation.
    */
-  const requestCaptcha = () => requireCaptcha(() => new Promise((resolve, reject) => {
-    captchaResolve = resolve;
-    captchaReject = reject;
-    modal = { kind: 'captcha' };
-  }));
-
-  function closeCaptcha() {
-    modal = null;
-    captchaReject?.(new Error('The CAPTCHA was dismissed.'));
-    captchaResolve = captchaReject = null;
-  }
-
-  function onCaptchaToken(token) {
-    modal = null;
-    captchaResolve?.(token);
-    captchaResolve = captchaReject = null;
-  }
+  const requestCaptcha = (action) => requireCaptcha(action);
 
   /** Inbound links from server-sent email. */
   async function handleRouteAction() {
@@ -136,7 +119,7 @@
       case 'verify-user':
         route.clearAction();
         try {
-          await api.verifyUser(user, token, await requestCaptcha());
+          await api.verifyUser(user, token, await requestCaptcha(ACTION.VERIFY_USER));
           toastSuccess('Successfully verified your account!');
         } catch (e) {
           toastError(e, "Couldn't verify your account... sorry.");
@@ -384,7 +367,7 @@
     if (eventBusy) return;
     eventBusy = true;
     try {
-      const captcha = await requestCaptcha();
+      const captcha = await requestCaptcha(ACTION.PUBLISH_EVENT);
       await submitVolunteers(event, { account: session.account, captcha });
     } catch (e) {
       toastError(e, "Couldn't submit your RSVP, sorry.");
@@ -447,7 +430,7 @@
   async function publish() {
     if (eventBusy) return;
     const run = async () => {
-      const captcha = await requestCaptcha();
+      const captcha = await requestCaptcha(ACTION.ADD_VOLUNTEER);
       const result = await publishEvent(event, { account: session.account, captcha });
       if (result.sandbox) {
         toastDanger('This is a practice event, so it is not published anywhere.');
@@ -601,7 +584,7 @@
   async function publishPollNow() {
     if (pollBusy) return;
     const run = async () => {
-      const captcha = await requestCaptcha();
+      const captcha = await requestCaptcha(ACTION.PUBLISH_POLL);
       const result = await pollActions.publishPoll(poll, {
         account: session.account,
         captcha,
@@ -654,7 +637,7 @@
       const answer = { ...values, votes: [...poll.votes] };
       const result = poll.ownResponse
         ? await reviseAnswer(poll, answer)
-        : await submitAnswer(poll, answer, { captcha: await requestCaptcha() });
+        : await submitAnswer(poll, answer, { captcha: await requestCaptcha(ACTION.ANSWER_POLL) });
       if (result.ok) modal = null;
     } catch (e) {
       toastError(e, "Couldn't record your answer... sorry.");
@@ -950,8 +933,6 @@
     textId={modal.textId}
     onClose={() => { modal = null; }}
   />
-{:else if modal?.kind === 'captcha'}
-  <CaptchaModal onToken={onCaptchaToken} onCancel={closeCaptcha} />
 {:else if modal?.kind === 'share'}
   <!--
     The shared link carries the code when there is one: eight characters someone

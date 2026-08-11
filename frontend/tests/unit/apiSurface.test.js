@@ -111,39 +111,64 @@ describe('url construction', () => {
 describe('requireCaptcha', () => {
   let captcha;
   let session;
+  let execute;
 
   beforeEach(async () => {
     vi.resetModules();
     captcha = await import('../../src/lib/captcha.js');
     ({ session } = await import('../../src/state/session.svelte.js'));
     session.clear();
+
+    // Supplied rather than loaded. `requireCaptcha` skips the script tag when
+    // reCAPTCHA is already present, so this exercises the real path without
+    // going near Google -- and without a script `onload` that jsdom would never
+    // fire.
+    execute = vi.fn().mockResolvedValue('a-token');
+    globalThis.grecaptcha = { enterprise: { ready: (cb) => cb(), execute } };
   });
 
   it('resolves with null when the deployment has no site key', async () => {
     captcha.configureCaptcha(null);
-    const present = vi.fn();
 
-    // The legacy called reset() on a widget that had never been rendered here,
-    // which threw and left anonymous publish, RSVP, register and reset all dead.
-    await expect(captcha.requireCaptcha(present)).resolves.toBeNull();
-    expect(present).not.toHaveBeenCalled();
+    // The legacy called into reCAPTCHA regardless, which threw and left
+    // anonymous publish, RSVP, register and reset all dead.
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT)).resolves.toBeNull();
+    expect(execute).not.toHaveBeenCalled();
   });
 
   it('resolves with null for a signed-in user', async () => {
     captcha.configureCaptcha('site-key');
     session.account = 'acct-1';
     session.token = 'tok-1';
-    const present = vi.fn();
 
-    await expect(captcha.requireCaptcha(present)).resolves.toBeNull();
-    expect(present).not.toHaveBeenCalled();
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT)).resolves.toBeNull();
+    expect(execute).not.toHaveBeenCalled();
   });
 
-  it('presents the challenge for an anonymous visitor when configured', async () => {
+  it('mints a token against the site key for an anonymous visitor', async () => {
     captcha.configureCaptcha('site-key');
-    const present = vi.fn().mockResolvedValue('a-token');
 
-    await expect(captcha.requireCaptcha(present)).resolves.toBe('a-token');
-    expect(present).toHaveBeenCalled();
+    await expect(captcha.requireCaptcha(captcha.ACTION.PUBLISH_EVENT)).resolves.toBe('a-token');
+    expect(execute).toHaveBeenCalledWith('site-key', { action: 'publish_event' });
+  });
+
+  /**
+   * The action travels with the token, and a policy-based key can carry a
+   * different risk threshold for each one. Sending the same action everywhere
+   * would quietly collapse that back to one threshold.
+   */
+  it('names the flow the token was minted for', async () => {
+    captcha.configureCaptcha('site-key');
+
+    await captcha.requireCaptcha(captcha.ACTION.RESET_PASSWORD);
+    expect(execute).toHaveBeenCalledWith('site-key', { action: 'reset_password' });
+  });
+
+  it('gives every flow a distinct action', () => {
+    const actions = Object.values(captcha.ACTION);
+    expect(new Set(actions).size).toBe(actions.length);
+    // Google restricts actions to letters, numbers, slashes and underscores.
+    for (const action of actions) expect(action).toMatch(/^[a-zA-Z0-9/_-]+$/);
   });
 });
+

@@ -398,17 +398,35 @@ public class YasssCore {
               + "(an API key restricted to the reCAPTCHA Enterprise API) or "
               + "auth.captcha.keyFile (a path to a credentials JSON file)");
 
+        final CAPTCHAValidator.KeyType keyType;
+        try {
+          keyType = CAPTCHAValidator.KeyType.valueOf(
+              config.getString(ParamEnum.AUTH_CAPTCHA_KEY_TYPE).strip().toUpperCase());
+        } catch(IllegalArgumentException e) {
+          throw new MisconfigurationException(
+              "auth.captcha.keyType must be CHECKBOX or POLICY_BASED");
+        }
+
         captchaValidator = new CAPTCHAValidator(
             null != apiKey ? Credential.API_KEY : Credential.SERVICE_ACCOUNT,
             null != apiKey ? apiKey : keyFile,
             config.getString(ParamEnum.AUTH_CAPTCHA_CLOUD_PROJECT),
             config.getString(ParamEnum.AUTH_CAPTCHA_SITE_KEY),
+            keyType,
             (float)config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE),
             config.getLong(ParamEnum.AUTH_CAPTCHA_GRACE_PERIOD));
 
+        // The threshold is named only when it is actually consulted. A log line
+        // reporting a minimum score on a policy-based key would be describing a
+        // value that has no effect, which is exactly the sort of thing somebody
+        // later tunes for an afternoon.
         logger.info(
-            "CAPTCHA verification is enabled, authenticating with {}",
-            null != apiKey ? "an API key" : "a credentials file");
+            "CAPTCHA verification is enabled: {} key, authenticating with {}{}",
+            keyType.name(),
+            null != apiKey ? "an API key" : "a credentials file",
+            CAPTCHAValidator.KeyType.CHECKBOX == keyType
+                ? ", minimum score " + config.getDouble(ParamEnum.AUTH_CAPTCHA_MINIMUM_SCORE)
+                : ", thresholds configured on the key itself");
       }
 
       ticketEngine = new TicketEngine(

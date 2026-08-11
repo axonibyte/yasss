@@ -75,6 +75,21 @@ public enum ParamEnum {
   AUTH_CAPTCHA_API_KEY(new Param("auth.captcha.apiKey")),
 
   /**
+   * Optional. Which kind of reCAPTCHA key this is, which decides how its
+   * verdict is read.
+   *
+   * <p>{@code CHECKBOX} thresholds the risk score against
+   * {@link #AUTH_CAPTCHA_MINIMUM_SCORE}. {@code POLICY_BASED} reads the policy
+   * engine's own verdict instead and ignores that threshold entirely, because
+   * the decision was already made against thresholds configured on the key.
+   *
+   * <p>Stated rather than inferred from the response: a policy-based key that
+   * happened to report nothing would silently fall back to scoring, and a
+   * misconfigured threshold is a quiet failure rather than a loud one.
+   */
+  AUTH_CAPTCHA_KEY_TYPE(new Param("auth.captcha.keyType", "CHECKBOX")),
+
+  /**
    * Optional. CAPTCHA IP cache TTL.
    */
   AUTH_CAPTCHA_GRACE_PERIOD(new Param("auth.captcha.gracePeriod", 10000L)),

@@ -1,4 +1,5 @@
 <script>
+  import { ACTION } from '../../lib/captcha.js';
   /**
    * Log in / register / request a credential reset.
    *
@@ -92,7 +93,7 @@
 
     busy = true;
     try {
-      const captcha = await requestCaptcha();
+      const captcha = await requestCaptcha(ACTION.REGISTER);
       const { pubkey } = await genCreds(verdict.values.email, verdict.values.password);
       await api.registerUser(verdict.values.email, pubkey, captcha);
       toastSuccess('Your new account was successfully created :)');
@@ -115,7 +116,7 @@
 
     busy = true;
     try {
-      const captcha = await requestCaptcha();
+      const captcha = await requestCaptcha(ACTION.RESET_PASSWORD);
       await api.requestPasswordReset(address, captcha);
     } catch {
       // swallowed on purpose; see above
