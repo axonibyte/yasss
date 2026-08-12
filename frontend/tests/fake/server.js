@@ -52,7 +52,7 @@ const err = (info) => ({ status: 'error', info });
  * agree on the cases that can actually reach it. `Intl.supportedValuesOf` is
  * the obvious choice and is wrong: it lists only canonical names and omits
  * `UTC`, `GMT` and `Etc/UTC`, all of which ZoneId accepts and all of which a
- * containerised browser really does report as its local zone.
+ * containerized browser really does report as its local zone.
  *
  * Construct-and-catch covers the rest, with two tightenings so this never
  * accepts something the server would refuse: bare offsets (wrong for half the

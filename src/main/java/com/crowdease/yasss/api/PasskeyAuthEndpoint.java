@@ -35,7 +35,7 @@ import spark.Response;
  * <em>anonymous</em> request rather than a 401, so there is nowhere in that path to say
  * "here is a challenge, try again". Making {@code authenticate} able to do that would be a
  * platform-wide change for one feature. An assertion is also 600–1200 bytes against
- * Jetty's 8 KB header buffer, and putting a single-use artefact in a header the client
+ * Jetty's 8 KB header buffer, and putting a single-use artifact in a header the client
  * caches and replays invites exactly the bug you would expect.
  *
  * <p>Nothing downstream changes: on success this sets the same three headers {@code GET /v1}

@@ -53,7 +53,7 @@ public class AccessCodeTest {
    * All three index names count.
    *
    * <p>A collision can be caught by whichever index the write reached first:
-   * the registry's, or the display copy's on either table. Recognising only the
+   * the registry's, or the display copy's on either table. Recognizing only the
    * registry's would leave the other two escaping the retry loop.
    */
   @DataProvider(name = "collisionIndexes")
@@ -62,7 +62,7 @@ public class AccessCodeTest {
   }
 
   @Test(dataProvider = "collisionIndexes")
-  public void recognisesACodeCollision(String index) {
+  public void recognizesACodeCollision(String index) {
     assertTrue(AccessCode.isCodeCollision(duplicate(index)));
   }
 

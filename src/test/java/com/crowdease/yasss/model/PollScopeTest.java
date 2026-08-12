@@ -92,7 +92,7 @@ public class PollScopeTest {
   }
 
   /**
-   * The organiser always sees their own poll's results.
+   * The organizer always sees their own poll's results.
    *
    * <p>The six settings describe what everybody else gets. A setting that hid
    * the tallies from the person who ran the poll would leave nobody able to act
@@ -104,11 +104,11 @@ public class PollScopeTest {
         for(boolean closed : new boolean[] { false, true })
           assertTrue(
               Poll.tallyVisible(visibility, true, responded, closed),
-              visibility + " hid the tally from the poll's own organiser");
+              visibility + " hid the tally from the poll's own organizer");
   }
 
   /**
-   * The full matrix for everybody who is not the organiser.
+   * The full matrix for everybody who is not the organizer.
    *
    * <p>Written out as data rather than derived, so that changing the rule means
    * changing this table -- and a change to the table is visible in a diff in a
@@ -153,7 +153,7 @@ public class PollScopeTest {
 
   /**
    * The two settings that are meaningless without a deadline, and the one that
-   * cannot recognise a respondent without an account.
+   * cannot recognize a respondent without an account.
    *
    * <p>Both are checked at publish rather than at write, so that a half-built
    * draft is allowed to exist -- but they have to be checked somewhere, or a

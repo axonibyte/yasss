@@ -26,7 +26,7 @@ import com.crowdease.yasss.YasssCore;
  * One person's answer to a {@link Poll}.
  *
  * <p>Exactly one row per submission. That is the whole difference between
- * answering a poll and signing up for an event: an event's organiser may add
+ * answering a poll and signing up for an event: an event's organizer may add
  * six volunteers in one sitting, and a poll asks one person which times work
  * for them.
  *
@@ -156,12 +156,12 @@ public class PollResponse {
   }
 
   /**
-   * Retrieves the token that authorises editing this answer.
+   * Retrieves the token that authorizes editing this answer.
    *
    * <p>Handed to an anonymous respondent once, in the response to their
    * submission, and held by their browser thereafter. Deliberately not the
    * address or the fingerprint: everyone behind one NAT shares an address, and
-   * an address that authorised an edit would let a stranger rewrite somebody
+   * an address that authorized an edit would let a stranger rewrite somebody
    * else's answer.
    *
    * @return the edit token, or {@code null}
@@ -171,7 +171,7 @@ public class PollResponse {
   }
 
   /**
-   * Sets the token that authorises editing this answer.
+   * Sets the token that authorizes editing this answer.
    *
    * @param editToken the token
    * @return this {@link PollResponse} instance

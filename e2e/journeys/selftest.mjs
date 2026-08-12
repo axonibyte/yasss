@@ -1,7 +1,7 @@
 /**
  * Does the oracle actually fire?
  *
- * The journeys stage needs the whole containerised pod, which makes it an
+ * The journeys stage needs the whole containerized pod, which makes it an
  * awkward thing to iterate on and an impossible one to run anywhere a stack is
  * not already up. But the part most likely to be quietly wrong is not the
  * plumbing -- it is the invariants. An invariant that never fails is

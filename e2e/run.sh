@@ -406,7 +406,7 @@ fi
 
 if [[ ${SKIP_BUILD} -eq 0 ]]; then
   if [[ -n "${PROVIDED_JAR}" ]]; then
-    # Built upstream, so the suite proves the artefact that ships rather than a
+    # Built upstream, so the suite proves the artifact that ships rather than a
     # second one built from the same tree. The two would not even be comparable
     # today: the jar is reproducible, so an identical tree gives identical
     # bytes, and that is what lets the queue's verdict carry to the jar `main`
@@ -438,7 +438,7 @@ if [[ ${SKIP_BUILD} -eq 0 ]]; then
   done
   echo "  gRPC service registries survived the shadow jar"
 
-  # The artefact keeps a fixed name on purpose -- this script globs for it and
+  # The artifact keeps a fixed name on purpose -- this script globs for it and
   # the Containerfile copies it by name -- so the manifest is the only place the
   # build can say which build it is. shadowJar inherits the `jar` task's
   # manifest, which is exactly the sort of thing that stops being true after a

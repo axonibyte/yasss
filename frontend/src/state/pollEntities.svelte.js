@@ -90,7 +90,7 @@ export class PollCell {
   }
 }
 
-/** One person's answer, as the organiser sees it listed. */
+/** One person's answer, as the organizer sees it listed. */
 export class PollResponse {
   key = mintKey('r');
   id = $state(null);

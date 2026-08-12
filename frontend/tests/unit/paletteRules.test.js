@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
  * The visual rules two CSS fixes established, so they cannot be undone quietly.
  *
  * Both fixes shipped without tests, which is the gap this closes. Neither bug
- * was subtle once measured -- a progress bar drawn in the same colour as the row
+ * was subtle once measured -- a progress bar drawn in the same color as the row
  * behind it, contrast 1.00; footer buttons with no wrap running off a phone --
  * but both were invisible in review, because the diff that introduces them looks
  * like ordinary markup. `.is-primary` on a bar inside `.is-selected` is two
@@ -36,7 +36,7 @@ describe('the poll results bar', () => {
   it('draws bars in the page-legible primary, not the raw one', () => {
     expect(panel).toContain('--bulma-progress-value-background-color: var(--bulma-primary-on-scheme)');
     // The class that used to do it. `is-primary` on a progress element resolves
-    // the value colour straight back to `--bulma-primary`.
+    // the value color straight back to `--bulma-primary`.
     expect(panel).not.toMatch(/<progress[^>]*\bis-primary\b/);
   });
 
@@ -45,7 +45,7 @@ describe('the poll results bar', () => {
    * a bar inside it drawn in the same variable disappears entirely, so the row
    * with the most votes rendered the emptiest-looking bar.
    */
-  it('does not fill the winning row with the colour the bars are drawn in', () => {
+  it('does not fill the winning row with the color the bars are drawn in', () => {
     // Class application, not prose: the comment above the fix names the class
     // it replaced, so a bare substring match would pass only while the fix went
     // undocumented -- exactly backwards.

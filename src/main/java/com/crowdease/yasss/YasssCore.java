@@ -674,7 +674,7 @@ public class YasssCore {
    * The build that is running.
    *
    * <p>Read from the jar manifest, which is the only place it can come from:
-   * the artefact deliberately keeps a fixed name, so the filename says nothing.
+   * the artifact deliberately keeps a fixed name, so the filename says nothing.
    * Answers {@code "(dev)"} when there is no manifest, which is every run
    * straight from compiled classes -- a Gradle {@code run}, an IDE, the test
    * suite -- and which is honest rather than a lie about being some version.
@@ -939,7 +939,7 @@ public class YasssCore {
    * Reads an optional string, treating unset and blank alike.
    *
    * <p>The config layer throws when a parameter has no value and no default,
-   * which is the right behaviour for a required one and merely noise for a
+   * which is the right behavior for a required one and merely noise for a
    * parameter whose absence is a legitimate choice. Blank is folded in with
    * absent because a key left as an empty string in a config file means the
    * same thing to the person who wrote it.

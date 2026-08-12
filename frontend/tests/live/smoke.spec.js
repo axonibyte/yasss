@@ -142,7 +142,7 @@ test('a guest can sign up, and the RSVP persists to the database', async ({ page
   await page.getByRole('button', { name: SUBMIT_RSVPS }).click();
   await expect(page.getByText('RSVP successfully submitted!')).toBeVisible();
 
-  // This is the assertion the whole containerised stack exists for. On main it
+  // This is the assertion the whole containerized stack exists for. On main it
   // was unreachable: AddVolunteer counted zero existing volunteers as "cap
   // reached", and its anonymous branch dereferenced a null actor into a 500.
   const res = await page.request.get(`/v1/events/${eventId}`);
@@ -191,7 +191,7 @@ test('the stylesheet actually loaded', async ({ page }) => {
   // contrast failure and which is genuinely hard to read. Same hue, same
   // saturation; backgrounds are untouched.
   //
-  // 24% rather than the 21% every other primary-coloured text uses. At 21% the
+  // 24% rather than the 21% every other primary-colored text uses. At 21% the
   // wordmark read as a muddy green rather than the brand; 24% measures 4.70:1 against the background axe resolves,
   // which still clears AA for 16px at weight 600 -- under the large-text
   // threshold, so the 4.5:1 bar applies. `chrome.spec.js` asserts the ratio and

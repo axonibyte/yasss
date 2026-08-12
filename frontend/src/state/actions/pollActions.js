@@ -140,7 +140,7 @@ export async function removeOption(poll, option) {
  * Turn All Day on or off for a column.
  *
  * Non-destructive in both directions: the column's timed squares stay exactly
- * where they are, so turning it back off restores the column the organiser
+ * where they are, so turning it back off restores the column the organizer
  * built rather than making them build it again.
  */
 export async function setAllDay(poll, option, allDay) {
@@ -324,7 +324,7 @@ export async function removeDetail(poll, detail) {
  * because "Delete Poll" is owner-only and a practice poll had no owner, so the
  * button could never be reached. It can be now -- the tutorial's practice poll
  * is owned by the learner looking at it, which is what lets the poll track show
- * the organiser's own surface -- and without this the button would DELETE
+ * the organizer's own surface -- and without this the button would DELETE
  * against an id the server has never heard of.
  */
 export async function deletePoll(poll) {
@@ -357,7 +357,7 @@ export async function publishPoll(poll, { account = null, captcha = null } = {})
   if (poll.sandbox) return { ok: false, sandbox: true };
 
   // Checked here as well as by the server, because the server's 400 names a
-  // field and this can name the thing the organiser has to go and do.
+  // field and this can name the thing the organizer has to go and do.
   if (poll.options.length === 0) {
     toastError(new Error('empty'), 'Add at least one day before publishing.');
     return { ok: false };

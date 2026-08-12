@@ -126,7 +126,7 @@ public class Poll implements Ownable {
    */
   public static enum ResultVisibility {
 
-    /** Only the organiser, ever. Requires the poll to have an organiser. */
+    /** Only the organizer, ever. Requires the poll to have an organizer. */
     CREATOR_ONLY,
 
     /** Anybody holding the code, at any time. */
@@ -144,7 +144,7 @@ public class Poll implements Ownable {
     /**
      * A respondent sees the tallies once the deadline has passed.
      *
-     * <p>The only setting that constrains who may answer: recognising a
+     * <p>The only setting that constrains who may answer: recognizing a
      * respondent across the gap between submitting and the deadline needs an
      * account, because a token held in one browser is not an identity that
      * survives a new device or a cleared profile.
@@ -197,7 +197,7 @@ public class Poll implements Ownable {
    * Instantiates a {@link Poll}.
    *
    * @param id the {@link UUID} of this poll, or {@code null} if uncommitted
-   * @param admin the {@link UUID} of the organising {@link User}, or {@code null}
+   * @param admin the {@link UUID} of the organizing {@link User}, or {@code null}
    * @param shortDescription the poll's title
    * @param longDescription the poll's description
    * @param scope whether columns are weekdays or dates
@@ -247,13 +247,13 @@ public class Poll implements Ownable {
     return null == id ? 0 : id.hashCode();
   }
 
-  /** @return the organising account's {@link UUID}, or {@code null} */
+  /** @return the organizing account's {@link UUID}, or {@code null} */
   @Override public UUID getAdmin() {
     return admin;
   }
 
   /**
-   * Sets the organising account.
+   * Sets the organizing account.
    *
    * @param admin the account's {@link UUID}, or {@code null}
    * @return this {@link Poll} instance
@@ -489,12 +489,12 @@ public class Poll implements Ownable {
    * by a test that constructs six settings against three kinds of caller
    * without standing up so much as a connection.
    *
-   * <p>The organiser always sees their own poll's results. The settings
+   * <p>The organizer always sees their own poll's results. The settings
    * describe what everybody <em>else</em> gets; a setting that hid the tallies
    * from the person who ran the poll would leave nobody able to act on it.
    *
    * @param visibility the poll's {@link ResultVisibility}
-   * @param owner whether the caller organises this poll
+   * @param owner whether the caller organizes this poll
    * @param responded whether the caller has already answered
    * @param closed whether the poll's deadline has passed
    * @return {@code true} iff the tallies may be disclosed
@@ -515,7 +515,7 @@ public class Poll implements Ownable {
   /**
    * Decides whether aggregate tallies may be shown to a particular caller.
    *
-   * @param owner whether the caller organises this poll
+   * @param owner whether the caller organizes this poll
    * @param responded whether the caller has already answered
    * @return {@code true} iff the tallies may be disclosed
    */
@@ -829,7 +829,7 @@ public class Poll implements Ownable {
   /**
    * Retrieves an ordered set of polls that conform to provided criteria.
    *
-   * @param adminID the organising account, or {@code null}
+   * @param adminID the organizing account, or {@code null}
    * @param respondentID an account that has answered, or {@code null}
    * @param labelSubstr a needle to search for in the haystack of poll titles
    * @param page the page to retrieve, or {@code null}
@@ -909,7 +909,7 @@ public class Poll implements Ownable {
   /**
    * Counts the polls that meet the specified criteria.
    *
-   * @param adminID the organising account, or {@code null}
+   * @param adminID the organizing account, or {@code null}
    * @param respondentID an account that has answered, or {@code null}
    * @param labelSubstr a needle to search for in the haystack of poll titles
    * @return the number of matching polls, ignoring pagination

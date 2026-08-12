@@ -14,7 +14,7 @@ import { clampStep, maxStep } from '../lib/grid.js';
 
 export { Mode };
 
-/** The six result settings, in the order the organiser is offered them. */
+/** The six result settings, in the order the organizer is offered them. */
 export const VISIBILITY = [
   'CREATOR_ONLY',
   'PUBLIC_ALWAYS',
@@ -59,7 +59,7 @@ export class PollModel {
   /** cell id -> count, or null when the tally is not disclosed to us. */
   tally = $state(null);
   respondents = $state(0);
-  /** The organiser's view of who answered. */
+  /** The organizer's view of who answered. */
   responses = $state([]);
   /** Our own answer, once we have one. */
   ownResponse = $state(null);

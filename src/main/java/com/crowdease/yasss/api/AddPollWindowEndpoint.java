@@ -32,7 +32,7 @@ import spark.Response;
  * Endpoint that adds a row to a poll, and applies it to columns.
  *
  * <p>The "apply to" control lives here. Absent means every column, which is the
- * default the organiser sees; a list names the columns to offer it on.
+ * default the organizer sees; a list names the columns to offer it on.
  * {@code appliesToNewOptions} is separate and is not a list at all -- it is the
  * standing rule that catches columns added later, and it is stored on the row
  * rather than expanded now, because a one-time expansion cannot reach forward
@@ -80,7 +80,7 @@ public final class AddPollWindowEndpoint extends APIEndpoint {
       Set<PollOption> options = poll.getOptions();
 
       // Absent means all of them, which is what "apply to: all" sends by saying
-      // nothing. An empty array is not the same thing and is honoured as such:
+      // nothing. An empty array is not the same thing and is honored as such:
       // a row offered on no column at all is a legitimate half-built state, and
       // quietly reading it as "all" would be the surprising answer.
       Set<UUID> applyTo = new LinkedHashSet<>();

@@ -166,7 +166,7 @@ final class PollAnswers {
    * <p>Note what is not here: the fingerprint is still <em>written</em> for a
    * signed-in respondent, by the caller, before this runs. That is what makes
    * answering and then signing out fail to buy a second vote. Skipping the
-   * write when authenticated is the obvious optimisation and it would quietly
+   * write when authenticated is the obvious optimization and it would quietly
    * remove half the feature.
    *
    * @param poll the {@link Poll} being answered
@@ -218,7 +218,7 @@ final class PollAnswers {
    * Whether a caller has already answered this poll.
    *
    * <p>What the "once you have answered" result settings turn on. An account
-   * recognises itself; anybody else has to present the token they were handed,
+   * recognizes itself; anybody else has to present the token they were handed,
    * because a browser fingerprint is evidence of a duplicate and not proof of
    * identity -- it is shared by every visitor with the same phone.
    *

@@ -26,7 +26,7 @@
  * result_visibility settings therefore require it, and that is checked at
  * publish rather than here -- a draft is allowed to be half-built.
  *
- * `code` is a denormalised display copy. `access_code` (032) is the allocator
+ * `code` is a denormalized display copy. `access_code` (032) is the allocator
  * and the uniqueness authority; this column is the read path, already on every
  * projection. A code is assigned once and never reissued, so the two cannot
  * drift.

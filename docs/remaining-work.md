@@ -128,7 +128,7 @@ behavior. The `window.history` half of `route.svelte.js` is likewise untested di
 Java unit tests stop where the database begins: almost every endpoint's second statement opens
 JDBC through a static `YasssCore.getDB()`. Threading a repository seam through 30-odd endpoints
 and 14 model classes is a larger and riskier change than the tests it would buy — the
-containerised suite covers those paths against a real database instead. What is unit tested is
+containerized suite covers those paths against a real database instead. What is unit tested is
 everything that can be made pure, and this pass deliberately extracted more of it:
 `SessionTicket.evaluate`, `ExpiringToken.check`, `TicketEngine.signerCount` and
 `YasssCore.within` are all static functions taking their clock or their probe as an argument,

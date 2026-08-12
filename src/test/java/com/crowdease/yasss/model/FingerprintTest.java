@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
  * lands in an identity column that decides who is turned away. And the stored
  * value must be salted per poll, because the difference between a duplicate
  * check and a tracking database is entirely whether the same browser is
- * recognisable across two polls.
+ * recognizable across two polls.
  *
  * @author Caleb L. Power
  */
@@ -85,7 +85,7 @@ public class FingerprintTest {
     assertEquals(
         Fingerprint.saltFor(poll, digest),
         Fingerprint.saltFor(poll, digest),
-        "the same browser must be recognisable within one poll");
+        "the same browser must be recognizable within one poll");
   }
 
   /**

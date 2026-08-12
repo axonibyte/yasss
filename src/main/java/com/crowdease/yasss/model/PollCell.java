@@ -322,7 +322,7 @@ public class PollCell {
    * Removes this {@link PollCell} from the database, if it exists.
    *
    * <p>Every vote cast on the square goes with it, by cascade. That is the
-   * intended reading of an organiser withdrawing a square: nobody is on record
+   * intended reading of an organizer withdrawing a square: nobody is on record
    * as having chosen a time that is no longer offered.
    *
    * @throws SQLException if a database malfunction occurs

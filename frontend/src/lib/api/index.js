@@ -194,7 +194,7 @@ export const createPoll = (payload, captcha) => post('/polls', payload, { captch
  * Read a poll.
  *
  * `token` is the edit token an anonymous respondent was handed when they
- * answered. It is what lets the server recognise them well enough to return
+ * answered. It is what lets the server recognize them well enough to return
  * their own answer, and to decide whether a "once you have answered" result
  * setting has been satisfied.
  */

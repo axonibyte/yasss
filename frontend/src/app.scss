@@ -94,7 +94,7 @@
 // only hue in the product that comes from nowhere in its palette. It has been
 // patched three times, once per place somebody happened to notice it: the
 // wordmark, the navbar burger, the theme toggle. Each patch fixed one element
-// and left the rule that produced it intact, so the next link-coloured thing
+// and left the rule that produced it intact, so the next link-colored thing
 // arrived blue again. Two did: the ghost buttons in the detail table and the
 // tutorial chooser's back button. So did every `<select>` arrow, via
 // `--bulma-arrow-color`, and every link in operator-authored markdown -- the
@@ -104,7 +104,7 @@
 // So it is fixed at the source instead: link *is* the brand.
 //
 // Overriding these five carries the whole set, because Bulma composes every
-// derived link colour -- `-text`, `-on-scheme`, `-invert`, `-light`, `-dark`,
+// derived link color -- `-text`, `-on-scheme`, `-invert`, `-light`, `-dark`,
 // and the hover and active variants -- out of the same triplet with `var()` at
 // use time rather than baking a literal. Verified in the compiled output, not
 // assumed; a version that resolved them at build time would need all fifteen.
@@ -350,13 +350,13 @@ body.tutorial-running {
 // --- the tour, and the dialogs it opens --------------------------------------
 //
 // Steps that describe a control inside a modal open that modal themselves,
-// which puts two fixed layers on screen at once. Bulma centres a modal in the
+// which puts two fixed layers on screen at once. Bulma centers a modal in the
 // viewport at z-index 40 and the panel sits at 30, so left alone the dialog
 // covers the instructions for using it and the learner has no way to reach
 // Next -- the tour's only exit.
 //
 // So while a tour is running the panel outranks the modal, and the modal is
-// pushed up out of the space the panel occupies rather than being centred
+// pushed up out of the space the panel occupies rather than being centered
 // through it. `.modal-card-body` already scrolls, so a tall form loses no
 // content; it just gets a shorter window onto it.
 body.tutorial-running {

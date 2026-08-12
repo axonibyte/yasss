@@ -195,7 +195,7 @@ test.describe('on a wide screen', () => {
  *
  * The test is "the blue channel dominates both others by a wide margin", which
  * is deliberately crude: Bulma's link is rgb(66,88,255) and scores 167, while
- * the scheme's grey text rgb(64,70,84) scores 14. A palette that one day
+ * the scheme's gray text rgb(64,70,84) scores 14. A palette that one day
  * genuinely wants a blue will fail this and should, with a person deciding.
  */
 const blueHunt = () => {

@@ -1,12 +1,12 @@
 /**
- * "Repeat every", and the bound the organiser asked to be held to.
+ * "Repeat every", and the bound the organizer asked to be held to.
  *
  * The bound is the interesting part and it was stated as a requirement rather
  * than inferred: a repeat may not ask for more time than is left between the
  * first window and the end of the day. The obvious consequence is that
  * generation stops at midnight. The less obvious one is that an interval longer
  * than the remainder is refused rather than quietly yielding one window, which
- * would hide the organiser's mistake from them.
+ * would hide the organizer's mistake from them.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -133,19 +133,19 @@ describe('newOnly', () => {
  * The exclusive reading is the more familiar one -- Doodle and a calendar's
  * working hours both stop short -- but it is exclusive because a slot there has
  * a duration and the last one *ends* on the boundary. A poll window is an
- * instant with no end at all, so an exclusive reading would mean the organiser
+ * instant with no end at all, so an exclusive reading would mean the organizer
  * types the time they want offered and is then not offered it. See the module
  * header; this suite is the executable half of that argument.
  */
 describe('repeating until a time', () => {
-  it('offers the time the organiser named', () => {
+  it('offers the time the organizer named', () => {
     expect(expandRepeat({ start: '09:00', repeat: true, hours: 1, minutes: 0, until: '12:00' }))
       .toEqual(['09:00', '10:00', '11:00', '12:00']);
   });
 
   it('stops short when the cadence steps over the until', () => {
     // 13:00 would be next and is past 12:30, so 11:00 is the last one. The
-    // boundary is inclusive, not a licence to overshoot it.
+    // boundary is inclusive, not a license to overshoot it.
     expect(expandRepeat({ start: '09:00', repeat: true, hours: 2, minutes: 0, until: '12:30' }))
       .toEqual(['09:00', '11:00']);
   });

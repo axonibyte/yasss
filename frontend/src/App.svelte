@@ -626,7 +626,7 @@
       allowAnswerEdits: values.allowAnswerEdits,
       resultVisibility: values.resultVisibility,
     });
-    // The columns the organiser picked become the grid's columns.
+    // The columns the organizer picked become the grid's columns.
     poll.options = (values.scope === 'RELATIVE'
       ? values.days.map((dayOfWeek, i) => new PollOption({ dayOfWeek, priority: i }))
       : values.dates.map((date, i) => new PollOption({ date, priority: i })));

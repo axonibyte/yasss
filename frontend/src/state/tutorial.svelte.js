@@ -850,7 +850,7 @@ export function loadPracticeEvent(event, { mode = 'VIEW', build = 'ready' } = {}
   else buildPracticeEvent(event);
   applyMode(event, mode, PRACTICE_EVENT_ID);
 
-  // The assertion is kept and generalised rather than dropped. Its job was
+  // The assertion is kept and generalized rather than dropped. Its job was
   // always to catch a stale flag silently putting the tour on a surface it was
   // not written for; that job did not go away when more than one surface became
   // legal, it just stopped being expressible as a single constant.

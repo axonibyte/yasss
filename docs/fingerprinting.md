@@ -6,7 +6,7 @@ provide, and it tells you what your privacy policy has to say about it.
 
 ## When it happens
 
-Only when a poll's organiser turns **"Allow more than one answer per person"**
+Only when a poll's organizer turns **"Allow more than one answer per person"**
 *off*, and only at the moment somebody submits an answer to that poll.
 
 The setting is **on by default**, so a deployment where nobody changes it
@@ -19,7 +19,7 @@ A SHA-256 of eleven signals, computed in the browser
 (`frontend/src/lib/fingerprint.js`):
 
 user agent; language and language list; `hardwareConcurrency`; `deviceMemory`;
-`maxTouchPoints`; screen width, height and colour depth; device pixel ratio;
+`maxTouchPoints`; screen width, height and color depth; device pixel ratio;
 the resolved IANA time zone; the UTC offset; and **a canvas rendering**.
 
 Ten of those eleven are values a server already sees in request headers or can
@@ -63,7 +63,7 @@ There is no separate expiry sweep. A poll that is never deleted keeps them.
 Very little, and the product says so out loud in two places rather than
 implying otherwise:
 
-- the organiser, when they turn the setting off, is told *"we'll do our best to
+- the organizer, when they turn the setting off, is told *"we'll do our best to
   prevent multiple answers — but this sort of thing is trivial to bypass"*;
 - the respondent, on the answer form, is told what is recorded and that it is
   scrambled, kept only for this poll, and deleted with it.
@@ -104,10 +104,10 @@ enable polls, that document needs to cover:
 
 1. that a device characteristic and an IP address are recorded **when a poll
    restricts answering to one per person**, and not otherwise;
-2. what the characteristic is derived from — it is fair to summarise as
+2. what the characteristic is derived from — it is fair to summarize as
    "browser and device settings, including a rendering test";
 3. that it is stored one-way hashed and salted per poll, and so cannot be used
-   to recognise the same person on a different poll;
+   to recognize the same person on a different poll;
 4. that both are deleted when the poll is deleted;
 5. the lawful basis you are relying on. In the EU and UK this is the kind of
    access-and-storage that ePrivacy treats like a cookie, and legitimate

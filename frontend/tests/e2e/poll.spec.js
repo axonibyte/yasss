@@ -107,7 +107,7 @@ test('the repeat stops at an "until", and offers the time it names',
     await page.getByLabel('Until').fill('12:00');
 
     // 09:00, 10:00, 11:00 and -- this is the decision -- 12:00 itself. The
-    // organiser typed that time to have it offered; dropping it would read as
+    // organizer typed that time to have it offered; dropping it would read as
     // an off-by-one however the help text explained itself.
     await expect(page.getByTestId('repeat-preview')).toContainText('4 times');
     await expect(page.getByTestId('repeat-preview')).toContainText('12:00 PM');
@@ -125,7 +125,7 @@ test('the repeat stops at an "until", and offers the time it names',
     await expect(page.locator('[data-slot-state="editing"]')).toHaveCount(6);
   });
 
-test('All Day greys a column and gives it back when unticked', async ({ page }) => {
+test('All Day grays a column and gives it back when unticked', async ({ page }) => {
   await page.goto('/');
   await waitForApp(page);
   await startPoll(page);

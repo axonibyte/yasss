@@ -58,8 +58,8 @@ final class PollRules {
           "missing argument (responseDeadline) for this resultVisibility",
           400);
 
-    // Only the organiser may see the results, and an anonymous poll has no
-    // organiser -- so this combination hides the results from everybody
+    // Only the organizer may see the results, and an anonymous poll has no
+    // organizer -- so this combination hides the results from everybody
     // including the person who ran it.
     if(Poll.ResultVisibility.CREATOR_ONLY == poll.getResultVisibility() && null == poll.getAdmin())
       throw new EndpointException(

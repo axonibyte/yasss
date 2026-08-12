@@ -54,7 +54,7 @@ function nextSaturday(hour, now = new Date()) {
  * Empty on purpose. This is exactly what the product gives somebody who has
  * just pressed Save on the create form -- an empty grid with a message saying
  * so -- and a tour that skipped over that would be teaching a screen the
- * learner will not recognise the first time they see it for real.
+ * learner will not recognize the first time they see it for real.
  *
  * No id is what makes it a draft, which is the surface "Publish Event" lives on
  * and the one an organizer actually builds on.

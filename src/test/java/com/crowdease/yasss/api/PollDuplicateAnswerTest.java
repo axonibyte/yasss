@@ -37,7 +37,7 @@ import org.testng.annotations.Test;
  *       does not buy a second vote.
  * </ul>
  *
- * <p>The second half is what makes the obvious optimisation wrong: skipping the
+ * <p>The second half is what makes the obvious optimization wrong: skipping the
  * fingerprint when the caller is authenticated looks like dead work and removes
  * half the feature. These tests assert the <em>read</em> side, which is where
  * the two halves could silently converge; the write side is unconditional in

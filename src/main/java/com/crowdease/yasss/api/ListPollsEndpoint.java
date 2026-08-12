@@ -47,11 +47,11 @@ public final class ListPollsEndpoint extends APIEndpoint {
    * Whether this caller may see this listing.
    *
    * <p>Platform admins may list anything. Anybody else may list only their own
-   * -- as organiser or as respondent -- and an unscoped listing stays
+   * -- as organizer or as respondent -- and an unscoped listing stays
    * admin-only.
    *
    * @param auth the caller's {@link Authorization}
-   * @param adminID the organiser scope, or {@code null}
+   * @param adminID the organizer scope, or {@code null}
    * @param respondentID the respondent scope, or {@code null}
    * @return {@code true} iff the listing may be served
    */

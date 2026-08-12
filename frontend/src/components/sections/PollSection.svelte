@@ -5,7 +5,7 @@
    * The same three modes as `EventSection` and for the same reasons -- building
    * one, editing one, answering one -- so the shape is deliberately familiar.
    * What differs is what sits beside the grid: an event offers a volunteer
-   * picker because an organiser signs several people up, and a poll offers one
+   * picker because an organizer signs several people up, and a poll offers one
    * person's answer because that is all a poll ever collects.
    */
   import PollGrid from '../grid/PollGrid.svelte';
@@ -38,7 +38,7 @@
   const editing = $derived(poll.mode === Mode.CREATE || poll.mode === Mode.EDIT);
 
   /**
-   * Whether this viewer organises this poll.
+   * Whether this viewer organizes this poll.
    *
    * The null check is load-bearing rather than defensive, exactly as it is on
    * the event side: a poll published anonymously has a null admin and an
@@ -182,7 +182,7 @@
             {:else if answered && !poll.allowAnswerEdits}
               <!--
                 Said rather than shown as a dead button with no explanation: the
-                organiser turned edits off, and somebody who already answered
+                organizer turned edits off, and somebody who already answered
                 needs to know that is why they cannot change it.
               -->
               <button class="button" disabled>You have answered. This poll does not allow changes.</button>

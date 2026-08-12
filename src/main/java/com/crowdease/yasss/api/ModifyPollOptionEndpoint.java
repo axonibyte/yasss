@@ -99,7 +99,7 @@ public final class ModifyPollOptionEndpoint extends APIEndpoint {
 
           // Non-destructive in both directions. Turning All Day on adds the
           // whole-day square and leaves every timed square exactly where it is,
-          // so turning it off again restores the column the organiser built
+          // so turning it off again restores the column the organizer built
           // rather than making them build it a second time. The timed squares
           // simply stop being offered while the flag is set, which is a
           // rendering and voting rule rather than a deletion.

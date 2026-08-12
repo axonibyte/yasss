@@ -101,14 +101,14 @@ describe('squares', () => {
       p.votes.add('c-o0-w0');
     });
     const { container } = render(PollGrid, { poll });
-    // The one they chose is warning-coloured; the one nobody chose reads zero.
+    // The one they chose is warning-colored; the one nobody chose reads zero.
     expect(cellTexts(container).slice(4)).toEqual(['3', '0']);
     expect(states(container)).toEqual(['voted', 'available']);
   });
 });
 
 describe('all day', () => {
-  it('greys a whole column and marks it, without losing the squares', () => {
+  it('grays a whole column and marks it, without losing the squares', () => {
     const poll = buildPoll(2, 2, (p) => {
       p.options[0].allDay = true;
     });
@@ -133,7 +133,7 @@ describe('all day', () => {
     expect(header.getAttribute('aria-label')).toBe('Mon, all day: Available');
   });
 
-  it('offers the switch only while the organiser is laying the grid out', () => {
+  it('offers the switch only while the organizer is laying the grid out', () => {
     const poll = buildPoll(1, 1);
     const { container } = render(PollGrid, { poll, onAllDayToggle: () => {} });
     // A published poll being viewed is not being edited.
@@ -146,7 +146,7 @@ describe('all day', () => {
 });
 
 describe('editing', () => {
-  it('shows the organiser what their respondents will see', () => {
+  it('shows the organizer what their respondents will see', () => {
     const poll = buildPoll(2, 1, (p) => {
       p.editing = true;
       p.cells.delete(cellKey(p.options[1].key, p.windows[0].key));

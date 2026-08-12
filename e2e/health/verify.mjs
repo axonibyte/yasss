@@ -40,7 +40,7 @@ check(
     + 'Implementation-Version, so nothing on a running system knows which build it is',
 );
 
-// `version` is the API version and stays an ordinal; `build` is the artefact.
+// `version` is the API version and stays an ordinal; `build` is the artifact.
 // Worth pinning that they are two different things, because they were conflated
 // and the answer to "what is running" was 0.
 check(

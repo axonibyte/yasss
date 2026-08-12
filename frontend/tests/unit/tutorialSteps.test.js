@@ -13,7 +13,7 @@
  *
  *   - every selector a step anchors is one the app can actually produce;
  *   - a step pointing inside a form opens that form;
- *   - a step pointing at a square the organiser can edit is on a surface where
+ *   - a step pointing at a square the organizer can edit is on a surface where
  *     squares are editable;
  *   - every dialog a step names is one the shell knows how to render.
  *

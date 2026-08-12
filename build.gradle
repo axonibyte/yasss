@@ -139,7 +139,7 @@ eclipse {
 // the downloads page the one built from this commit?" could only ever be taken
 // on trust, because rebuilding and comparing proved nothing.
 //
-// With these, the sha256 published beside the artefact becomes a claim anybody
+// With these, the sha256 published beside the artifact becomes a claim anybody
 // can check by building the tag themselves. It is also what lets a merge queue
 // mean something: the queue validates a merge result, `main` rebuilds after the
 // merge, and only reproducibility makes those two the same jar rather than two
@@ -162,7 +162,7 @@ jar {
     attributes(
       'Main-Class': prjGroup + '.' + prjMain,
       // What is actually running. The jar deliberately keeps a fixed name --
-      // `archiveVersion.set('')` below, because the artefact name is a deploy
+      // `archiveVersion.set('')` below, because the artifact name is a deploy
       // contract and e2e/run.sh and the Containerfile both depend on it -- so
       // the manifest is the only place the build can identify itself. Without
       // it there was nothing on a running system that said which build it was,

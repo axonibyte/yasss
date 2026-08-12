@@ -2,10 +2,10 @@
   /**
    * Days across, times down, with the day axis paged by a slider.
    *
-   * A sibling of `EventGrid` rather than a generalisation of it. The two share
+   * A sibling of `EventGrid` rather than a generalization of it. The two share
    * `lib/grid.js` for the layout arithmetic and `GridCell` for the tile, which
    * is everything that actually matters -- but the poll grid puts a switch on
-   * its column headers, greys a whole column when that switch is on, and has a
+   * its column headers, grays a whole column when that switch is on, and has a
    * different vocabulary of cell states. Growing `EventGrid` a set of props to
    * cover all that would put its byte-for-byte conformance suite up for
    * negotiation on every one of them.

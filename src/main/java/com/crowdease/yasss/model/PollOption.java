@@ -149,7 +149,7 @@ public class PollOption implements Comparable<PollOption> {
    * <p>When set, the column's timed squares stop being offered and a single
    * all-day square takes their place. Deliberately non-destructive: the timed
    * {@link PollCell} rows stay exactly where they are, so unticking this
-   * restores the column as it was rather than making the organiser rebuild it.
+   * restores the column as it was rather than making the organizer rebuild it.
    *
    * @return {@code true} iff this option is an all-day column
    */
@@ -390,7 +390,7 @@ public class PollOption implements Comparable<PollOption> {
     Objects.requireNonNull(option);
     int c;
     if(0 != (c = Integer.compare(priority, option.priority))) return c;
-    // Then by what the column actually names, so an organiser who never touched
+    // Then by what the column actually names, so an organizer who never touched
     // the ordering still gets Monday before Tuesday and the 3rd before the 4th.
     // The two kinds never mix within a poll -- the scope decides which it is --
     // so a null on one side means the other is a different kind of poll

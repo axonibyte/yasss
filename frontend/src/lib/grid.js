@@ -97,19 +97,19 @@ export function slotCell({ enabled, editing, hasRsvp, atCapacity, rsvpCount = 0,
  *   so the times within it are not on offer -- the squares still exist, and are
  *   kept so that unsetting All Day restores the column, but nobody may vote for
  *   one and the grid must not invite them to.
- * - `editing` comes next because the organiser is being shown what the grid
+ * - `editing` comes next because the organizer is being shown what the grid
  *   *is*, not what they may do with it. A square they have withdrawn reads
  *   "Unavailable" to them too, which is what their respondents will see.
  *
  * When a tally is visible the label becomes the count, and whether this
- * respondent chose it is carried by the colour rather than by a second word --
+ * respondent chose it is carried by the color rather than by a second word --
  * the tile is too small for "Voted (3)" and the number is the thing being
  * looked at.
  *
  * @param {object} args
  * @param {boolean} args.offered     a square exists for this pair
  * @param {boolean} args.suppressed  the column is set to All Day
- * @param {boolean} args.editing     the organiser is laying the grid out
+ * @param {boolean} args.editing     the organizer is laying the grid out
  * @param {boolean} args.voted       this respondent chose it
  * @param {number|null} args.votes   the tally, or null when it is not disclosed
  */

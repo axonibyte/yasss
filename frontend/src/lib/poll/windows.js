@@ -1,5 +1,5 @@
 /**
- * "Repeat every", and the bounds the organiser is held to.
+ * "Repeat every", and the bounds the organizer is held to.
  *
  * The repeat control is an authoring convenience and nothing else. It produces
  * a handful of start times and is then forgotten: nothing about the recurrence
@@ -10,7 +10,7 @@
  *
  * ## Where a repeat stops
  *
- * Either at an "until" the organiser named, or at the end of the day if they
+ * Either at an "until" the organizer named, or at the end of the day if they
  * did not. The unnamed case came first and is unchanged: a repeat may not ask
  * for more time than is left between the first window and midnight, generation
  * stops before midnight, and an interval longer than the remainder is refused
@@ -28,11 +28,11 @@
  * duration, so the last one *starts* at 16:30 and *ends* at the 17:00 boundary.
  * A poll window has no end (`poll_window` stores `start_time` and nothing
  * else); it is an instant, and the question it asks is "can you make 5?". An
- * exclusive reading would mean the organiser types the exact time they want
+ * exclusive reading would mean the organizer types the exact time they want
  * offered and is then not offered it, with the last window an interval short of
  * the number on screen. That reads as an off-by-one however it is documented.
  *
- * It also matters which way the surprise falls. Inclusive, an organiser who
+ * It also matters which way the surprise falls. Inclusive, an organizer who
  * wanted to stop before 17:00 sees one window too many and deletes it.
  * Exclusive, the window they explicitly named is missing, and nothing on the
  * form says why. Silently dropping a time somebody typed is the worse failure,
@@ -94,7 +94,7 @@ const named = (until) => typeof until === 'string' && until !== '';
  *
  * The two cases are not quite symmetrical, deliberately. Without an "until" the
  * span runs to midnight -- 24:00, an instant no window can occupy but the one
- * the organiser is measuring to -- while the last window may be no later than
+ * the organizer is measuring to -- while the last window may be no later than
  * 23:59. With an "until" the span runs to a time that *is* offerable, so the
  * ceiling and the end of the span are the same minute.
  *
@@ -167,7 +167,7 @@ export function checkInterval(start, hours, minutes, until = null) {
  *
  * Inclusive of the first and of any "until"; exclusive of midnight. Returns
  * just the first window when there is no repeat, so a caller never has to
- * branch on whether the organiser asked for one.
+ * branch on whether the organizer asked for one.
  *
  * @param {object} args
  * @param {string} args.start the first window, as `HH:mm`
@@ -200,7 +200,7 @@ export function expandRepeat({ start, repeat = false, hours = 0, minutes = 0, un
  *
  * Deduplicated here rather than left to the server's unique index: two rows at
  * one time would split a respondent's vote between them, and catching it as a
- * duplicate-key error out of a batch makes it impossible to tell the organiser
+ * duplicate-key error out of a batch makes it impossible to tell the organizer
  * which of their windows collided.
  *
  * @param {string[]} wanted

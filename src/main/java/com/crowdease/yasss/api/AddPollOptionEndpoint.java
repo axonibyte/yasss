@@ -28,10 +28,10 @@ import spark.Response;
 /**
  * Endpoint that adds a column to a poll.
  *
- * <p>This is where "apply to future days/dates" is honoured. A window carrying
+ * <p>This is where "apply to future days/dates" is honored. A window carrying
  * that flag reaches forward in time to columns that did not exist when it was
  * written, and this is the moment that happens -- which is why the flag is
- * stored as a standing rule rather than expanded once when the organiser set it.
+ * stored as a standing rule rather than expanded once when the organizer set it.
  *
  * @author Caleb L. Power &lt;cpower&#64;crowdease.com&gt;
  */
@@ -88,7 +88,7 @@ public final class AddPollOptionEndpoint extends APIEndpoint {
         throw new EndpointException(req, "malformed argument (int: priority)", 400);
 
       // The duplicate is caught by the unique index rather than a read-then-write.
-      // Two organisers adding Tuesday at once would both find it absent and both
+      // Two organizers adding Tuesday at once would both find it absent and both
       // insert, which is the check-then-act shape this codebase has spent two
       // rounds removing.
       try {

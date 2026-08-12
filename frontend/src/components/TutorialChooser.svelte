@@ -40,7 +40,7 @@
       <div class="buttons is-centered mt-4">
         {#each Object.entries(GROUPS) as [key, meta], i (key)}
           <!--
-            Equal in weight, so they share a colour and differ in fill. Bulma's
+            Equal in weight, so they share a color and differ in fill. Bulma's
             link blue is not in this platform's palette and read as a stray
             control from another app.
 

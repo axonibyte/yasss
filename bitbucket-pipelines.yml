@@ -14,7 +14,7 @@ mirror: &mirror
 # This is also the *only* place the frontend bundle is built. `check` runs the
 # Java and vitest suites, and `processResources` depends on `buildFrontend`, so
 # Gradle produces the bundle on its way to the jar. The browser steps below take
-# it from here as an artefact rather than building a second one -- which is what
+# it from here as an artifact rather than building a second one -- which is what
 # they used to do, meaning Playwright validated a bundle that was not the one
 # shipped inside the jar. Same inputs, so almost certainly the same bytes; but
 # "almost certainly" was doing the work in a claim about what gets published.
@@ -34,7 +34,7 @@ build: &build
     # The bundle the jar carries, for the browser steps to test.
     - src/main/resources/public/**
 
-# Everything below runs against the artefacts above, so none of them rebuild.
+# Everything below runs against the artifacts above, so none of them rebuild.
 browser: &browser
   name: browser tests (chromium)
   image: mcr.microsoft.com/playwright:v1.62.1-noble
@@ -43,7 +43,7 @@ browser: &browser
   script:
     - cd frontend
     - npm ci
-    # No `npm run build` -- the bundle arrived from `build`. If that artefact is
+    # No `npm run build` -- the bundle arrived from `build`. If that artifact is
     # ever dropped, the fake server serves nothing and these fail immediately
     # rather than quietly testing a stale checkout.
     - npm run test:e2e
@@ -84,10 +84,10 @@ fast: &fast
 # test, driven through the API and a browser. See e2e/README.md.
 #
 # `--jar` rather than letting the script build its own, so the suite proves the
-# artefact that gets published. `--engine docker` because Bitbucket offers a
+# artifact that gets published. `--engine docker` because Bitbucket offers a
 # docker service and not podman; the script's topology is engine-agnostic.
 stack: &stack
-  name: full stack (containerised)
+  name: full stack (containerized)
   size: 2x
   services:
     - docker

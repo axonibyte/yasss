@@ -168,7 +168,7 @@ public class CAPTCHAValidator extends com.axonibyte.lib.http.captcha.CAPTCHAVali
    * <p>{@code NOCAPTCHA} is a pass and not a gap: it means the engine looked at
    * the request and chose not to challenge, which is the answer this key type
    * exists to give. Anything else -- including a value this build does not
-   * recognise -- is not.
+   * recognize -- is not.
    *
    * @param verdict what the assessment said
    * @return {@code true} iff the policy engine was satisfied

@@ -57,7 +57,7 @@ public final class RemovePollResponseEndpoint extends APIEndpoint {
       // Withdrawing an answer is governed by the same setting as changing one:
       // deleting and re-submitting is a way to change an answer, and a poll
       // that forbids the second must forbid the first or the setting means
-      // nothing. The organiser is exempt, as they are everywhere else.
+      // nothing. The organizer is exempt, as they are everywhere else.
       if(!poll.allowAnswerEdits() && !auth.atLeast(poll))
         throw new EndpointException(req, "this poll does not allow answers to be changed", 403);
 

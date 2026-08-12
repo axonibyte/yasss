@@ -57,7 +57,7 @@ final class PollGuard {
    *
    * <p>Note that {@link ModifyPollEndpoint} deliberately does not call this.
    * The deadline lives there, so a closed poll that could not be edited would
-   * be one nobody could ever reopen -- the organiser could not extend the
+   * be one nobody could ever reopen -- the organizer could not extend the
    * deadline they had just let lapse.
    *
    * @param req the {@link Request}

@@ -179,11 +179,11 @@ console.log('\ndeadlines');
   const late = await api('POST', `/v1/polls/${poll.id}/responses`, { body: { name: 'Late', votes: [] } });
   check(late.status === 412, 'answering it is refused', `status ${late.status}`);
 
-  // The organiser must still be able to extend it, or a closed poll could never
+  // The organizer must still be able to extend it, or a closed poll could never
   // be reopened -- which is why ModifyPollEndpoint has no closed check.
   const reopen = await api('PATCH', `/v1/polls/${poll.id}`, { body: { responseDeadline: inAWeek() }, auth });
   check(reopen.status === 200 && reopen.payload?.poll?.closed === false,
-    'but the organiser can extend the deadline', `status ${reopen.status}`);
+    'but the organizer can extend the deadline', `status ${reopen.status}`);
 }
 
 // --- result visibility ------------------------------------------------------
@@ -203,7 +203,7 @@ console.log('\nresult visibility is enforced in the payload');
     JSON.stringify(stranger.payload?.poll?.tally));
 
   const owner = await api('GET', `/v1/polls/${poll.id}`, { auth });
-  check(owner.payload?.poll?.tally !== undefined, 'and gives it to the organiser');
+  check(owner.payload?.poll?.tally !== undefined, 'and gives it to the organizer');
 }
 
 {

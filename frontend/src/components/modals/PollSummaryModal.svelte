@@ -2,7 +2,7 @@
   /**
    * Everything about a poll except its grid.
    *
-   * Two of these fields are decisions the organiser cannot walk back, so the
+   * Two of these fields are decisions the organizer cannot walk back, so the
    * form says so at the point of choosing rather than letting the server refuse
    * later:
    *
@@ -34,7 +34,7 @@
   // Seeded from the poll once, deliberately. This modal is mounted fresh
   // every time it is opened, so the initial value is the current one -- and
   // a form that re-read the poll while it was being edited would discard
-  // what the organiser had typed if anything else touched it.
+  // what the organizer had typed if anything else touched it.
   // svelte-ignore state_referenced_locally
   let title = $state(poll?.title ?? '');
   // svelte-ignore state_referenced_locally
@@ -110,7 +110,7 @@
       next.deadline = 'That deadline has already passed.';
     }
     // The one combination that would hide the results from everybody, the
-    // organiser included -- an anonymous poll has no organiser to show them to.
+    // organizer included -- an anonymous poll has no organizer to show them to.
     if (resultVisibility === 'CREATOR_ONLY' && !loggedIn) {
       next.resultVisibility = 'Sign in first, or nobody will ever see the results.';
     }
@@ -243,7 +243,7 @@
     {#if needsAccount}
       <p class="help is-warning">
         People will have to sign in to answer — it is the only way to still
-        recognise them once the poll has closed.
+        recognize them once the poll has closed.
       </p>
     {/if}
   </Field>

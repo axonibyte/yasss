@@ -65,11 +65,11 @@ public final class AddPollResponseEndpoint extends APIEndpoint {
       if(!auth.atLeast(AccessLevel.ADMIN) && poll.isClosed())
         throw new EndpointException(req, "poll closed", 412);
 
-      // The one result setting that constrains who may answer. Recognising a
+      // The one result setting that constrains who may answer. Recognizing a
       // respondent across the gap between submitting and the deadline needs an
       // account: a token held in one browser is not an identity that survives a
       // new device or a cleared profile, so without this the poll would promise
-      // results to people it could no longer recognise.
+      // results to people it could no longer recognize.
       if(poll.requiresAuthenticatedAnswers() && !auth.atLeast(Authorization.IS_AUTHENTICATED))
         throw new EndpointException(req, "this poll requires an account to answer", 403);
 
@@ -110,7 +110,7 @@ public final class AddPollResponseEndpoint extends APIEndpoint {
       final byte[] fingerprint =
           Fingerprint.saltFor(poll.getID(), Fingerprint.parse(rawFingerprint));
 
-      // The organiser is exempt, which is how somebody answers their own
+      // The organizer is exempt, which is how somebody answers their own
       // single-answer poll.
       final boolean capped = !poll.allowMultiAnswers() && !auth.atLeast(poll);
 

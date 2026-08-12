@@ -1,7 +1,7 @@
 /**
  * Reading a poll's times in somebody else's clock.
  *
- * A poll states its times one of two ways, and the difference is the organiser's
+ * A poll states its times one of two ways, and the difference is the organizer's
  * choice rather than a rendering detail:
  *
  * - WALL_CLOCK: nine o'clock means nine o'clock wherever you are. Nothing is
@@ -136,7 +136,7 @@ export function referenceDate(poll, option, now = new Date()) {
 /**
  * How a row header reads.
  *
- * The first line is always the poll's own time, exactly as the organiser typed
+ * The first line is always the poll's own time, exactly as the organizer typed
  * it -- it is the canonical reading and it is never wrong. The second appears
  * only when it would say something different, and carries a day marker when the
  * conversion crosses midnight, because on a relative poll that means a

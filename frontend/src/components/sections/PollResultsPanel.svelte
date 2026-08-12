@@ -84,7 +84,7 @@
                     A bar rather than a chart: one number per row, and the only
                     comparison that matters is against the best row.
 
-                    Every bar is the same colour, including the winner's. The
+                    Every bar is the same color, including the winner's. The
                     panel exists to compare rows, and a row whose bar is drawn
                     differently cannot be compared with the others by eye --
                     which is the one thing this table is for.
@@ -108,13 +108,13 @@
 <style>
   /*
    * The winning row used Bulma's `.is-selected`, which fills it with
-   * `--bulma-primary` -- the same colour as the `.is-primary` bar inside it.
+   * `--bulma-primary` -- the same color as the `.is-primary` bar inside it.
    * Contrast ratio 1.00: the filled part of the winner's bar was invisible and
    * only the pale track showed, so the row with the most votes rendered the
    * emptiest-looking bar. The single most important row on the page read
    * backwards.
    *
-   * Recolouring the bar inside the filled row was the obvious fix and is the
+   * Recoloring the bar inside the filled row was the obvious fix and is the
    * wrong one. On a bright turquoise row neither a darker nor a lighter track
    * separates well from the row itself (measured: nothing reached 3:1 at any
    * sensible alpha), and it would leave the winner's bar drawn differently from
@@ -122,9 +122,9 @@
    *
    * So the winner is marked without touching the row's background: weight, a
    * rule down the leading edge, and the text marker in the markup. Every bar
-   * keeps one colour and one track.
+   * keeps one color and one track.
    *
-   * `--bulma-primary` is too light to be a data colour: against the track it
+   * `--bulma-primary` is too light to be a data color: against the track it
    * measures 1.65:1, under the 3:1 WCAG 1.4.11 asks of a graphical object that
    * carries meaning. `--bulma-primary-on-scheme` is the palette's answer for
    * "primary, but legible against the page" and is what the wordmark and links

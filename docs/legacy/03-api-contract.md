@@ -683,7 +683,7 @@ signing out from buying a second vote. See `docs/fingerprinting.md`.
 
 The 201 carries `editToken` **once**. It is the only thing an anonymous
 respondent can present to prove an answer is theirs; neither the address nor
-the fingerprint authorises an edit.
+the fingerprint authorizes an edit.
 
 ## 9.5 Result visibility
 

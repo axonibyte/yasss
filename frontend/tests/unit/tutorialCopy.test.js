@@ -6,7 +6,7 @@ import { DEFAULT_COPY } from '../../src/lib/tutorial/defaults.js';
 /**
  * "Does the tutorial assume things a first-timer would not know?"
  *
- * The judgement half of that question cannot be automated and is not attempted
+ * The judgment half of that question cannot be automated and is not attempted
  * here -- whether a sentence *lands* is for a person, and `tutorial-audit.spec.js`
  * exists to put the transcript and the screenshots in front of one.
  *
@@ -149,7 +149,7 @@ describe('tutorial copy', () => {
    * or it is emphasis. Leaving it unclassified is how the first check quietly
    * stops covering anything.
    */
-  it('classifies every emphasised span as either a control or prose', () => {
+  it('classifies every emphasized span as either a control or prose', () => {
     const seen = new Set(Object.values(DEFAULT_COPY).flatMap(boldIn));
     const unclassified = [...seen].filter(
       (span) => !UI_LABELS.has(span) && !PROSE_EMPHASIS.has(span),
@@ -196,7 +196,7 @@ describe('surface changes', () => {
   };
 
   // Words that account for the page having changed. Loose on purpose: this is
-  // looking for *any* acknowledgement, not a fixed phrase, because the copy
+  // looking for *any* acknowledgment, not a fixed phrase, because the copy
   // should read like prose rather than like it is satisfying a checker.
   const cue = /editor|edit mode|opens?|opened|now (in|editing)|switch|building|create|creating|form|publish|here (is|it)|closed/i;
 

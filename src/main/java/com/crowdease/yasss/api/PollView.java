@@ -120,7 +120,7 @@ final class PollView {
    *
    * <p>The identity columns are never rendered. An IP address and a browser
    * fingerprint are collected to make a second answer inconvenient and for no
-   * other purpose, and sending either back -- even to the organiser, who is the
+   * other purpose, and sending either back -- even to the organizer, who is the
    * only one who could ask -- would turn a duplicate check into a report on who
    * answered from where.
    *

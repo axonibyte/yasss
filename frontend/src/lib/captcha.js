@@ -35,7 +35,7 @@
  * So the load is the probe: try `render=<siteKey>`, and when the tag errors,
  * load `render=explicit` and take the widget path. `execute` rejecting is still
  * handled below, because a policy key can refuse a token for its own reasons,
- * but it is the second line of defence rather than the first.
+ * but it is the second line of defense rather than the first.
  *
  * Two legacy behaviors are still deliberately preserved here:
  *

@@ -106,7 +106,7 @@ public class PollWindow implements Comparable<PollWindow> {
    * Determines whether an option added after this window should automatically
    * be offered it.
    *
-   * <p>This is the organiser's "apply to future days/dates" choice, kept as a
+   * <p>This is the organizer's "apply to future days/dates" choice, kept as a
    * standing rule rather than expanded once when it was made. The distinction
    * is the whole of the feature: a column added a week later has to pick the
    * window up, and a one-time expansion cannot reach forward in time.

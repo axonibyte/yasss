@@ -178,7 +178,7 @@ public class DetailTypeTest {
    * type. `normalize` is what the four call sites now run first.
    */
   @Test
-  public void emailNormalisesToLowercase() {
+  public void emailNormalizesToLowercase() {
     assertEquals(Type.EMAIL.normalize("John.Smith@Example.COM"), "john.smith@example.com");
     assertTrue(Type.EMAIL.isValid(Type.EMAIL.normalize("John.Smith@Example.COM")));
     // The case that used to be a 400.

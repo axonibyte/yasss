@@ -2,7 +2,7 @@
  * A browser fingerprint, for polls that allow one answer each.
  *
  * The honest framing first, because it belongs next to the code and not only in
- * the warning the organiser is shown: this is a speed bump. Anybody who wants
+ * the warning the organizer is shown: this is a speed bump. Anybody who wants
  * to answer twice can open a private window. What it stops is the ordinary
  * case -- somebody clicking the link again, or refreshing and voting twice by
  * accident.

@@ -32,11 +32,11 @@ import spark.Response;
 /**
  * Endpoint that revises an answer somebody already gave.
  *
- * <p>Only where the organiser allowed it, and only by the person who gave it.
- * An account recognises itself; anybody else presents the token they were
- * handed when they answered. Neither the address nor the fingerprint authorises
+ * <p>Only where the organizer allowed it, and only by the person who gave it.
+ * An account recognizes itself; anybody else presents the token they were
+ * handed when they answered. Neither the address nor the fingerprint authorizes
  * anything here -- everybody behind one NAT shares an address, and an address
- * that could authorise an edit would let a stranger rewrite somebody else's
+ * that could authorize an edit would let a stranger rewrite somebody else's
  * answer.
  *
  * @author Caleb L. Power &lt;cpower&#64;crowdease.com&gt;
@@ -61,7 +61,7 @@ public final class ModifyPollResponseEndpoint extends APIEndpoint {
    */
   static boolean mayRevise(
       Authorization auth, Poll poll, PollResponse response, String token) {
-    // The organiser may always act on answers to their own poll: it is their
+    // The organizer may always act on answers to their own poll: it is their
     // poll, and they are the one who has to clear out a duplicate or a test
     // entry.
     if(auth.atLeast(poll)) return true;

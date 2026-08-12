@@ -13,7 +13,7 @@
  *
  * ip_addr_bin is VARBINARY(16) written through INET6_ATON, not INT UNSIGNED.
  * 006 records what happens otherwise: every IPv6 client, which is most mobile
- * traffic and every containerised test, yields NULL and the cap silently never
+ * traffic and every containerized test, yields NULL and the cap silently never
  * applies at all.
  *
  * `fingerprint` is BINARY(32) holding SHA-256(poll id || client digest).
@@ -26,7 +26,7 @@
  * `edit_token` is how an anonymous respondent proves an answer is theirs, in
  * the shape volunteer.reminder_token already uses. It is deliberately not the
  * IP and not the fingerprint: everyone behind one NAT shares an address, and
- * letting an address authorise an edit would let a stranger rewrite somebody
+ * letting an address authorize an edit would let a stranger rewrite somebody
  * else's answer.
  *
  * Block comments deliberately -- see the note in 006.

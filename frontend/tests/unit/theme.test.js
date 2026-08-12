@@ -3,12 +3,12 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Link colour, asserted at the source.
+ * Link color, asserted at the source.
  *
  * Bulma's `--bulma-link` is a blue that exists nowhere in this product's
  * palette, and it had been patched three times -- the wordmark, the navbar
  * burger, the theme toggle -- once per place somebody happened to look. Each
- * patch fixed an element and left the rule intact, so the next link-coloured
+ * patch fixed an element and left the rule intact, so the next link-colored
  * thing arrived blue: the ghost buttons, every `<select>` arrow, and every link
  * in operator-authored markdown, which cannot be patched per-element because
  * the markup is not ours.
@@ -27,7 +27,7 @@ import { describe, expect, it } from 'vitest';
  */
 const scss = () => readFileSync(resolve(process.cwd(), 'src/app.scss'), 'utf8');
 
-describe('link colour follows the brand', () => {
+describe('link color follows the brand', () => {
   it('is applied in every theme block, not just the default one', () => {
     const src = scss();
     // Each theme state is a block that sets Bulma's variables up; there are four
@@ -59,7 +59,7 @@ describe('link colour follows the brand', () => {
 
   it('leaves no hard-coded hue in the override', () => {
     // Every value is a reference to primary. A literal here would be a fourth
-    // colour to keep in step with the palette by hand, which is the habit this
+    // color to keep in step with the palette by hand, which is the habit this
     // whole change exists to break.
     const mixin = /@mixin link-follows-brand \{([\s\S]*?)\n\}/.exec(scss())?.[1] ?? '';
     const values = [...mixin.matchAll(/^\s*--bulma-link-[\w-]+:\s*(.+);$/gm)].map((m) => m[1]);

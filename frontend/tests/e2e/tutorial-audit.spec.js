@@ -9,23 +9,23 @@
  *   (b) Do I know what it is pointing at, from this screen alone?
  *   (c) Am I allowed to click anything else?
  *   (d) Is it coherent, or does it assume things I would not know?
- *   (e) If this were greyscale, would I still understand it?
+ *   (e) If this were grayscale, would I still understand it?
  *
  * Four of those are mechanical. (d) is not, and this file does not pretend
  * otherwise -- `tests/unit/tutorialCopy.test.js` takes the checkable half (a
  * step naming a control that no longer exists, a track opening with a backward
- * reference, copy too long for the panel) and the rest is a judgement call.
+ * reference, copy too long for the panel) and the rest is a judgment call.
  * What this spec does for (d) is emit an ordered transcript and a screenshot per
  * step into `test-results/tutorial-audit/`, so a person -- or a model asked to
  * read it as a newcomer -- can answer it from evidence instead of memory.
  *
- * ## Why the colour checks are computed from the DOM
+ * ## Why the color checks are computed from the DOM
  *
  * (e) is the natural place to reach for image diffing, and this does not: it
- * resolves the actual painted colours through `getComputedStyle`, converts them
+ * resolves the actual painted colors through `getComputedStyle`, converts them
  * to relative luminance, and asserts the distinctions survive with the hue
  * thrown away. That answers the question that matters -- "is this conveyed by
- * colour alone" -- as a number, in the same units WCAG uses, and it says which
+ * color alone" -- as a number, in the same units WCAG uses, and it says which
  * element and which pair failed. A pixel diff would say "these images differ by
  * 3%" and leave somebody to work out where and whether it mattered, and it
  * would need a screenshot baseline that has to be regenerated on every legitimate
@@ -59,7 +59,7 @@ const TEXT_CONTRAST = 4.5;
 const OBJECT_CONTRAST = 3;
 
 /**
- * Colour maths, run in the page so it can read computed styles.
+ * Color math, run in the page so it can read computed styles.
  *
  * `getComputedStyle` resolves custom properties and inherited values to real
  * rgb() triples, which is the whole reason this happens in the browser: the
@@ -183,13 +183,13 @@ for (const track of TRACKS) {
       for (const [n, mark] of anchored.entries()) {
         if (mark.area === 0) failures.push(`step ${i}: highlight ${n} has no size`);
         if (!mark.onScreen) failures.push(`step ${i}: highlight ${n} is off screen`);
-        // --- (e) would greyscale still work? --------------------------------
+        // --- (e) would grayscale still work? --------------------------------
         //
-        // The highlight must not be colour alone. An outline or a shadow
-        // survives rasterising to grey; a hue change does not, and neither does
+        // The highlight must not be color alone. An outline or a shadow
+        // survives rasterizing to gray; a hue change does not, and neither does
         // it survive the reader.
         if (!mark.outline && !mark.boxShadow) {
-          failures.push(`step ${i}: highlight ${n} is colour alone -- nothing survives greyscale`);
+          failures.push(`step ${i}: highlight ${n} is color alone -- nothing survives grayscale`);
         }
       }
 

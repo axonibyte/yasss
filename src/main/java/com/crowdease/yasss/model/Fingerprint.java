@@ -17,7 +17,7 @@ import java.util.UUID;
  * {@link Poll} inconvenient.
  *
  * <p>The honest framing first, because it belongs in the code and not only in
- * the warning the organiser is shown: this is a speed bump. A determined person
+ * the warning the organizer is shown: this is a speed bump. A determined person
  * with a second browser, a private window or a different machine defeats it in
  * seconds, and it is offered as "we will do our best" rather than as a
  * guarantee. What it does stop is the ordinary case — somebody clicking the
@@ -29,7 +29,7 @@ import java.util.UUID;
  * {@code SHA-256(poll id ‖ digest)}. That costs one hash and buys the property
  * that matters: the same browser answering two different polls stores two
  * unrelated values, so this column cannot be joined to itself to follow a
- * person around the service. A duplicate check needs only to recognise a
+ * person around the service. A duplicate check needs only to recognize a
  * repeat within one poll, and salting is what keeps it from quietly becoming
  * more than that.
  *
@@ -100,7 +100,7 @@ public final class Fingerprint {
       return sha.digest();
     } catch(NoSuchAlgorithmException e) {
       // SHA-256 is required of every conforming JRE, so this cannot happen; if
-      // it somehow does, there is no sensible degraded behaviour -- returning
+      // it somehow does, there is no sensible degraded behavior -- returning
       // null would silently disable the duplicate check.
       throw new IllegalStateException("SHA-256 is unavailable", e);
     }

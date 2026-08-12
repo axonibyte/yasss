@@ -77,7 +77,7 @@ if they are signed in, and by network address if they are not.`,
 An event has a time zone. Everybody sees the same instant, rendered in that
 zone, with a note above the grid when it is not their own.
 
-It matters more than it sounds. Set an event up while travelling, or on a
+It matters more than it sounds. Set an event up while traveling, or on a
 machine with the wrong zone, and without this every time on it is wrong by
 however far you were from home.`,
 
@@ -463,7 +463,7 @@ to that particular time on that particular day. Click again to put it back.`,
   'p-all-day': `## All Day
 
 Every column header has an **All Day** checkbox — the slider has moved so you
-can see one already ticked. Tick it and that column's times grey out: you are
+can see one already ticked. Tick it and that column's times gray out: you are
 asking whether the whole day works, not which hour.
 
 Turning it back off restores exactly the squares you had. Nothing is lost by
@@ -474,7 +474,7 @@ trying it.`,
 **Add a Question** opens this. A poll can ask its own questions, with the same
 five kinds of field an event has and the same *required* switch.
 
-Keep it short. Somebody answering a poll is doing you a favour on their way to
+Keep it short. Somebody answering a poll is doing you a favor on their way to
 something else, and every extra box is a reason to close the tab.`,
 
   'p-publish': `## Publishing a poll

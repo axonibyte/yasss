@@ -16,7 +16,7 @@
  * that carries meaning (1.4.11). A progress bar showing a vote count is squarely
  * the latter -- it *is* the result, not decoration.
  *
- * Both themes, always. Every colour here is theme-derived, so a value that
+ * Both themes, always. Every color here is theme-derived, so a value that
  * passes in light says nothing about dark, and the explicit `[data-theme]` pins
  * are what a reader who has chosen gets.
  *
@@ -82,7 +82,7 @@ for (const theme of ['light', 'dark']) {
       const out = [];
       for (const bar of root.querySelectorAll('progress')) {
         const style = getComputedStyle(bar);
-        // The two colours a progress element paints, exposed as the custom
+        // The two colors a progress element paints, exposed as the custom
         // properties Bulma drives it with -- reading ::-webkit-progress-value
         // is not portable, and these are what the stylesheet actually sets.
         const fill = c.rgb(style.getPropertyValue('--bulma-progress-value-background-color').trim());
@@ -126,13 +126,13 @@ for (const theme of ['light', 'dark']) {
 }
 
 /**
- * The winner has to be identifiable with the colour thrown away.
+ * The winner has to be identifiable with the color thrown away.
  *
- * Weight and a rule both survive greyscale; a fill does not, and neither does it
+ * Weight and a rule both survive grayscale; a fill does not, and neither does it
  * reach anybody using a screen reader. The text marker is the part that covers
  * both, which is why it is asserted separately from the styling.
  */
-test('the winning row is marked by more than colour', async ({ page }) => {
+test('the winning row is marked by more than color', async ({ page }) => {
   await page.goto('/?tutorial=voter');
   await waitForApp(page);
 
@@ -148,7 +148,7 @@ test('the winning row is marked by more than colour', async ({ page }) => {
     };
   });
 
-  expect(marks.weight, 'the winning row is not emphasised').toBeGreaterThanOrEqual(600);
+  expect(marks.weight, 'the winning row is not emphasized').toBeGreaterThanOrEqual(600);
   expect(marks.rule, 'the winning row has no rule down its edge').toBe(true);
   expect(marks.saidInText, 'the winning row is never named in text').toBe(true);
 });

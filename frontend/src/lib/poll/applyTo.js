@@ -1,7 +1,7 @@
 /**
  * The "apply to" control, and the difference between its two halves.
  *
- * An organiser adding a row chooses which columns it is offered on. That choice
+ * An organizer adding a row chooses which columns it is offered on. That choice
  * has two parts and they behave differently, which is the whole of this file:
  *
  * - the columns picked now, which is a list resolved immediately;
@@ -36,7 +36,7 @@ export function applyToNow({ mode, options, selected = [] }) {
  * The body of an add-window request.
  *
  * `applyTo` is omitted when every column is wanted, because the server reads
- * absence as "all" -- and an explicitly empty array is honoured as empty, which
+ * absence as "all" -- and an explicitly empty array is honored as empty, which
  * is a legitimate half-built state and must not be confused with saying
  * nothing.
  *

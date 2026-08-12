@@ -16,7 +16,7 @@ import java.util.UUID;
  * rule with a long consequence: <em>you may change a thing if you are its
  * administrator, and a thing with no administrator can be changed only by a
  * platform admin</em>. The second half is why publishing anonymously is
- * irreversible — an event or poll with a null admin has no owner to recognise,
+ * irreversible — an event or poll with a null admin has no owner to recognize,
  * so nobody but staff will ever be able to edit it. That is a promise made to
  * every visitor who publishes without an account, and it must not come to be
  * enforced by two copies of the same code that can drift apart.

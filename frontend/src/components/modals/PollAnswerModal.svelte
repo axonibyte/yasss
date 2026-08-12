@@ -2,7 +2,7 @@
   /**
    * Who is answering, and their answers to the poll's own questions.
    *
-   * One person, not a list. An event's organiser signs several volunteers up in
+   * One person, not a list. An event's organizer signs several volunteers up in
    * one sitting; a poll asks one person which times work for them, so there is
    * no "add another" here and no picker to choose between entries. That is the
    * whole difference between the two surfaces, and it is why this is not
@@ -38,7 +38,7 @@
 
   function validate() {
     const next = {};
-    if (!name.trim()) next.name = 'Please give a name, so the organiser knows who answered.';
+    if (!name.trim()) next.name = 'Please give a name, so the organizer knows who answered.';
 
     for (const detail of poll.details) {
       const type = DETAIL_TYPES[detail.type];
@@ -61,7 +61,7 @@
     if (!validate()) return;
 
     // Serialized through the type registry, so a boolean goes as "true" and an
-    // email is lowercased -- the same normalisation the server validates
+    // email is lowercased -- the same normalization the server validates
     // against. An optional unticked checkbox is still sent, because "no" is an
     // answer and dropping it makes it indistinguishable from never asked.
     const out = new Map();
@@ -130,7 +130,7 @@
   {#if !poll.allowMultiAnswers}
     <!--
       The respondent is told what is collected, in the same breath as the
-      organiser is told it is easy to bypass. Somebody being fingerprinted has
+      organizer is told it is easy to bypass. Somebody being fingerprinted has
       more right to know about it than the person who switched it on.
     -->
     <p class="help" data-testid="fingerprint-notice">

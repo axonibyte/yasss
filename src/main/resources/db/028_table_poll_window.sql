@@ -6,7 +6,7 @@
  * date to be had at all. This is the one structural reason `event_window` could
  * not simply be reused. docs/utc-storage.md applies unchanged, and more easily
  * than elsewhere: a TIME round-trips through the driver with no zone
- * conversion, so the value stored is the value the organiser typed, in whatever
+ * conversion, so the value stored is the value the organizer typed, in whatever
  * frame poll.time_mode declares.
  *
  * No end time, by design. A poll asks "can you make 9am?", not "can you do 9
@@ -18,7 +18,7 @@
  * requirement: a column added a week after the window was written must pick the
  * window up, which a one-time expansion cannot do. AddPollOptionEndpoint reads
  * this flag and creates the matching cells inside the same transaction as the
- * option insert. An organiser who then unticks a particular square is writing
+ * option insert. An organizer who then unticks a particular square is writing
  * an ordinary cell row, and this flag does not undo them.
  *
  * UNIQUE (poll, start_time) because two windows at the same time are

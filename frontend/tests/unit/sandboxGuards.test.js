@@ -5,7 +5,7 @@
  * model carrying `sandbox` -- and the rule is only as good as its coverage.
  * Three calls were outside it, and all three became reachable the moment the
  * practice models were made owned by the learner looking at them, which is what
- * lets the creation tracks show the organiser's own surface at all:
+ * lets the creation tracks show the organizer's own surface at all:
  *
  *   - `deletePoll`, because "Delete Poll" is owner-only and a practice poll had
  *     no owner, so nobody could press it;

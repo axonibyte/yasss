@@ -7,7 +7,7 @@
    *
    * The repeat is an authoring convenience and nothing else: it produces a
    * handful of start times here and is then forgotten. It stops either at an
-   * "until" the organiser named or at the end of the day, and either way the
+   * "until" the organizer named or at the end of the day, and either way the
    * bound is checked as they type -- finding out at submit time which of six
    * numbers was wrong is worse.
    *
@@ -68,7 +68,7 @@
   let future = $state(win?.appliesToNewOptions ?? false);
   let errors = $state({});
 
-  /** Live, so the organiser sees what they are about to create. */
+  /** Live, so the organizer sees what they are about to create. */
   const verdict = $derived(repeat ? checkInterval(start, hours, minutes, until) : { ok: true });
   const preview = $derived(
     verdict.ok
@@ -80,7 +80,7 @@
    * The verdict, but only where it belongs.
    *
    * An "until" before the start is not a complaint about the interval, and
-   * showing it under "Repeat every" would send the organiser to correct the one
+   * showing it under "Repeat every" would send the organizer to correct the one
    * number that is right.
    */
   const faultOf = (field) => (!verdict.ok && verdict.field === field ? verdict.reason : null);
@@ -133,7 +133,7 @@
       <!--
         `min` is the browser's guard against an until before the start; the
         verdict above is ours. Both, because the native one stops the mistake
-        being made and ours stops it being submitted -- `min` is honoured
+        being made and ours stops it being submitted -- `min` is honored
         unevenly across pickers and not at all by a typed-in value.
       -->
       <TimeField

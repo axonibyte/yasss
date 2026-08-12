@@ -52,20 +52,20 @@ public class PollGuardTest {
     return e.getErrorCode();
   }
 
-  /** The ordinary case: the organiser, on a poll that is still open. */
-  @Test public void theOrganiserMayReshapeAnOpenPoll() throws Exception {
+  /** The ordinary case: the organizer, on a poll that is still open. */
+  @Test public void theOrganizerMayReshapeAnOpenPoll() throws Exception {
     User owner = user(AccessLevel.STANDARD);
     PollGuard.checkEditable(
         new FakeRequest(), new Authorization(owner, true), poll(owner.getID(), false));
   }
 
   /**
-   * Closed stops the organiser too.
+   * Closed stops the organizer too.
    *
    * <p>Reshaping a poll after it has closed moves squares people have already
    * voted on, at a point where they can no longer revise what they said.
    */
-  @Test public void theOrganiserMayNotReshapeAClosedPoll() {
+  @Test public void theOrganizerMayNotReshapeAClosedPoll() {
     User owner = user(AccessLevel.STANDARD);
     assertEquals(codeFrom(owner, poll(owner.getID(), true)), 412);
   }

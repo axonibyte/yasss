@@ -19,7 +19,7 @@
  * So the cell carries its own id, and poll_vote references that id and holds no
  * nullable column at all. The uniqueness problem does not vanish, it moves
  * here, where it is far less dangerous: cells are written by the poll's
- * organiser in one transaction, not raced for by the public. It is still
+ * organizer in one transaction, not raced for by the public. It is still
  * enforced, twice:
  *
  *   idx_poll_cell_pair    (poll_option, poll_window) -- one row per timed

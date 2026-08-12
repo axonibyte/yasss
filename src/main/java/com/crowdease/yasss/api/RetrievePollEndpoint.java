@@ -60,7 +60,7 @@ public final class RetrievePollEndpoint extends APIEndpoint {
 
       JSONObject body = PollView.structure(poll);
 
-      // Whether the caller is the organiser, and whether they have answered.
+      // Whether the caller is the organizer, and whether they have answered.
       // The second is an account or the token they were handed -- never the
       // address or the fingerprint, which are evidence of a duplicate and not
       // proof of identity.
@@ -76,7 +76,7 @@ public final class RetrievePollEndpoint extends APIEndpoint {
             "tally",
             PollView.tally(PollTally.counts(poll.getID()), PollTally.respondents(poll.getID())));
 
-      // The organiser gets the answers themselves, which is the poll's whole
+      // The organizer gets the answers themselves, which is the poll's whole
       // point for them: a tally says half the group can make Tuesday, and the
       // list says which half.
       if(owner) {
