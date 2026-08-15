@@ -309,7 +309,10 @@ test('a signed-in organizer is warned before losing real work', async ({ page, r
   await page.getByRole('button', { name: 'Save' }).click();
 
   await page.getByRole('link', { name: 'Tutorial' }).click();
-  await expect(page.getByText('You have unsaved work on this event')).toBeVisible();
+  // The tutorial's own wording. This asserted "unsaved work on this event"
+  // before, which is what `goHome` says -- a different guard on a different
+  // path that this test never takes.
+  await expect(page.getByText('Starting the tutorial will lose it')).toBeVisible();
 
   // Backing out leaves the real event exactly where it was.
   await page.getByRole('button', { name: 'Cancel' }).click();
@@ -393,7 +396,10 @@ test.describe('the ?tutorial link', () => {
     for (const url of ['/?tutorial', '/?tutorial=nonsense']) {
       await page.goto(url);
       await waitForApp(page);
-      await expect(page.getByTestId('tutorial-track-organizer')).toBeVisible();
+      // The chooser asks which side of the event you are on before it asks
+      // which tour, so a bare or unrecognised link lands on the first question,
+      // not on the track buttons.
+      await expect(page.getByTestId('tutorial-group-organizing')).toBeVisible();
     }
   });
 
@@ -592,6 +598,12 @@ test.describe('the creation tracks build rather than describe', () => {
       await page.getByRole('button', { name: 'Start building' }).click();
 
       await page.getByTestId('publish-poll').click();
+      // The anonymous-publish prompt comes up first, exactly as it would for a
+      // real poll -- the sandbox guard fires after it is answered, not instead
+      // of it. Leaving the question standing means the toast below never
+      // happens and the failure reads as a missing guard rather than an
+      // unanswered dialog.
+      await page.getByRole('button', { name: "No thanks, I'm good!" }).click();
       await expect(
         page.getByText('This is a practice poll, so it is not published anywhere.'),
       ).toBeVisible();

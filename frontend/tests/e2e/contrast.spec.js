@@ -80,13 +80,35 @@ for (const theme of ['light', 'dark']) {
     const readings = await panel.evaluate((root) => {
       const c = window.__c;
       const out = [];
+      // The two colors a progress element paints, exposed as the custom
+      // properties Bulma drives it with -- reading ::-webkit-progress-value is
+      // not portable, and these are what the stylesheet actually sets.
+      //
+      // Resolved through a probe rather than read straight off the element.
+      // `getPropertyValue` hands back whatever the cascade computed, and Bulma
+      // computes these to `hsla(...)`, which the rgb() parser below does not
+      // match -- so every bar fell through the `continue` and the whole
+      // measurement silently read zero bars while claiming to check contrast.
+      // Assigning to a real `color` property makes the browser do the color
+      // math, and computed `color` always serialises as rgb()/rgba().
+      // The probe goes in the bar's parent, not the bar: a progress element's
+      // children are fallback content and are not rendered. The value handed to
+      // it is the one already computed on the bar, so no inheritance is needed
+      // either -- only the hsla-to-rgb conversion, which is the browser's job.
+      const probe = document.createElement('span');
+      const resolve = (el, prop) => {
+        const raw = getComputedStyle(el).getPropertyValue(prop).trim();
+        if (!raw) return null;
+        (el.parentElement ?? document.body).appendChild(probe);
+        probe.style.color = raw;
+        const out = getComputedStyle(probe).color;
+        probe.remove();
+        return c.rgb(out);
+      };
+
       for (const bar of root.querySelectorAll('progress')) {
-        const style = getComputedStyle(bar);
-        // The two colors a progress element paints, exposed as the custom
-        // properties Bulma drives it with -- reading ::-webkit-progress-value
-        // is not portable, and these are what the stylesheet actually sets.
-        const fill = c.rgb(style.getPropertyValue('--bulma-progress-value-background-color').trim());
-        const track = c.rgb(style.getPropertyValue('--bulma-progress-bar-background-color').trim());
+        const fill = resolve(bar, '--bulma-progress-value-background-color');
+        const track = resolve(bar, '--bulma-progress-bar-background-color');
         const row = c.behind(bar);
         if (!fill || !track) continue;
         out.push({

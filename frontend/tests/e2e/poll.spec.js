@@ -30,6 +30,19 @@ async function addTime(page, time) {
   await page.getByRole('button', { name: 'Add', exact: true }).click();
 }
 
+/**
+ * Publish, and answer the guest prompt the way the event specs do.
+ *
+ * Publishing anonymously is irreversible, so the app asks before it happens --
+ * the same prompt smoke.spec.js dismisses after "Publish Event". Without this
+ * the share modal never opens, and the failure reads as a missing Poll URL
+ * rather than as an unanswered question sitting in front of it.
+ */
+async function publishPoll(page) {
+  await page.getByRole('button', { name: 'Publish Poll' }).click();
+  await page.getByRole('button', { name: "No thanks, I'm good!" }).click();
+}
+
 test('Create Poll comes before Create Event in the navbar', async ({ page }) => {
   await page.goto('/');
   await waitForApp(page);
@@ -48,8 +61,12 @@ test('builds a poll, publishes it, and offers only the squares it was given',
     await startPoll(page);
 
     await expect(page.getByRole('heading', { name: 'Team Lunch' })).toBeVisible();
-    await expect(page.getByText("You haven't added any days or times to your poll yet!"))
-      .toBeVisible();
+    // Not the empty message: startPoll picked two days, and `isEmpty` is
+    // `options.length === 0 && windows.length === 0` -- the same AND EventModel
+    // uses, where activities without windows likewise give a grid with no rows.
+    // What is true here is that the days are offered and nothing is votable yet.
+    await expect(page.locator('.event-cell')).toHaveCount(3);
+    await expect(page.locator('[data-slot-state]')).toHaveCount(0);
 
     await addTime(page, '09:00');
     // Corner, two day headers, one time header, two squares.
@@ -61,7 +78,7 @@ test('builds a poll, publishes it, and offers only the squares it was given',
     await page.locator('[data-slot-state="editing"]').first().click();
     await expect(page.locator('[data-slot-state="editing-off"]')).toHaveCount(1);
 
-    await page.getByRole('button', { name: 'Publish Poll' }).click();
+    await publishPoll(page);
     await expect(page.getByLabel('Poll URL')).toBeVisible();
     await page.getByRole('button', { name: 'close' }).click();
 
@@ -78,7 +95,10 @@ test('the repeat control fills the day and refuses an interval that will not fit
 
     await page.getByRole('button', { name: 'Add a Time' }).click();
     await page.getByLabel('Starts at').fill('21:00');
-    await page.getByLabel('Repeat through the day').check();
+    // bulma-switch hides the input behind its label, so the label is the
+    // control a user can actually reach -- the same idiom reminders.spec.js
+    // documents. `.check()` on the input times out: the label intercepts.
+    await page.getByText('Repeat through the day').click();
 
     // Eight hours after nine in the evening runs past midnight, so it is
     // refused rather than quietly making one row.
@@ -102,7 +122,10 @@ test('the repeat stops at an "until", and offers the time it names',
 
     await page.getByRole('button', { name: 'Add a Time' }).click();
     await page.getByLabel('Starts at').fill('09:00');
-    await page.getByLabel('Repeat through the day').check();
+    // bulma-switch hides the input behind its label, so the label is the
+    // control a user can actually reach -- the same idiom reminders.spec.js
+    // documents. `.check()` on the input times out: the label intercepts.
+    await page.getByText('Repeat through the day').click();
     await page.getByLabel('Hours').fill('1');
     await page.getByLabel('Until').fill('12:00');
 
@@ -148,7 +171,8 @@ test('the warning about multiple answers says plainly that it is bypassable',
     await page.getByRole('link', { name: 'Create Poll' }).click();
     await expect(page.getByTestId('multi-answer-warning')).toHaveCount(0);
 
-    await page.getByLabel('Allow more than one answer per person').uncheck();
+    // A switch, so click the label rather than the input it hides.
+  await page.getByText('Allow more than one answer per person').click();
     await expect(page.getByTestId('multi-answer-warning'))
       .toContainText('trivial to bypass');
   });
@@ -158,7 +182,7 @@ test('one code box opens a poll as readily as an event', async ({ page }) => {
   await waitForApp(page);
   await startPoll(page, 'Which evening?');
   await addTime(page, '18:00');
-  await page.getByRole('button', { name: 'Publish Poll' }).click();
+  await publishPoll(page);
 
   const code = await page.getByTestId('event-code').inputValue();
   await page.getByRole('button', { name: 'close' }).click();
@@ -179,14 +203,21 @@ test('answering records one person and as many squares as they like',
     await startPoll(page);
     await addTime(page, '09:00');
     await addTime(page, '12:30');
-    await page.getByRole('button', { name: 'Publish Poll' }).click();
+    await publishPoll(page);
     await page.getByRole('button', { name: 'close' }).click();
 
-    // Two of the four squares.
+    // Two of the four squares, and which two does not matter -- what is being
+    // checked below is one respondent with two votes.
+    //
+    // Taking the first twice rather than nth(0) and nth(3): the locator is
+    // live, so the moment a square is voted it leaves the `available` set and
+    // the set shrinks to three. nth(3) then refers to nothing and the click
+    // waits out its timeout on an element that existed when the line was
+    // written and never does by the time it runs.
     const squares = page.locator('[data-slot-state="available"]');
     await expect(squares).toHaveCount(4);
-    await squares.nth(0).click();
-    await squares.nth(3).click();
+    await squares.first().click();
+    await squares.first().click();
     await expect(page.locator('[data-slot-state="voted"]')).toHaveCount(2);
 
     await page.getByRole('button', { name: 'Answer This Poll' }).click();

@@ -220,6 +220,18 @@ for (const track of TRACKS) {
         for (const el of document.querySelectorAll('button, a[href], input, select')) {
           if (el.closest('[data-testid="tutorial-step"]')) continue;
           if (el.disabled) continue;
+          // Nothing with a zero-size box. Measured rather than reasoned: the one
+          // step that opens a date picker reported 21 blocked controls, and every
+          // one of them is a `button.date-item` at 0x0 carrying
+          // `pointer-events: none` on itself -- days belonging to a picker that
+          // is not open. Nobody can click them, tour or no tour, so they are not
+          // evidence that the tour took anything away.
+          //
+          // This exempts controls that render nothing, and only those. One that
+          // occupies space and has been made inert still fails below, which is
+          // the case this check exists for.
+          const box = el.getBoundingClientRect();
+          if (box.width === 0 && box.height === 0) continue;
           let node = el;
           while (node && node !== document.documentElement) {
             if (node.inert || getComputedStyle(node).pointerEvents === 'none') {

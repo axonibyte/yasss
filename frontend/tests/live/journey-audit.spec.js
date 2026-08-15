@@ -253,6 +253,18 @@ describe('the tutorial, over an accumulated world', () => {
   });
 
   test('runs both tracks without writing anything', async ({ page, baseURL }) => {
+    // Three times the suite's 60s, which is sized for a single scrypt login.
+    // This one signs in twice and then walks 35 tutorial steps clicking a tile
+    // on each, at roughly 1.6s a step.
+    //
+    // It used to fit comfortably, for a bad reason: the tile locator below
+    // filters on /^Available$/, and a stray whitespace node in GridCell meant
+    // it matched nothing, so every click was skipped and the test finished in
+    // 15s having exercised almost none of what it claims to. Fixing the markup
+    // made it do the work, and the work does not fit in 60s. The budget is
+    // wrong here, not the walk -- measured at ~80s with headroom to spare.
+    test.slow();
+
     const actor = handle.actors[0];
     test.skip(!actor, 'no actor with an account in this world');
 
@@ -357,6 +369,12 @@ describe('the tutorial, over an accumulated world', () => {
     // Interrupted mid-session, which is the case that only exists once somebody
     // has accumulated something worth losing.
     await page.getByRole('link', { name: 'Tutorial' }).click();
+    // Two clicks deep since the chooser started asking which side of the event
+    // you are on before which tour. The group is written out rather than looked
+    // up from TRACKS for the same reason tests/e2e/tutorial.spec.js writes its
+    // own out: a map derived from the source under test agrees with itself
+    // whatever the buttons actually say.
+    await page.getByTestId('tutorial-group-participant').click();
     await page.getByTestId('tutorial-track-volunteer').click();
     await expect(page.getByTestId('event-title')).toHaveText(PRACTICE_TITLE);
     await page.getByRole('button', { name: 'Exit tutorial' }).click();
