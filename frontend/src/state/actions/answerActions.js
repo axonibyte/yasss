@@ -11,6 +11,7 @@ import * as api from '../../lib/api/index.js';
 import { fingerprint } from '../../lib/fingerprint.js';
 import { responseFromApi } from '../../lib/api/pollDto.js';
 import { isRemote } from './remote.js';
+import { refreshPoll } from './pollActions.js';
 import { toastError, toastSuccess } from '../toast.js';
 
 const tokenKey = (pollId) => `yasss.poll.${pollId}.token`;
@@ -79,6 +80,16 @@ export async function submitAnswer(poll, answer, { captcha = null } = {}) {
     const res = await api.addPollResponse(poll.id, payload, captcha);
     rememberToken(poll.id, res.response?.editToken ?? null);
     adopt(poll, res.response);
+    // Read the poll back, because answering is what can disclose the results.
+    // Under RESPONDENT_ALL_AFTER_SUBMIT the tally arrives only once the reader
+    // has answered, and the reply to the answer does not carry it -- so without
+    // this the respondent submits, is told it worked, and sees no results until
+    // they reload the page by hand. It matters for the other settings too: their
+    // own vote has just changed the counts.
+    //
+    // Failure here is not the submission's failure. The answer is recorded; the
+    // worst case is the stale view they would have had anyway.
+    await refreshPoll(poll, storedToken(poll.id)).catch(() => {});
     toastSuccess('Thanks, your answer is in.');
     return { ok: true };
   } catch (e) {
@@ -103,6 +114,8 @@ export async function reviseAnswer(poll, answer) {
       storedToken(poll.id),
     );
     adopt(poll, res.response);
+    // Same reason as the submission above: the counts just moved.
+    await refreshPoll(poll, storedToken(poll.id)).catch(() => {});
     toastSuccess('Updated your answer.');
     return { ok: true };
   } catch (e) {

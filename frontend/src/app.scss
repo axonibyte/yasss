@@ -210,14 +210,25 @@ $brand-l-dark: 41%;
 
 // Same problem, same fix, for the surfaces that draw brand-colored text on a
 // white background rather than the other way round: outlined primary buttons
-// and the grid's outlined slot tiles. Restricted to the resting state, because
-// hover and focus invert to white-on-primary and are already fine.
+// and the grid's outlined slot tiles.
+//
+// This used to say focus and active "are already fine" and exclude them. They
+// are not fine, and nothing had measured them. Focus does not invert the text
+// at all here -- it stays the *raw* primary, #00d1b1, on the white card, which
+// axe measures at 1.95:1. That is a serious WCAG failure in the one state a
+// keyboard user is always in, and it went unseen because no sweep had ever left
+// one of these buttons focused.
+//
+// So focus and active keep the darkened primary like the resting state does.
+// Hover is still excluded, and that exclusion is real: hover fills the button
+// with the brand colour and inverts the text, so forcing the darkened colour
+// there would put dark teal on teal.
 // Selectors deliberately at least as specific as Bulma's own
 // (`.block-list.is-primary.is-outlined > li`, `.button.is-primary.is-outlined`),
 // since this is overriding them rather than adding to them. The border keeps
 // the brand color: it is a 1px rule, not text, and legibility is the point
 // here.
-.button.is-primary.is-outlined:not(:hover):not(:focus):not(:active),
+.button.is-primary.is-outlined:not(:hover),
 .event-cell ul.block-list.is-primary.is-outlined > li,
 .event-cell ul.block-list.is-primary li.is-outlined {
   color: var(--bulma-primary-on-scheme);

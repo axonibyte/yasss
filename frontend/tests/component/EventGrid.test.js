@@ -69,6 +69,31 @@ describe('grid container', () => {
     const { container } = render(EventGrid, { props: { event: buildEvent(2, 1) } });
     expect(container.querySelector('.fixed-grid > .grid > .cell.event-cell')).toBeTruthy();
   });
+
+  /**
+   * Exact, and deliberately not trimmed -- unlike `cellLabels` above, which
+   * trims because it is comparing labels rather than markup.
+   *
+   * That trim is how this suite once missed a real regression. GridCell grew a
+   * `{@render children?.()}` for the poll grid's All Day switch, and the newline
+   * in front of it became a text node inside every tile, so `textContent` went
+   * from "Act 0" to "Act 0 ". Nothing here noticed. The live browser tier did:
+   * its locators filter on `/^Setup$/`, and Playwright matches a *regex*
+   * against raw textContent without normalising whitespace, so two smoke tests
+   * went red on a grid that looked perfect in a screenshot.
+   *
+   * The snippet is documented as rendering nothing at all when absent. This is
+   * the assertion that holds it to that, and it is why the markup in GridCell
+   * closes `{/if}{@render children?.()}</li>` on one line.
+   */
+  it('renders a tile with no stray whitespace around the label', () => {
+    const { container } = render(EventGrid, { props: { event: buildEvent(1, 1) } });
+    const labelled = [...container.querySelectorAll('.event-cell li')]
+      .map((li) => li.textContent)
+      .filter((t) => t !== '');
+    expect(labelled).toContain('Act 0');
+    for (const text of labelled) expect(text).toBe(text.trim());
+  });
 });
 
 describe('empty state', () => {

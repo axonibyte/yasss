@@ -48,6 +48,15 @@
      * Absent it renders nothing at all -- not an empty element -- so the event
      * grid's DOM is unchanged, which is what lets the conformance suite go on
      * asserting the tile markup byte for byte.
+     *
+     * That claim is only true because of how the markup below is *formatted*:
+     * `{/if}{@render children?.()}</li>` closes on one line. Put the render tag
+     * on its own line and the newline in front of it becomes a text node inside
+     * every tile, so a label reads "Act 0 " rather than "Act 0". It shipped that
+     * way once. The component suite trimmed and saw nothing; the live browser
+     * tier filters tiles on `/^Setup$/`, and Playwright matches a regex against
+     * raw textContent, so two smoke tests failed on a grid that screenshotted
+     * perfectly. EventGrid.test.js now asserts the absence of that whitespace.
      */
     children = null,
     /**
@@ -110,9 +119,7 @@
         </button>
       {:else}
         {label}{#if secondLine}<br />{secondLine}{/if}
-      {/if}
-      {@render children?.()}
-    </li>
+      {/if}{@render children?.()}</li>
   </ul>
 </div>
 

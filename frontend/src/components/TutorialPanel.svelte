@@ -65,7 +65,14 @@
       for (const el of marked) el.classList.add('tutorial-anchor');
       // The first one, so a multi-element anchor scrolls to the top of the set
       // rather than to whichever of them happens to be last.
-      marked[0]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      //
+      // Instant, not smooth. A smooth scroll is asynchronous, so for the few
+      // hundred milliseconds it animates, the step's words are on screen and
+      // the thing they describe is not -- which is the exact failure this tour
+      // was rewritten to remove, and which tutorial-audit.spec.js flags on four
+      // steps across four tracks. The animation was never load-bearing; landing
+      // together with the copy is.
+      marked[0]?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
       return marked.length > 0;
     };
 

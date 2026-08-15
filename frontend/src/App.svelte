@@ -666,7 +666,7 @@
     if (session.loggedIn) await guarded();
     // Publishing anonymously means never being able to edit it again, which is
     // the same promise the event flow makes and the same warning it shows.
-    else modal = { kind: 'guest', context: 'publish', proceed: guarded };
+    else modal = { kind: 'guest', context: 'publish', noun: 'poll', proceed: guarded };
   }
 
   /** A square click means "vote" when answering and "offer or withdraw" when not. */
@@ -871,11 +871,40 @@
     return () => document.body.classList.remove('tutorial-running');
   });
 
+  /**
+   * Go back to the landing page, discarding whatever is loaded.
+   *
+   * The question is asked through `confirmDestructive`, the same way starting
+   * the tutorial asks it. It used to be a `window.confirm`, which was the only
+   * native dialog left in the app: it could not be themed, it ignored the dark
+   * scheme entirely, and it sat visually apart from every other confirmation
+   * the user had seen. It was also the one destructive prompt no test could
+   * assert on, because a native dialog is not in the DOM.
+   */
   function goHome() {
-    if (hasUnsavedWork(event)
-        && !window.confirm('You have unsaved work on this event. Leave it behind?')) {
+    // The poll half matters as much as the event half: a poll draft has no id
+    // until it is published -- the wizard never assigns one -- so it lives
+    // entirely in this tab, and `leaveForHome` resets it. Going home used to
+    // discard a whole unbuilt poll without a word. This is the guard
+    // `startTutorial` already makes, on the other way out of the same screen.
+    const unsavedEvent = hasUnsavedWork(event);
+    const unsavedPoll = pollLoaded && !poll.persisted;
+    if (unsavedEvent || unsavedPoll) {
+      confirmDestructive({
+        title: 'Leave this behind?',
+        detail: unsavedEvent
+          ? 'You have unsaved work on this event. Going home will lose it.'
+          : 'You have an unpublished poll. Going home will lose it.',
+        confirmLabel: 'Leave it',
+        proceed: leaveForHome,
+      });
       return;
     }
+    leaveForHome();
+  }
+
+  /** The half of `goHome` that runs once the question, if any, is answered. */
+  function leaveForHome() {
     modal = null;
     eventLoaded = false;
     event.reset();
@@ -1079,6 +1108,7 @@
 {:else if modal?.kind === 'guest'}
   <GuestPromptModal
     context={modal.context}
+    noun={modal.noun}
     onSignIn={() => { modal = { kind: 'auth' }; }}
     onProceed={() => {
       const proceed = modal.proceed;

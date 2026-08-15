@@ -92,6 +92,62 @@ test.describe('axe', () => {
     await expectAccessible(page);
   });
 
+  /**
+   * The poll surfaces, which had no sweep at all while the event ones had six.
+   *
+   * They are not the event grid with different words: the column headers carry
+   * an interactive checkbox inside the tile, which is a shape nothing else in
+   * the app has, and the results panel is a table of `progress` elements whose
+   * meaning is carried by colour unless something else says it too.
+   */
+  async function buildPoll(page) {
+    await page.goto('/');
+    await waitForApp(page);
+    await page.getByRole('link', { name: 'Create Poll' }).click();
+    await page.getByLabel('Poll title').fill('Accessible Poll');
+    await page.getByRole('button', { name: 'Monday' }).click();
+    await page.getByRole('button', { name: 'Wednesday' }).click();
+    await page.getByRole('button', { name: 'Start building' }).click();
+    await page.getByRole('button', { name: 'Add a Time' }).click();
+    await page.getByLabel('Starts at').fill('09:00');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.locator('.modal.is-active')).toHaveCount(0);
+  }
+
+  /**
+   * The event's own build surface, which had no sweep either -- 'an event grid'
+   * above views a published event as a visitor, so the editing controls it
+   * grows were never in a sweep. Added alongside the poll one because the two
+   * share a button class, and a finding on one that is really a finding on both
+   * should say so.
+   */
+  test('an event being built', async ({ page }) => {
+    await openWizard(page);
+    await page.getByLabel('Event Title').fill('Accessible Event');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expectAccessible(page);
+  });
+
+  test('a poll being built', async ({ page }) => {
+    await buildPoll(page);
+    await expectAccessible(page);
+  });
+
+  test('a published poll, answered, with its results on screen', async ({ page }) => {
+    await buildPoll(page);
+    await page.getByRole('button', { name: 'Publish Poll' }).click();
+    await page.getByRole('button', { name: "No thanks, I'm good!" }).click();
+    await page.getByRole('button', { name: 'close' }).click();
+
+    await page.locator('[data-slot-state="available"]').first().click();
+    await page.getByRole('button', { name: 'Answer This Poll' }).click();
+    await page.getByLabel('Your name').fill('Ada');
+    await page.getByRole('button', { name: 'Submit' }).click();
+    await expect(page.getByTestId('poll-results')).toBeVisible();
+
+    await expectAccessible(page);
+  });
+
   test('an event grid on a phone', async ({ page, request }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const { eventId } = await seed(request, { event: { activities: 4, windows: 2 } });
