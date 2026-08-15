@@ -426,6 +426,19 @@ if [[ ${SKIP_BUILD} -eq 0 ]]; then
     cp "${jar}" "${HERE}/yasss.jar"
   fi
 
+  # Both checks below read the jar with unzip and bury its stderr, so that a jar
+  # merely missing an entry reads cleanly. That makes a *missing* unzip
+  # indistinguishable from a violated assertion: the reads come back empty, the
+  # counts come back zero, and the suite blames shadowJar for something the build
+  # did correctly. Observed exactly once, on a guest whose image carries no
+  # unzip, and it cost an investigation into a jar that turned out to be perfect.
+  #
+  # So ask for the tool by name, the way podman is asked for above. A dependency
+  # that announces itself is worth more than one that fails in the voice of
+  # whatever it was inspecting.
+  command -v unzip >/dev/null \
+    || die "unzip is not installed, and the two jar checks below cannot read the archive without it"
+
   # The shadow jar merges META-INF/services rather than letting one file win.
   # gRPC discovers its name resolvers and load balancers there, and reCAPTCHA
   # Enterprise is reached through gRPC -- so without the merge these registries
@@ -491,6 +504,24 @@ else
   net_create --network none
 fi
 
+# A harness that can roll storage back -- reaper is the one this was written
+# for -- points REAPER_STATE at a dataset it snapshots, and expects whatever is
+# worth rewinding to live under it. Here that is the database and nothing else:
+# the application keeps no files of its own, and mailpit holds its mail in
+# memory.
+#
+# Unset, nothing changes. The data directory stays in the container's writable
+# layer, which is where it has always been and what CI still gets. That default
+# is deliberate: a bind mount is a behaviour change, and it should happen only
+# where something is actually going to roll it back.
+DB_STATE_ARGS=()
+if [[ -n "${REAPER_STATE:-}" ]]; then
+  readonly DB_DATA="${REAPER_STATE}/mariadb"
+  mkdir -p "${DB_DATA}"
+  DB_STATE_ARGS=(-v "${DB_DATA}:/var/lib/mysql")
+  log "database data directory: ${DB_DATA}"
+fi
+
 log "starting mariadb"
 # One pod so every container shares a network namespace: the app reaches the
 # database on 127.0.0.1:3306, exactly as the config file expects, and the
@@ -502,6 +533,7 @@ log "starting mariadb"
 # other way -- which, before MariaDB 11.6, is every server. Starting latin1 makes
 # migration 017 and the charset assertions below actually load-bearing.
 pm run -d "${NET_ATTACH[@]}" --name "${DB_CTR}" "${PLATFORM_ARGS[@]}" "${DB_USER_ARGS[@]}" \
+  "${DB_STATE_ARGS[@]}" \
   -e MARIADB_ROOT_PASSWORD="${DB_ROOT_PW}" \
   -e MARIADB_DATABASE="${DB_NAME}" \
   -e MARIADB_USER="${DB_USER}" \
@@ -521,6 +553,24 @@ for i in $(seq 1 90); do
   fi
   sleep 1
 done
+
+# Mark this point as the one a rollback returns to, when the harness offers one.
+# That it is *here* is the whole value: the database has been initialised as
+# latin1 and the application has not started, so every later run replays the
+# entire migration path -- 017 included -- against a hostile server, rather than
+# against a schema some earlier run already converted.
+#
+# Left to itself the harness snapshots after a whole successful run, which would
+# capture the converted schema plus every row the suite created, and quietly
+# retire the assertions this suite exists for. It keeps the first mark it is
+# given, so calling this every run is correct and does not move the point.
+#
+# mariadb is running but idle here. InnoDB recovers from its redo log on the
+# next start, which is the ordinary crash path and gets exercised on every reset.
+if [[ -n "${REAPER_CONTROL:-}" && -x "${REAPER_CONTROL}/snapshot" ]]; then
+  log "marking pristine (database initialised, schema not yet applied)"
+  "${REAPER_CONTROL}/snapshot" || warn "could not mark pristine"
+fi
 
 log "starting the mail sink"
 # Reminders are only verifiable if the mail goes somewhere inspectable. Mailpit
@@ -907,7 +957,29 @@ drive "${DRIVER_IMAGE}" /repo/e2e node lib/await-http.mjs "${API}/v1" 10 '"statu
 # above: under pipefail a matching `grep -q` reports no match, because the
 # producer it kills takes the pipeline's exit status with it. This check has
 # never been able to fail.
-traces="$(pm logs "${APP_CTR}" 2>&1 | grep -cE '^\s+at com\.crowdease' || true)"
+# One frame is discounted, and only when the stage that manufactures it ran.
+#
+# The health stage stops the database on purpose so while-down.mjs can prove the
+# readiness check goes red. The probe behind that check runs on a timer, so if
+# one fires inside the outage window it throws and the application logs a trace
+# through YasssCore.databaseHealthy. That trace is the suite's own doing. Whether
+# it appears at all depends on where the timer happened to be, which is why this
+# check failed on some runs and passed on others against identical code -- two
+# of four consecutive runs, once it became possible to run the suite repeatedly.
+#
+# Nothing else is discounted. A trace from any other part of the application
+# still fails this check, including any other trace raised during the outage.
+# And the behaviour excused here is not thereby unasserted: while-down.mjs
+# asserts the probe reports red while the database is down, and the await-http
+# above asserts it goes green again once the database returns. What is dropped
+# is a duplicate report of something two assertions already cover.
+if has_stage health; then
+  discount=(grep -vE 'YasssCore\.lambda\$databaseHealthy\$')
+else
+  discount=(cat)
+fi
+traces="$(pm logs "${APP_CTR}" 2>&1 \
+  | grep -E '^\s+at com\.crowdease' | "${discount[@]}" | grep -c . || true)"
 if [[ "${traces}" -gt 0 ]]; then
   warn "the application logged stack traces:"
   # `|| true` because `head` exits early: without it the ERR trap fires here and

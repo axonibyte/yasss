@@ -1,0 +1,134 @@
+# yasss as a reaper tenant.
+#
+# What this buys: the two tiers that cannot run on the development workstation
+# at all. Playwright's Chromium is a Linux binary and this is FreeBSD, and
+# podman here refuses rootless and cannot run Linux images -- so `e2e/run.sh`
+# and every browser spec have never executed outside CI. A session is a real
+# Linux machine with a container engine, which is exactly what they need.
+#
+# What this deliberately does not buy: anything already fast. The Java suite,
+# vitest, and the frontend against the fake API all run on the workstation in
+# seconds and belong there. Moving them here would slow the loop and find
+# nothing new.
+
+schema = 1
+project = "yasss"
+
+# One guest. The suite needs a container engine and nothing about it is
+# BSD-specific -- the FreeBSD-only branches in run.sh exist to cope with this
+# workstation, not to be tested.
+guests = ["ubuntu-26.04"]
+
+# The toolchain arrives pinned and the guest template stays generic. Stated
+# before any table opens, because TOML cannot return to the root scope.
+exec = "container"
+
+[build]
+# A plain JDK is genuinely sufficient here, which contradicts the caveat in
+# reaper's own manifest/examples/README.md about this project. The Gradle build
+# runs a Vite build too, but `node { download = true }` in build.gradle means
+# Gradle fetches its own Node 22.20.0 rather than expecting one in the image.
+# docker.io/library/eclipse-temurin:17-jdk, resolved from the registry
+# 2026-08-15; prjCompat in gradle.properties is 17.
+image = "docker.io/library/eclipse-temurin@sha256:f9b295135b39ed8c650c713c6116600dd4c39ac5f3883f566d96fdec917ce3b2"
+
+# Both caches are redirected out of $HOME deliberately. Gradle's dependency
+# cache and npm's are hundreds of megabytes between them, and $HOME in the
+# toolchain container is on the guest's root disk, which has under 4 GiB free.
+# The command is a shell command, so these expand; a value under [build.env]
+# would not, by design.
+cmd = """
+GRADLE_USER_HOME=$REAPER_CACHE_GRADLE \
+npm_config_cache=$REAPER_CACHE_NPM \
+./gradlew --no-daemon --quiet shadowJar"""
+
+cache = ["gradle", "npm"]
+
+[build.env]
+# @playwright/test's installer would otherwise fetch ~390 MB of browsers on
+# `npm ci`. Nothing in a session uses them: the browser stage drives Playwright
+# out of the mcr.microsoft.com/playwright image, which carries its own and sets
+# PLAYWRIGHT_BROWSERS_PATH itself. Downloading them would cost minutes and disk
+# to produce a copy nothing opens.
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+[run]
+# On the guest, not in the toolchain image above. run.sh orchestrates a pod of
+# four containers, and a JDK image has no engine client inside it -- the failure
+# would read as an engine fault rather than a manifest one. Host execution here
+# needs no toolchain at all: with --jar the suite never invokes Gradle, and
+# every driver it runs is itself a container.
+exec = "host"
+
+# Not run.sh directly. A harness hands this to /bin/sh, which is dash on some
+# guests, and dash has no pipefail -- the wrapper owns its exit status under a
+# shell it chose, and collects Playwright's traces into $REAPER_OUT whether the
+# suite passed or failed. See the header of that file.
+#
+# --jar is what a pipeline is supposed to pass: the suite then proves the jar
+# the build verb produced rather than building a second one from the same tree.
+# The apt line is the honest cost of a template that carries no unzip. run.sh
+# reads the built jar twice -- once to prove shadowJar merged the gRPC service
+# registries, once to prove the manifest is stamped -- and unzip is how it reads
+# them. Guarded by a lookup so it costs one command on the runs after the first,
+# and installed here rather than inside the suite because mutating the host's
+# packages is a session's business and never a developer workstation's. The
+# right answer is a template that carries it; that has been reported.
+cmd = """
+command -v unzip >/dev/null || { apt-get -qq update && apt-get -qq install -y unzip; } && \
+e2e/reaper-run.sh --jar build/libs/yasss.jar"""
+
+# No images are declared, and that is a considered choice rather than an
+# oversight. run.sh resolves what it needs by tag -- `ensure_image` tests
+# `podman image exists docker.io/library/mariadb:11` -- while a pre-pull here
+# lands a digest with no tag attached. The existence check would miss it and
+# pull the same bytes again, so declaring them would double the transfer to
+# save nothing. Pinning run.sh's own references by digest would make this
+# worth declaring; that is a change to the suite, not to this file.
+
+[sync]
+exclude = [
+    # Built on FreeBSD, for FreeBSD. node_modules is the sharp one: esbuild and
+    # rollup ship native binaries, so a synced copy is not merely stale, it is
+    # the wrong architecture and npm would not notice.
+    "/frontend/node_modules/",
+    "/build/",
+    "/.gradle/",
+    # Generated into the jar by the Vite build, and gitignored. The session
+    # builds its own; sending this one only risks it being mistaken for fresh.
+    "/src/main/resources/public/",
+    # Local artifacts. The session's equivalents come back through out/.
+    "/frontend/test-results/",
+    "/frontend/playwright-report/",
+    "/e2e/out/",
+    "/e2e/yasss.jar",
+]
+
+[reset]
+# The database, and only the database. e2e/run.sh puts mariadb's data directory
+# under $REAPER_STATE when that is set, and mounts nothing when it is not, so
+# CI and the workstation are unaffected.
+#
+# The rollback point is taken by run.sh itself, through $REAPER_CONTROL, at the
+# moment the database has initialised as latin1 and before the application has
+# applied a single migration. That is deliberate and load-bearing: left alone,
+# reaper would snapshot after a whole successful run, and every later run would
+# start from a schema migration 017 had already converted -- retiring the
+# charset assertions this suite exists to make.
+datasets = ["state"]
+
+[resources]
+# The pod is four containers, one of them a browser. Two cores made the browser
+# stage the slowest thing in the loop by a wide margin.
+cores = 4
+ram_gb = 8
+
+[profiles.dev]
+ttl = "2h"
+warm_cache = true
+
+[profiles.nightly]
+ttl = "12h"
+# Cold, so a warm cache can never be the reason a nightly run passed.
+warm_cache = false
+env = { JOURNEY_ITERATIONS = "2000" }
